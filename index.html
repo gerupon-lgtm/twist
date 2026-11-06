@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#dcebf1" />
+    <meta name="description" content="自分はそのまま、世界を動かす。スマホの傾きとひねりで進む3D探索の操作検証。" />
+    <title>twist — 傾きで進む3D探索</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
+    <div class="app" id="app" data-phase="intro">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <span class="version">操作検証 <b>v0.1.0</b></span>
+      </header>
+
+      <section class="navigation" aria-label="次の目的地">
+        <div class="nav-compass"><svg id="nav-arrow" viewBox="0 0 40 40" aria-hidden="true"><path d="m20 5 12 27-12-6-12 6Z"/></svg></div>
+        <div><p class="nav-caption" id="objective">3つの光を集めて、出口へ</p><p class="nav-target"><strong id="target-label">光 1</strong><span id="target-distance">26 m</span></p></div>
+        <span class="nav-vertical" id="target-direction">正面</span>
+        <div class="collection" aria-label="集めた光"><span id="collection-count">0</span><span>/ 3</span></div>
+      </section>
+
+      <div class="center-mark" aria-hidden="true"><span></span></div>
+      <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+
+      <section class="bottom-panel" aria-label="操作の状態" id="bottom-panel">
+        <div class="input-line"><span class="mode" id="input-mode">まだ開始していません</span><span class="motion-state" id="motion-state">停止中</span></div>
+        <div class="meters">
+          <div class="meter"><div><span>前後の傾き</span><output id="pitch-value">0°</output></div><div class="meter-track bilateral"><i id="pitch-meter"></i></div><small>上下に曲がる</small></div>
+          <div class="meter"><div><span>左右の傾き</span><output id="steer-value">0°</output></div><div class="meter-track bilateral"><i id="steer-meter"></i></div><small>左右に曲がる</small></div>
+          <div class="meter"><div><span>右へのひねり</span><output id="twist-value">0°</output></div><div class="meter-track"><i id="twist-meter"></i></div><small>前進・戻すと停止</small></div>
+        </div>
+        <div class="flight-line"><span>速さ <b id="speed-value">0.0</b> m/s</span><span>高さ <b id="altitude-value">7.0</b> m</span><span id="stop-hint">ひねりを戻すと前進停止</span></div>
+        <div class="toolbar"><button id="pause-button" type="button" disabled>一時停止</button><button id="recenter-button" type="button" disabled>持ち方を合わせ直す</button><button id="help-button" type="button" aria-label="操作の説明">?</button></div>
+        <div class="practice-panel" id="practice-panel" hidden>
+          <p>画面操作の練習 <span>スマホの傾きは使っていません</span></p>
+          <label>上下 <input id="practice-pitch" type="range" min="-25" max="25" value="0" step="1" /></label>
+          <label>左右 <input id="practice-steer" type="range" min="-25" max="25" value="0" step="1" /></label>
+          <label>前進 <input id="practice-twist" type="range" min="0" max="32" value="0" step="1" /></label>
+          <div class="practice-footer"><small>PC：W/S 上下・A/D 左右・E 前進</small><button id="practice-neutral" type="button">全て戻す</button></div>
+        </div>
+      </section>
+
+      <div class="veil" id="veil">
+        <section class="intro-card" id="intro-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-description">
+          <span class="card-symbol" aria-hidden="true">↝</span>
+          <p class="card-kicker" id="dialog-kicker">傾きとひねりの操作検証</p>
+          <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
+          <p class="dialog-description" id="dialog-description">画面中央の機体を目印に、<br />3つの光を集めて出口へ進みます。</p>
+          <div class="control-guide" id="control-guide">
+            <div><span class="phone-glyph pitch-glyph" aria-hidden="true">↕</span><p><b>前後に傾ける</b><span>上下に曲がり続ける</span></p></div>
+            <div><span class="phone-glyph steer-glyph" aria-hidden="true">↔</span><p><b>左右に傾ける</b><span>左右に曲がり続ける</span></p></div>
+            <div><span class="phone-glyph twist-glyph" aria-hidden="true">↻</span><p><b>右へひねって保つ</b><span>前進。ひねりを戻すと停止</span></p></div>
+          </div>
+          <p class="dialog-note" id="dialog-note">スマホを見やすい角度で持ち、始めてください。<br />開始時の持ち方が操作の基準になります。</p>
+          <p class="error-message" id="error-message" role="alert" hidden></p>
+          <button class="primary-button" id="start-button" type="button">スマホの傾きで始める</button>
+          <button class="secondary-button" id="practice-button" type="button">画面操作で試す</button>
+          <button class="text-button" id="reset-button" type="button" hidden>最初からやり直す</button>
+          <small class="prototype-note">操作感を確かめるための試作です。</small>
+        </section>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
