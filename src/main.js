@@ -1,6 +1,6 @@
 import './style.css';
 import { Quaternion, MathUtils } from 'three';
-import { orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, composeDevicePose, controlRates, flightRates, advanceSpeed } from './controls.js';
+import { CONTROL_LIMITS, orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, composeDevicePose, controlRates, flightRates, advanceSpeed } from './controls.js';
 import { createStage } from './stage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -46,7 +46,7 @@ function setPhase(next) {
   for (const mode of ['explore', 'flight']) $(`mode-${mode}`).disabled = ['waiting', 'ready', 'running'].includes(next);
 }
 
-const flightNote = () => playMode === 'flight' ? '開始・再開すると低速で前進します。ひねりで速さを調整できます。' : '';
+const modeNote = () => `${playMode === 'flight' ? '開始・再開すると低速で前進します。ひねり' : '先端側の傾き'}${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
 
 function applyModeUI() {
   const flight = playMode === 'flight';
@@ -58,7 +58,7 @@ function applyModeUI() {
   $('pitch-caption').textContent = flight ? '先端を上げ下げして操縦' : '先端側で加速・逆で制動';
   $('steer-caption').textContent = flight ? '翼を傾けて旋回' : '下げた側へ曲がる';
   $('twist-caption').textContent = flight ? '右で加速・左で減速' : '右で上・左で下へ曲がる';
-  $('stop-hint').textContent = flight ? '逆ひねりで減速' : '逆側を下げるとブレーキ';
+  $('stop-hint').textContent = `加減速は${CONTROL_LIMITS.throttleMaximum}°で最大`;
   $('guide-pitch-title').textContent = flight ? '先端側を上げる・下げる' : '自機の先端側へ倒す';
   $('guide-pitch-text').textContent = flight ? '機首を上下へ向ける' : '先端側で加速、逆側でブレーキ';
   $('guide-steer-title').textContent = flight ? '翼を傾けるように倒す' : '自機の左右へ倒す';
@@ -67,9 +67,9 @@ function applyModeUI() {
   $('guide-twist-text').textContent = flight ? '右で加速、左で減速' : '右で上、左で下へ曲がり続ける';
   $('keyboard-guide').textContent = flight ? 'W・S 機首の上・下\nA・D 旋回 / Q 減速・E 加速' : 'W 加速 / S ブレーキ\nA・D 左右 / Q・E 下・上';
   $('practice-brake').textContent = flight ? '減速' : 'ブレーキ';
-  $('dialog-note').textContent = flight ? flightNote() : '回した後も、自機の先端が操作の目印です。傾きを中立に戻すと、今の速さを保ちます。';
+  $('dialog-note').textContent = modeNote();
   $('dialog-note').hidden = false;
-  $('home-link').href = `./?mode=${playMode}&v=0.1.3`;
+  $('home-link').href = `./?mode=${playMode}&v=0.1.4`;
 }
 
 function selectMode(next) {
@@ -86,15 +86,15 @@ function selectMode(next) {
   stage.update(0, { mode: playMode, speed: 0, craftQuaternion });
   const url = new URL(location.href);
   url.searchParams.set('mode', playMode);
-  url.searchParams.set('v', '0.1.3');
+  url.searchParams.set('v', '0.1.4');
   history.replaceState(null, '', url);
   if (resume) {
     setPhase('paused');
-    dialog({ title: `${playMode === 'flight' ? '飛行機' : '探索'}モードに切り替えました`, description: 'ステージを最初からにしました。持ち方を決めて始めましょう。', note: flightNote(), action: inputMode === 'sensor' ? 'この持ち方で再開する' : '画面操作を再開する', guide: true });
+    dialog({ title: `${playMode === 'flight' ? '飛行機' : '探索'}モードに切り替えました`, description: 'ステージを最初からにしました。持ち方を決めて始めましょう。', note: modeNote(), action: inputMode === 'sensor' ? 'この持ち方で再開する' : '画面操作を再開する', guide: true });
   } else {
     inputMode = null;
     setPhase('intro');
-    dialog({ title: '自分はそのまま。世界を動かそう。', description: '空中の光を3つ集めて出口へ。自機は最初の上向きを保ちます。', note: flightNote() || '回した後も、自機の先端が操作の目印です。', action: 'スマホの傾きで始める', guide: true });
+    dialog({ title: '自分はそのまま。世界を動かそう。', description: '空中の光を3つ集めて出口へ。自機は最初の上向きを保ちます。', note: modeNote(), action: 'スマホの傾きで始める', guide: true });
   }
 }
 $('mode-explore').addEventListener('click', () => selectMode('explore'));
@@ -150,7 +150,7 @@ function pause(message = '止まっています。スマホを楽な持ち方に
   halt();
   reference = null;
   setPhase('paused');
-  dialog({ title: '一時停止', description: message, note: flightNote(), action: inputMode === 'sensor' ? 'この持ち方で再開する' : '画面操作を再開する', guide: false });
+  dialog({ title: '一時停止', description: message, note: modeNote(), action: inputMode === 'sensor' ? 'この持ち方で再開する' : '画面操作を再開する', guide: false });
 }
 
 async function keepAwake() {
@@ -214,7 +214,7 @@ function receiveOrientation(event) {
   if (phase === 'waiting') {
     clearTimeout(waitingTimer);
     setPhase('ready');
-    dialog({ title: '持ち方を決めましょう', description: '画面が見やすい角度で、スマホを動かさずに持ってください。', note: flightNote() || 'この持ち方を、傾きもひねりもゼロの基準にします。', action: playMode === 'flight' ? 'この持ち方で飛ぶ' : 'この持ち方で始める', guide: false });
+    dialog({ title: '持ち方を決めましょう', description: '画面が見やすい角度で、スマホを動かさずに持ってください。この持ち方を操作の中立にします。', note: modeNote(), action: playMode === 'flight' ? 'この持ち方で飛ぶ' : 'この持ち方で始める', guide: false });
   }
 }
 
@@ -276,7 +276,7 @@ function calibrate() {
   if (!latestQuaternion || performance.now() - lastOrientationAt > 1200) {
     pendingCalibration = true;
     setPhase('waiting');
-    dialog({ title: '持ち方を確認しています', description: '今の持ち方の近くでスマホを少し動かしてください。新しい傾きが届いたら始まります。', note: flightNote(), action: '新しい傾きを待っています…' });
+    dialog({ title: '持ち方を確認しています', description: '今の持ち方の近くでスマホを少し動かしてください。新しい傾きが届いたら始まります。', note: modeNote(), action: '新しい傾きを待っています…' });
     $('start-button').disabled = true;
     clearTimeout(waitingTimer);
     waitingTimer = setTimeout(() => { if (pendingCalibration) showError('新しい傾きが届きませんでした。ページを開き直して試してください。'); }, 6000);
@@ -353,7 +353,7 @@ function resetStage() {
   previousCollected = 0;
   $('toast').hidden = true;
   if (inputMode === 'practice') startPractice();
-  else { setPhase('paused'); dialog({ title: 'もう一度、出発しましょう', description: '持ち方を決めて、3つの光を集めに行きましょう。', note: flightNote(), action: playMode === 'flight' ? 'この持ち方で飛ぶ' : 'この持ち方で始める' }); }
+  else { setPhase('paused'); dialog({ title: 'もう一度、出発しましょう', description: '持ち方を決めて、3つの光を集めに行きましょう。', note: modeNote(), action: playMode === 'flight' ? 'この持ち方で飛ぶ' : 'この持ち方で始める' }); }
 }
 $('reset-button').addEventListener('click', resetStage);
 
@@ -390,7 +390,10 @@ let lastHudAt = 0;
 function updateHud(now, state) {
   if (now - lastHudAt < 80) return;
   lastHudAt = now;
-  for (const axis of controls) meter(axis, axis === 'twist' ? 32 : 25);
+  for (const axis of controls) {
+    const throttleAxis = playMode === 'flight' ? 'twist' : 'pitch';
+    meter(axis, axis === throttleAxis ? CONTROL_LIMITS.throttleMaximum : axis === 'twist' ? CONTROL_LIMITS.twistMaximum : CONTROL_LIMITS.tiltMaximum);
+  }
   $('speed-value').textContent = state.speed.toFixed(1);
   $('altitude-value').textContent = state.altitude.toFixed(1);
   $('nose-value').textContent = `${Math.round(MathUtils.radToDeg(state.pitch))}°`;

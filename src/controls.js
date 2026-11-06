@@ -5,6 +5,7 @@ export const CONTROL_LIMITS = Object.freeze({
   tiltMaximum: 25,
   twistDeadzone: 5,
   twistMaximum: 32,
+  throttleMaximum: 12,
   pitchRate: 0.65,
   yawRate: 0.8,
   speed: 10,
@@ -142,7 +143,7 @@ function foldedTwist(angle) {
 export function controlRates(angles, sensitivity = 1) {
   const gain = Number.isFinite(sensitivity) ? Math.max(0, sensitivity) : 1;
   const foreAft = angleDemand(angles?.pitch, gain,
-    CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum);
+    CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.throttleMaximum);
   // Folding the angle avoids the shortest-angle sign jump at a half turn.
   // Small twists retain their exact response; half/full turns return neutral.
   const twist = foldedTwist(angles?.twist);
@@ -160,7 +161,7 @@ export function controlRates(angles, sensitivity = 1) {
 export function flightRates(angles, sensitivity = 1) {
   const gain = Number.isFinite(sensitivity) ? Math.max(0, sensitivity) : 1;
   const throttle = angleDemand(foldedTwist(angles?.twist), gain,
-    CONTROL_LIMITS.twistDeadzone, CONTROL_LIMITS.twistMaximum);
+    CONTROL_LIMITS.twistDeadzone, CONTROL_LIMITS.throttleMaximum);
   return {
     pitchRate: angleDemand(angles?.pitch, gain,
       CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum) * CONTROL_LIMITS.pitchRate,

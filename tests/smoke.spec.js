@@ -256,6 +256,45 @@ test('reset cancels a pending baseline timer before the next run', async ({ page
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
 });
 
+for (const mode of ['explore', 'flight']) {
+  test(`${mode}: twelve degrees fills throttle; returning to neutral coasts, crossing it brakes`, async ({ page }) => {
+    await startFakeSensor(page, mode);
+    await page.evaluate(() => {
+      window.heartbeat = setInterval(() => window.dispatchEvent(Object.assign(new Event('devicemotion'), { rotationRate: { alpha: 0, beta: 0, gamma: 0 } })), 100);
+    });
+    const throttleAxis = mode === 'flight' ? 'twist' : 'pitch';
+    const demand = (value) => sensor(page, mode === 'flight'
+      ? { alpha: (360 - value) % 360, beta: 0, gamma: 0 }
+      : { alpha: 0, beta: -value, gamma: 0 });
+    await demand(12);
+    await expect(page.locator('#motion-state')).toHaveText('加速中');
+    await expect.poll(() => page.locator(`#${throttleAxis}-meter`).evaluate(el => parseFloat(el.style.width))).toBeGreaterThan(49.9);
+    await expect.poll(() => speed(page)).toBeGreaterThan(mode === 'flight' ? 6.5 : 0.5);
+    await expect(page.locator('#stop-hint')).toHaveText('加減速は12°で最大');
+    await page.screenshot({ path: `test-results/v014-${mode}-throttle.png` });
+    let previous = await speed(page);
+    for (const value of [9, 6, 2, 0, -1]) {
+      await demand(value);
+      await page.waitForTimeout(150);
+      const current = await speed(page);
+      expect(current).toBeGreaterThanOrEqual(previous);
+      previous = current;
+    }
+    await expect(page.locator('#motion-state')).toHaveText('速度維持');
+    const coast = await speed(page);
+    for (const value of mode === 'flight' ? [-4, 4, 0] : [-2, 2, 0]) {
+      await demand(value);
+      await expect(page.locator('#motion-state')).toHaveText('速度維持');
+      await page.waitForTimeout(150);
+      expect(await speed(page)).toBe(coast);
+    }
+    await demand(-12);
+    await expect(page.locator('#motion-state')).toHaveText('ブレーキ');
+    await expect.poll(() => page.locator(`#${throttleAxis}-meter`).evaluate(el => parseFloat(el.style.width))).toBeGreaterThan(49.9);
+    await expect(page.locator('#speed-value')).toHaveText('0.0');
+  });
+}
+
 test('all aerial targets and the exit are reachable while the camera and craft center stay fixed', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
