@@ -14,9 +14,9 @@ async function fakePermissions(page, permission = 'granted') {
   }, permission);
 }
 
-async function startFakeSensor(page) {
+async function startFakeSensor(page, mode = 'explore') {
   await fakePermissions(page);
-  await page.goto('/');
+  await page.goto(mode === 'flight' ? '/?mode=flight' : '/');
   await page.getByRole('button', { name: 'スマホの傾きで始める', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'waiting');
   await page.evaluate(() => {
@@ -24,7 +24,7 @@ async function startFakeSensor(page) {
     neutral();
     window.calibrationPulse = setInterval(neutral, 50);
   });
-  await page.getByRole('button', { name: 'この持ち方で始める', exact: true }).click();
+  await page.getByRole('button', { name: mode === 'flight' ? 'この持ち方で飛ぶ' : 'この持ち方で始める', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
   await page.evaluate(() => clearInterval(window.calibrationPulse));
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Euler, MathUtils, Quaternion, Vector3 } from 'three';
 import {
-  advanceSpeed, compensationQuaternion, composeDevicePose, controlRates, orientationQuaternion,
+  advanceSpeed, compensationQuaternion, composeDevicePose, controlRates, flightRates, orientationQuaternion,
   projectedTiltAngles, relativeAngles,
 } from '../src/controls.js';
 
@@ -393,4 +393,105 @@ test('twist response preserves small-angle sensitivity and returns continuously 
   near(controlRates({ twist: 190 }).pitchRate, controlRates({ twist: -10 }).pitchRate);
   near(controlRates({ twist: 350 }).pitchRate, controlRates({ twist: -10 }).pitchRate);
   near(controlRates({ twist: 370 }).pitchRate, controlRates({ twist: 10 }).pitchRate);
+});
+
+test('flight mode maps each input independently to pitch, bank, and throttle', () => {
+  for (const value of Object.values(flightRates({ pitch: 0, steer: 0, twist: 0 }))) near(value, 0);
+  const climb = flightRates({ pitch: 25 });
+  near(climb.pitchRate, 0.65);
+  near(climb.bankAngle, 0);
+  near(climb.acceleration, 0);
+  near(climb.brake, 0);
+  near(flightRates({ pitch: -25 }).pitchRate, -0.65);
+  near(flightRates({ steer: 25 }).bankAngle, rad(40));
+  near(flightRates({ steer: -25 }).bankAngle, rad(-40));
+  near(flightRates({ twist: 32 }).acceleration, 3.5);
+  near(flightRates({ twist: 32 }).brake, 0);
+  near(flightRates({ twist: -32 }).acceleration, 0);
+  near(flightRates({ twist: -32 }).brake, 6.5);
+});
+
+test('flight mode combines climb, bank, and speed changes without replacing another command', () => {
+  const climbingRight = flightRates({ pitch: 14, steer: 14, twist: 18.5 });
+  near(climbingRight.pitchRate, 0.325);
+  near(climbingRight.bankAngle, rad(20));
+  near(climbingRight.acceleration, 1.75);
+  near(climbingRight.brake, 0);
+  const descendingLeft = flightRates({ pitch: -14, steer: -14, twist: -18.5 });
+  near(descendingLeft.pitchRate, -0.325);
+  near(descendingLeft.bankAngle, rad(-20));
+  near(descendingLeft.acceleration, 0);
+  near(descendingLeft.brake, 3.25);
+});
+
+test('flight mode keeps deadzones and fixed maxima while sensitivity scales the response', () => {
+  for (const value of Object.values(flightRates({ pitch: 3, steer: -3, twist: 5 }))) near(value, 0);
+  assert.ok(flightRates({ pitch: 3.001 }).pitchRate > 0);
+  assert.ok(flightRates({ steer: -3.001 }).bankAngle < 0);
+  assert.ok(flightRates({ twist: 5.001 }).acceleration > 0);
+  const sensitive = flightRates({ pitch: 14, steer: 14, twist: 18.5 }, 2);
+  near(sensitive.pitchRate, 0.65);
+  near(sensitive.bankAngle, rad(40));
+  near(sensitive.acceleration, 3.5);
+  const gentle = flightRates({ pitch: 14, steer: 14, twist: -18.5 }, 0.5);
+  near(gentle.pitchRate, 0.1625);
+  near(gentle.bankAngle, rad(10));
+  near(gentle.brake, 1.625);
+  for (const gain of [0, -1]) {
+    for (const value of Object.values(flightRates({ pitch: 25, steer: 25, twist: 32 }, gain))) near(value, 0);
+  }
+  for (const gain of [1, 2, Number.MAX_VALUE]) {
+    const saturated = flightRates({ pitch: 100, steer: -100, twist: 90 }, gain);
+    near(saturated.pitchRate, 0.65);
+    near(saturated.bankAngle, rad(-40));
+    near(saturated.acceleration, 3.5);
+  }
+});
+
+test('flight throttle folds continuously through half and full turns while retaining small-angle strength', () => {
+  for (const center of [-360, -180, 0, 180, 360]) {
+    for (const epsilon of [-0.0001, 0, 0.0001]) {
+      const rate = flightRates({ twist: center + epsilon });
+      near(rate.acceleration, 0);
+      near(rate.brake, 0);
+    }
+  }
+  near(flightRates({ twist: 10 }).acceleration, 3.5 * 5 / 27);
+  near(flightRates({ twist: -10 }).brake, 6.5 * 5 / 27);
+  for (const [equivalent, original] of [[170, 10], [190, -10], [350, -10], [370, 10]]) {
+    near(flightRates({ twist: equivalent }).acceleration, flightRates({ twist: original }).acceleration);
+    near(flightRates({ twist: equivalent }).brake, flightRates({ twist: original }).brake);
+  }
+  for (const twist of [179, 181]) {
+    near(flightRates({ twist }).acceleration, 0);
+    near(flightRates({ twist }).brake, 0);
+  }
+});
+
+test('flight throttle increases speed, coasts, brakes, and reuses the non-reversing speed bounds', () => {
+  const accelerating = flightRates({ twist: 18.5 });
+  const braking = flightRates({ twist: -18.5 });
+  near(advanceSpeed(6, 1, accelerating), 7.75);
+  near(advanceSpeed(7.75, 10, flightRates({ pitch: 25, steer: 25, twist: 0 })), 7.75);
+  near(advanceSpeed(7.75, 1, braking), 4.5);
+  near(advanceSpeed(9, 1, accelerating), 10);
+  near(advanceSpeed(1, 1, braking), 0);
+  near(advanceSpeed(0, 1, braking), 0);
+});
+
+test('flight input handles invalid components and sensitivity with finite independent fallback values', () => {
+  for (const input of [undefined, null, {}, { pitch: NaN, steer: Infinity, twist: -Infinity }]) {
+    const rate = flightRates(input);
+    assert.ok(Object.values(rate).every(Number.isFinite));
+    for (const value of Object.values(rate)) near(value, 0);
+  }
+  const partial = flightRates({ pitch: NaN, steer: 14, twist: 18.5 });
+  near(partial.pitchRate, 0);
+  near(partial.bankAngle, rad(20));
+  near(partial.acceleration, 1.75);
+  for (const gain of [NaN, Infinity, -Infinity]) {
+    near(flightRates({ pitch: 14 }, gain).pitchRate, 0.325);
+  }
+  assert.ok(Object.values(flightRates({ pitch: Number.MAX_VALUE, steer: -Number.MAX_VALUE,
+    twist: Number.MAX_VALUE })).every(Number.isFinite));
 });

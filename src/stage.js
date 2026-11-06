@@ -10,7 +10,12 @@ const EXIT = new THREE.Vector3(0, 7, -62);
 const COLLECT_RADIUS = 3.2;
 const EXIT_RADIUS = 4;
 const SKY = 0xdcebf1;
+const MAX_BANK = THREE.MathUtils.degToRad(40);
+const FLIGHT_GRAVITY = 9.81;
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+const flightYawForBank = (angle, speed) => speed > 0
+  ? THREE.MathUtils.clamp(FLIGHT_GRAVITY * Math.tan(angle) / Math.max(speed, 6), -0.8, 0.8)
+  : 0;
 
 /** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */
 export function createStage(canvas) {
@@ -312,8 +317,11 @@ export function createStage(canvas) {
 
   const position = START.clone();
   const previousPosition = new THREE.Vector3();
+  const baseOrientation = new THREE.Quaternion();
   const orientation = new THREE.Quaternion();
   const viewQuaternion = new THREE.Quaternion();
+  const bankRotation = new THREE.Quaternion();
+  const bankAxis = new THREE.Vector3(0, 0, 1);
   const halfTurn = new THREE.Quaternion();
   const fullTurn = new THREE.Quaternion();
   const middleOrientation = new THREE.Quaternion();
@@ -323,6 +331,9 @@ export function createStage(canvas) {
   const relative = new THREE.Vector3();
   const localRelative = new THREE.Vector3();
   const closest = new THREE.Vector3();
+  let mode = 'explore';
+  let bank = 0;
+  let yawRate = 0;
   let speed = 0;
   let collected = 0;
   let complete = false;
@@ -331,6 +342,12 @@ export function createStage(canvas) {
   let disposed = false;
 
   function syncWorld() {
+    orientation.copy(baseOrientation);
+    if (mode === 'flight') {
+      // Positive bank lowers the craft's right wing; its inverse tilts scenery.
+      bankRotation.setFromAxisAngle(bankAxis, -bank);
+      orientation.multiply(bankRotation);
+    }
     viewQuaternion.copy(orientation).invert();
     world.quaternion.copy(viewQuaternion);
     world.position.copy(position).negate().applyQuaternion(viewQuaternion);
@@ -405,30 +422,63 @@ export function createStage(canvas) {
       } else craft.quaternion.identity();
     } else craft.quaternion.identity();
     const elapsed = Math.max(0, finite(dt));
+    const nextMode = input.mode === 'flight' ? 'flight' : 'explore';
+    if (nextMode !== mode) {
+      // The app resets the route when switching. If a caller switches directly,
+      // preserve its visible pose and clear previous bank instead of snapping.
+      baseOrientation.copy(orientation);
+      bank = 0;
+      yawRate = 0;
+      mode = nextMode;
+    }
     const pitchRate = finite(input.pitchRate);
-    const yawRate = finite(input.yawRate);
-    speed = complete ? 0 : Math.max(0, finite(input.speed));
+    const exploreYawRate = finite(input.yawRate);
+    const targetBank = THREE.MathUtils.clamp(finite(input.bankAngle), -MAX_BANK, MAX_BANK);
+    speed = complete || elapsed === 0 ? 0 : Math.max(0, finite(input.speed));
+    if (elapsed === 0) {
+      yawRate = 0;
+      syncWorld();
+      render();
+      return;
+    }
     // Midpoint integration keeps simultaneous turning and travel smooth. A cap
     // on substep count also makes a resumed, unusually long frame bounded work.
     const steps = Math.min(240, Math.max(1, Math.ceil(elapsed * 60)));
     const step = elapsed / steps;
-    // Body-local angular velocity: positive X looks up; negative Y turns right.
-    // Keeping the full orientation allows continuous loops through the poles.
-    const angularSpeed = rotationAxis.set(pitchRate, -yawRate, 0).length();
-    if (angularSpeed > 0) rotationAxis.multiplyScalar(1 / angularSpeed);
-    halfTurn.setFromAxisAngle(rotationAxis, angularSpeed * step / 2);
-    fullTurn.setFromAxisAngle(rotationAxis, angularSpeed * step);
     for (let i = 0; i < steps; i += 1) {
-      middleOrientation.copy(orientation).multiply(halfTurn);
+      let turnYawRate = exploreYawRate;
+      if (mode === 'flight') {
+        const previousBank = bank;
+        bank = THREE.MathUtils.damp(bank, targetBank, 4, step);
+        // Use the middle bank for integration, while diagnostics report the
+        // instantaneous rate at the final bank. No bank-generated turn at rest.
+        const middleBank = (previousBank + bank) / 2;
+        turnYawRate = flightYawForBank(middleBank, speed);
+        yawRate = flightYawForBank(bank, speed);
+      } else {
+        bank = 0;
+        yawRate = exploreYawRate;
+      }
+      // Body-local positive X looks up; negative Y turns right. Base rotation
+      // remains continuous through vertical loops in both modes, without a
+      // pitch clamp. Bank affects scenery, independently of craft compensation.
+      const angularSpeed = rotationAxis.set(pitchRate, -turnYawRate, 0).length();
+      if (angularSpeed > 0) rotationAxis.multiplyScalar(1 / angularSpeed);
+      halfTurn.setFromAxisAngle(rotationAxis, angularSpeed * step / 2);
+      fullTurn.setFromAxisAngle(rotationAxis, angularSpeed * step);
+      middleOrientation.copy(baseOrientation).multiply(halfTurn);
       forward.set(0, 0, -1).applyQuaternion(middleOrientation);
       previousPosition.copy(position);
       position.addScaledVector(forward, speed * step);
       position.x = THREE.MathUtils.clamp(position.x, -110, 110);
       position.y = THREE.MathUtils.clamp(position.y, 2, 45);
       position.z = THREE.MathUtils.clamp(position.z, -110, 110);
-      orientation.multiply(fullTurn).normalize();
+      baseOrientation.multiply(fullTurn).normalize();
       collectAlongSegment(previousPosition, position);
-      if (complete) speed = 0;
+      if (complete) {
+        speed = 0;
+        if (mode === 'flight') yawRate = 0;
+      }
     }
     syncWorld();
     render();
@@ -449,6 +499,9 @@ export function createStage(canvas) {
       elevation: Math.atan2(localRelative.y, Math.hypot(localRelative.x, localRelative.z)),
       altitude: position.y,
       speed,
+      mode,
+      bank,
+      yawRate,
       position: { x: position.x, y: position.y, z: position.z },
       heading: Math.atan2(forward.x, -forward.z),
       pitch: Math.atan2(forward.y, Math.hypot(forward.x, forward.z)),
@@ -465,8 +518,11 @@ export function createStage(canvas) {
 
   function reset() {
     position.copy(START);
+    baseOrientation.identity();
     orientation.identity();
     craft.quaternion.identity();
+    bank = 0;
+    yawRate = 0;
     speed = 0;
     collected = 0;
     complete = false;

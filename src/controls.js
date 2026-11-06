@@ -10,6 +10,7 @@ export const CONTROL_LIMITS = Object.freeze({
   speed: 10,
   acceleration: 3.5,
   brake: 6.5,
+  flightBankAngle: MathUtils.degToRad(40),
 });
 
 const Z_AXIS = new Vector3(0, 0, 1);
@@ -131,6 +132,12 @@ function angleDemand(angle, sensitivity, deadzone, maximum) {
   return Math.sign(angle) * magnitude;
 }
 
+function foldedTwist(angle) {
+  return Number.isFinite(angle)
+    ? MathUtils.radToDeg(Math.asin(Math.sin(MathUtils.degToRad(angle))))
+    : 0;
+}
+
 /** Sensitivity scales response after each physical deadzone; maxima stay fixed. */
 export function controlRates(angles, sensitivity = 1) {
   const gain = Number.isFinite(sensitivity) ? Math.max(0, sensitivity) : 1;
@@ -138,9 +145,7 @@ export function controlRates(angles, sensitivity = 1) {
     CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum);
   // Folding the angle avoids the shortest-angle sign jump at a half turn.
   // Small twists retain their exact response; half/full turns return neutral.
-  const twist = Number.isFinite(angles?.twist)
-    ? MathUtils.radToDeg(Math.asin(Math.sin(MathUtils.degToRad(angles.twist))))
-    : 0;
+  const twist = foldedTwist(angles?.twist);
   return {
     pitchRate: angleDemand(twist, gain,
       CONTROL_LIMITS.twistDeadzone, CONTROL_LIMITS.twistMaximum) * CONTROL_LIMITS.pitchRate,
@@ -148,6 +153,21 @@ export function controlRates(angles, sensitivity = 1) {
       CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum) * CONTROL_LIMITS.yawRate,
     acceleration: Math.max(0, -foreAft) * CONTROL_LIMITS.acceleration,
     brake: Math.max(0, foreAft) * CONTROL_LIMITS.brake,
+  };
+}
+
+/** Flight mode: lift the visible nose to climb, lower a wing to bank, twist for speed. */
+export function flightRates(angles, sensitivity = 1) {
+  const gain = Number.isFinite(sensitivity) ? Math.max(0, sensitivity) : 1;
+  const throttle = angleDemand(foldedTwist(angles?.twist), gain,
+    CONTROL_LIMITS.twistDeadzone, CONTROL_LIMITS.twistMaximum);
+  return {
+    pitchRate: angleDemand(angles?.pitch, gain,
+      CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum) * CONTROL_LIMITS.pitchRate,
+    bankAngle: angleDemand(angles?.steer, gain,
+      CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum) * CONTROL_LIMITS.flightBankAngle,
+    acceleration: Math.max(0, throttle) * CONTROL_LIMITS.acceleration,
+    brake: Math.max(0, -throttle) * CONTROL_LIMITS.brake,
   };
 }
 
