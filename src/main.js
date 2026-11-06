@@ -72,7 +72,7 @@ function applyVisibilityUI() {
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? '視野を広く。色と形の目印と、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.8`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.9`;
 }
 
 function selectVisibility(next) {
@@ -83,7 +83,7 @@ function selectVisibility(next) {
   const url = new URL(location.href);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.8');
+  url.searchParams.set('v', '0.1.9');
   history.replaceState(null, '', url);
 }
 $('view-assisted').addEventListener('click', () => selectVisibility('assisted'));
@@ -146,7 +146,7 @@ function selectSteering(next) {
   applyModeUI();
   const url = new URL(location.href);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.8');
+  url.searchParams.set('v', '0.1.9');
   history.replaceState(null, '', url);
 }
 $('steering-twist').addEventListener('click', () => selectSteering('twist'));
@@ -168,7 +168,7 @@ function selectMode(next) {
   url.searchParams.set('mode', playMode);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.8');
+  url.searchParams.set('v', '0.1.9');
   history.replaceState(null, '', url);
   if (resume) {
     setPhase('paused');

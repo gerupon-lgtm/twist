@@ -57,10 +57,10 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   const stone = new THREE.MeshStandardMaterial({ color: 0xf4f5f0, roughness: 0.95 });
   const stoneSide = new THREE.MeshStandardMaterial({ color: 0xb8cbd0, roughness: 1 });
   const blueStone = new THREE.MeshStandardMaterial({ color: 0xc7dce1, roughness: 0.9 });
-  // Unlit floor colors retain their contrast under the bright sky lighting.
-  const groundMaterial = new THREE.MeshBasicMaterial({ color: 0xb6c9cc });
-  const groundTileMaterial = new THREE.MeshBasicMaterial({ color: 0x9fb9bf });
-  const groundMarkMaterial = new THREE.MeshBasicMaterial({ color: 0x547f8d });
+  // Warm earth colors stay distinct from the blue sky, including at distance.
+  const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x9a502f, fog: false });
+  const groundTileMaterial = new THREE.MeshBasicMaterial({ color: 0xbf7742, fog: false });
+  const groundMarkMaterial = new THREE.MeshBasicMaterial({ color: 0xf1c88b, fog: false });
   const gold = new THREE.MeshBasicMaterial({ color: 0xe3a139 });
   const core = new THREE.MeshBasicMaterial({ color: 0xfff4c0 });
   const guide = new THREE.MeshBasicMaterial({ color: 0x117f97 });
@@ -163,7 +163,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   const outerGridGeometry = new THREE.BufferGeometry();
   outerGridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(outerGridPoints, 3));
   const outerGrid = new THREE.LineSegments(outerGridGeometry,
-    new THREE.LineBasicMaterial({ color: 0x76939b, transparent: true, opacity: 0.4 }));
+    new THREE.LineBasicMaterial({ color: 0x4a2516, transparent: true, opacity: 0.55, fog: false }));
   outerGrid.name = 'ground-outer-grid';
   world.add(outerGrid);
 
@@ -176,7 +176,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   const gridGeometry = new THREE.BufferGeometry();
   gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridPoints, 3));
   const grid = new THREE.LineSegments(gridGeometry,
-    new THREE.LineBasicMaterial({ color: 0x4d7480, transparent: true, opacity: 0.58 }));
+    new THREE.LineBasicMaterial({ color: 0x4a2516, transparent: true, opacity: 0.7, fog: false }));
   grid.name = 'ground-grid';
   world.add(grid);
 
@@ -221,10 +221,10 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   groundProjection.name = 'craft-ground-projection';
   groundProjection.rotation.x = -Math.PI / 2;
   const groundShadowMaterial = new THREE.MeshBasicMaterial({
-    color: 0x25485a, transparent: true, opacity: 0.18, depthWrite: false,
+    color: 0x24170e, transparent: true, opacity: 0.18, depthWrite: false, fog: false,
   });
   const groundOutlineMaterial = new THREE.MeshBasicMaterial({
-    color: 0x315e70, transparent: true, opacity: 0.32, depthWrite: false,
+    color: 0xffe2b4, transparent: true, opacity: 0.32, depthWrite: false, fog: false,
   });
   groundProjection.add(new THREE.Mesh(new THREE.CircleGeometry(0.85, 32), groundShadowMaterial));
   groundProjection.add(new THREE.Mesh(new THREE.RingGeometry(0.96, 1.15, 32), groundOutlineMaterial));
