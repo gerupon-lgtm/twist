@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Euler, MathUtils, Quaternion, Vector3 } from 'three';
 import {
-  advanceSpeed, compensationQuaternion, controlRates, orientationQuaternion, relativeAngles,
+  advanceSpeed, compensationQuaternion, composeDevicePose, controlRates, orientationQuaternion,
+  projectedTiltAngles, relativeAngles,
 } from '../src/controls.js';
 
 const rad = MathUtils.degToRad;
@@ -122,7 +123,7 @@ test('rates map fore/aft to acceleration/brake and twist to bounded vertical tur
   near(controlRates({ pitch: 14 }).brake, 3.25);
   near(controlRates({ pitch: 14 }).acceleration, 0);
   near(controlRates({ twist: -18.5 }).pitchRate, -0.325);
-  const max = controlRates({ pitch: -90, steer: -90, twist: 180 });
+  const max = controlRates({ pitch: -90, steer: -90, twist: 90 });
   near(max.pitchRate, 0.65);
   near(max.yawRate, -0.8);
   near(max.acceleration, 3.5);
@@ -224,4 +225,172 @@ test('speed accepts finite seconds and handles invalid state, rates, and time wi
   near(advanceSpeed(4, Number.MAX_VALUE, { acceleration: 3.5 }), 10);
   near(advanceSpeed(4, Number.MAX_VALUE, { brake: 6.5 }), 0);
   near(advanceSpeed(4, Number.MAX_VALUE, {}), 4);
+});
+
+const controlProjection = (craftReference, current, neutralReference = craftReference) => projectedTiltAngles(
+  compensationQuaternion(craftReference, current), compensationQuaternion(neutralReference, current),
+);
+const visibleNose = (craftReference, current) => {
+  const nose = new Vector3(0, 1, 0).applyQuaternion(compensationQuaternion(craftReference, current));
+  return nose.set(nose.x, nose.y, 0).normalize();
+};
+
+for (const [name, reference] of [
+  ['flat start', new Quaternion()],
+  ['slanted start', axisRotation(1, 0, 0, 60).multiply(axisRotation(0, 1, 0, 25))],
+  ['arbitrary start', axisRotation(2, -3, 4, 137)],
+]) {
+  test(`${name}: visible nose, tail, and sides control tilt after rotated-screen poses`, () => {
+    for (const twist of [0, -45, 45, -90, 90, 180, 360]) {
+      const current = reference.clone().multiply(axisRotation(0, 0, 1, twist));
+      const nose = visibleNose(reference, current);
+      for (const angle of [-15, 15]) {
+        // Lower the nose by rotating the phone about the perpendicular tangent.
+        // This physical axis is read from the rendered geometry, not sensor angles.
+        const noseLowered = current.clone().multiply(axisRotation(-nose.y, nose.x, 0, angle));
+        const foreAft = controlProjection(reference, noseLowered);
+        assert.equal(foreAft.valid, true);
+        near(foreAft.pitch, -angle);
+        near(foreAft.steer, 0);
+        // Rotating about the nose lowers the screen-perpendicular right edge.
+        const rightLowered = current.clone().multiply(axisRotation(nose.x, nose.y, 0, angle));
+        const sides = controlProjection(reference, rightLowered);
+        assert.equal(sides.valid, true);
+        near(sides.pitch, 0);
+        near(sides.steer, angle);
+      }
+    }
+  });
+
+  test(`${name}: lowering the visible nose another 10 degrees changes pitch by exactly 10`, () => {
+    for (const twist of [0, -45, 45, -90, 90, 180, 360]) {
+      // Retain the old decomposition discrepancy as an explicit combined-pose
+      // regression: rotation vector (-15,20) differs from projected (-14.689,21.089).
+      const current = reference.clone().multiply(axisRotation(-3, 4, 0, 25))
+        .multiply(axisRotation(0, 0, 1, twist));
+      const before = controlProjection(reference, current);
+      assert.equal(before.valid, true);
+      near(before.pitch, -14.689, 0.001);
+      near(before.steer, 21.089, 0.001);
+      const nose = visibleNose(reference, current);
+      const next = current.clone().multiply(axisRotation(-nose.y, nose.x, 0, 10));
+      const after = controlProjection(reference, next);
+      assert.equal(after.valid, true);
+      near(after.pitch, before.pitch - 10);
+      assert.ok(controlRates(after).acceleration > controlRates(before).acceleration);
+    }
+  });
+}
+
+test('separate neutral reference re-centers controls without rotating the visible craft', () => {
+  const craftReference = axisRotation(1, 2, 3, 78);
+  const neutralReference = craftReference.clone().multiply(axisRotation(-2, 1, 0, 30))
+    .multiply(axisRotation(0, 0, 1, 83));
+  const current = neutralReference.clone();
+  const fixedCraft = compensationQuaternion(craftReference, current);
+  const centered = controlProjection(craftReference, current, neutralReference);
+  assert.equal(centered.valid, true);
+  near(centered.pitch, 0);
+  near(centered.steer, 0);
+  const nose = visibleNose(craftReference, current);
+  const lowered = current.clone().multiply(axisRotation(-nose.y, nose.x, 0, 10));
+  const input = controlProjection(craftReference, lowered, neutralReference);
+  assert.equal(input.valid, true);
+  near(input.pitch, -10);
+  near(input.steer, 0);
+  // The drawing still reconstructs the original physical pose, not the new neutral.
+  near(current.clone().multiply(fixedCraft).dot(craftReference), 1);
+  assert.ok(Math.abs(fixedCraft.w) < 0.9);
+});
+
+test('screen-angle-only changes preserve projected controls when both compensations use current screen axes', () => {
+  const reference = axisRotation(1, 2, 3, 78);
+  const current = reference.clone().multiply(axisRotation(-3, 4, 0, 25));
+  const before = controlProjection(reference, current);
+  for (const screenAngle of [-90, 90, 180, 360]) {
+    // Changing display axes multiplies world-from-display on the right.
+    const changedDisplay = current.clone().multiply(axisRotation(0, 0, 1, -screenAngle));
+    const after = controlProjection(reference, changedDisplay);
+    assert.equal(after.valid, true);
+    near(after.pitch, before.pitch);
+    near(after.steer, before.steer);
+  }
+});
+
+test('projected tilt returns safe finite neutral for invalid, edge-on, and back-facing poses', () => {
+  const identity = new Quaternion();
+  const invalid = { pitch: 0, steer: 0, valid: false };
+  for (const q of [null, {}, { x: NaN, y: 0, z: 0, w: 1 },
+    { x: Infinity, y: 0, z: 0, w: 1 }, { x: 0, y: 0, z: 0, w: 0 }]) {
+    assert.deepEqual(projectedTiltAngles(q), invalid);
+    assert.deepEqual(projectedTiltAngles(identity, q), invalid);
+  }
+  for (const angle of [90, -90, 100, 180, 270]) {
+    const result = projectedTiltAngles(axisRotation(1, 0, 0, angle));
+    assert.deepEqual(result, invalid);
+    assert.ok(Number.isFinite(result.pitch) && Number.isFinite(result.steer));
+  }
+  // Exercise the nose and normal guards independently, including their vicinity.
+  assert.deepEqual(projectedTiltAngles(axisRotation(1, 0, 0, 90), identity), invalid);
+  assert.deepEqual(projectedTiltAngles(identity, axisRotation(1, 0, 0, 90)), invalid);
+  assert.deepEqual(projectedTiltAngles(axisRotation(1, 0, 0, 89.999), identity), invalid);
+  assert.equal(projectedTiltAngles(axisRotation(1, 0, 0, 89.99), identity).valid, true);
+  const justUsable = axisRotation(1, 0, 0, MathUtils.radToDeg(Math.acos(0.081)));
+  const justUnusable = axisRotation(1, 0, 0, MathUtils.radToDeg(Math.acos(0.079)));
+  assert.equal(projectedTiltAngles(identity, justUsable).valid, true);
+  assert.deepEqual(projectedTiltAngles(identity, justUnusable), invalid);
+  // A genuinely vertical world start is usable: guards concern relative pose.
+  const verticalReference = axisRotation(1, 0, 0, 90);
+  const relativeTilt = verticalReference.clone().multiply(axisRotation(1, 0, 0, -15));
+  const usable = controlProjection(verticalReference, relativeTilt);
+  assert.equal(usable.valid, true);
+  near(usable.pitch, -15);
+});
+
+test('practice pose turns first and then tilts about device axes with physical signs', () => {
+  const turned = composeDevicePose({ twist: 90 });
+  nearVector(new Vector3(0, 1, 0).applyQuaternion(turned), [1, 0, 0]);
+  const noseLowered = composeDevicePose({ pitch: -20, twist: 90 });
+  nearVector(new Vector3(0, 1, 0).applyQuaternion(noseLowered), [Math.cos(rad(20)), 0, -Math.sin(rad(20))]);
+  const rightLowered = composeDevicePose({ steer: 20, twist: 90 });
+  nearVector(new Vector3(1, 0, 0).applyQuaternion(rightLowered), [0, -Math.cos(rad(20)), -Math.sin(rad(20))]);
+  const identity = new Quaternion();
+  // With the craft nose at screen-left, lowering the phone's left edge accelerates.
+  const leftSideLowered = composeDevicePose({ steer: -15, twist: 90 });
+  const leftNoseInput = controlProjection(identity, leftSideLowered);
+  assert.equal(leftNoseInput.valid, true);
+  near(leftNoseInput.pitch, -15);
+  near(leftNoseInput.steer, 0);
+  const rightSideLowered = composeDevicePose({ steer: 15, twist: -90 });
+  near(controlProjection(identity, rightSideLowered).pitch, -15);
+  // Simultaneous practice tilts are a rotation vector, not ordered Euler turns.
+  const diagonal = composeDevicePose({ pitch: -15, steer: 20, twist: 0 });
+  nearAngles(relativeAngles(identity, diagonal), -15, 20, 0);
+});
+
+test('practice pose neutralizes invalid components and keeps extreme finite values finite', () => {
+  for (const input of [undefined, null, {}, { pitch: NaN, steer: Infinity, twist: -Infinity }]) {
+    assert.deepEqual(composeDevicePose(input).toArray(), [0, 0, 0, 1]);
+  }
+  const partlyValid = composeDevicePose({ pitch: -15, steer: NaN, twist: Infinity });
+  nearAngles(relativeAngles(new Quaternion(), partlyValid), -15, 0, 0);
+  const huge = composeDevicePose({ pitch: Number.MAX_VALUE, steer: Number.MAX_VALUE, twist: Number.MAX_VALUE });
+  assert.ok(huge.toArray().every(Number.isFinite));
+  near(huge.length(), 1);
+});
+
+test('twist response preserves small-angle sensitivity and returns continuously to half/full-turn neutral', () => {
+  for (const twist of [-90, -32, -18.5, 0, 18.5, 32, 90]) {
+    const expected = Math.sign(twist) * Math.min(1, Math.max(0, (Math.abs(twist) - 5) / 27)) * 0.65;
+    near(controlRates({ twist }).pitchRate, expected);
+  }
+  for (const center of [-360, -180, 0, 180, 360]) {
+    for (const epsilon of [-0.0001, 0, 0.0001]) near(controlRates({ twist: center + epsilon }).pitchRate, 0);
+  }
+  near(controlRates({ twist: 179 }).pitchRate, 0);
+  near(controlRates({ twist: 181 }).pitchRate, 0);
+  near(controlRates({ twist: 170 }).pitchRate, controlRates({ twist: 10 }).pitchRate);
+  near(controlRates({ twist: 190 }).pitchRate, controlRates({ twist: -10 }).pitchRate);
+  near(controlRates({ twist: 350 }).pitchRate, controlRates({ twist: -10 }).pitchRate);
+  near(controlRates({ twist: 370 }).pitchRate, controlRates({ twist: 10 }).pitchRate);
 });

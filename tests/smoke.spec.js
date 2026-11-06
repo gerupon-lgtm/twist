@@ -104,13 +104,98 @@ test('phone rotation is canceled in the craft actually drawn by the stage', asyn
   await expect.poll(() => craft().then((q) => q.w)).toBeCloseTo(1, 5);
 });
 
+test('layout-only rotation preserves speed and the original craft frame without a twist command', async ({ page }) => {
+  await startFakeSensor(page);
+  await page.evaluate(() => {
+    window.heartbeat = setInterval(() => window.dispatchEvent(Object.assign(new Event('devicemotion'), { rotationRate: { alpha: 0, beta: 0, gamma: 0 } })), 100);
+  });
+  await sensor(page, { alpha: 0, beta: -22, gamma: 0 });
+  await expect.poll(() => speed(page)).toBeGreaterThan(1);
+  await sensor(page, { alpha: 0, beta: 0, gamma: 0 });
+  await expect(page.locator('#motion-state')).toHaveText('速度維持');
+  const coast = await speed(page);
+  await page.evaluate(() => {
+    Object.defineProperty(screen.orientation, 'angle', { value: 90, configurable: true });
+    screen.orientation.dispatchEvent(new Event('change'));
+  });
+  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
+  await expect(page.locator('#twist-value')).toHaveText('0°');
+  expect(await speed(page)).toBe(coast);
+  await expect.poll(async () => JSON.parse(await page.locator('#app').getAttribute('data-craft-quaternion')).z).toBeCloseTo(Math.sin(Math.PI / 4), 5);
+});
+
+test('recentering the controls preserves the original physical craft heading', async ({ page }) => {
+  await startFakeSensor(page);
+  await sensor(page, { alpha: 30, beta: 0, gamma: 0 });
+  await page.getByRole('button', { name: '持ち方を合わせ直す', exact: true }).click();
+  await sensor(page, { alpha: 30, beta: 0, gamma: 0 });
+  await page.getByRole('button', { name: 'この持ち方で再開する', exact: true }).click();
+  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
+  await page.waitForTimeout(200);
+  await expect.poll(async () => JSON.parse(await page.locator('#app').getAttribute('data-craft-quaternion')).z).toBeCloseTo(-Math.sin(Math.PI / 12), 5);
+  await expect(page.locator('#pitch-value')).toHaveText('0°');
+  await expect(page.locator('#twist-value')).toHaveText('0°');
+  expect(await speed(page)).toBe(0);
+});
+
+test('nose-side acceleration and braking work after a physical quarter-turn and display rotation', async ({ page }) => {
+  await startFakeSensor(page);
+  await page.evaluate(() => {
+    window.heartbeat = setInterval(() => window.dispatchEvent(Object.assign(new Event('devicemotion'), { rotationRate: { alpha: 0, beta: 0, gamma: 0 } })), 100);
+  });
+  await sensor(page, { alpha: 270, beta: 0, gamma: 0 });
+  await page.evaluate(() => {
+    Object.defineProperty(screen.orientation, 'angle', { value: 270, configurable: true });
+    screen.orientation.dispatchEvent(new Event('change'));
+  });
+  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
+  // After a clockwise quarter-turn, the natural device's left edge is the nose side.
+  await sensor(page, { alpha: 270, beta: 0, gamma: -22 });
+  await expect.poll(() => speed(page)).toBeGreaterThan(1);
+  await expect(page.locator('#pitch-value')).toHaveText('-22°');
+  await expect(page.locator('#steer-value')).toHaveText('0°');
+  await sensor(page, { alpha: 270, beta: 0, gamma: 25 });
+  await expect(page.locator('#speed-value')).toHaveText('0.0');
+});
+
+test('practice turns the phone first and keyboard and brake stay craft-relative', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
+  await setAngle(page, 'twist', 180);
+  // The visible nose is now at the device bottom, so raising the top accelerates.
+  await setAngle(page, 'pitch', 22);
+  await expect.poll(() => speed(page)).toBeGreaterThan(1);
+  await expect(page.locator('#pitch-value')).toHaveText('-22°');
+  await page.getByRole('button', { name: 'ブレーキ', exact: true }).click();
+  await expect(page.locator('#speed-value')).toHaveText('0.0');
+  await setAngle(page, 'pitch', 0);
+  await setAngle(page, 'twist', 90);
+  await page.keyboard.down('w');
+  await expect.poll(() => speed(page)).toBeGreaterThan(1);
+  await expect(page.locator('#steer-value')).toHaveText('0°');
+  await page.keyboard.up('w');
+  await page.keyboard.down('s');
+  await expect(page.locator('#speed-value')).toHaveText('0.0');
+  await page.keyboard.up('s');
+});
+
+test('an edge-on craft stops rather than guessing a nose direction', async ({ page }) => {
+  await startFakeSensor(page);
+  await sensor(page, { alpha: 0, beta: -22, gamma: 0 });
+  await expect.poll(() => speed(page)).toBeGreaterThan(0.5);
+  await sensor(page, { alpha: 0, beta: 90, gamma: 0 });
+  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused');
+  await expect(page.locator('#dialog-description')).toContainText('先端が見えにくい');
+  await expect(page.locator('#speed-value')).toHaveText('0.0');
+});
+
 test('twist turns vertically without accelerating and keyboard follows the new controls', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
   await setAngle(page, 'twist', 25);
   await page.waitForTimeout(250);
   expect(await speed(page)).toBe(0);
-  await page.getByRole('button', { name: '傾きを0に', exact: true }).click();
+  await page.getByRole('button', { name: '姿勢を戻す', exact: true }).click();
   await page.keyboard.down('w');
   await expect.poll(() => speed(page)).toBeGreaterThan(1);
   await page.keyboard.up('w');
@@ -146,12 +231,10 @@ test('motion without fresh orientation cannot keep old forward input alive', asy
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'waiting');
 });
 
-test('hidden page pauses and screen change requires a fresh baseline', async ({ page }) => {
+test('hidden page pauses even after a layout change', async ({ page }) => {
   await startFakeSensor(page);
   await page.evaluate(() => screen.orientation.dispatchEvent(new Event('change')));
-  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused');
-  await expect(page.locator('#dialog-description')).toContainText('画面の向き');
-  await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
+  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { value: true, configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused');
   await expect(page.locator('#dialog-description')).toContainText('画面が隠れた');

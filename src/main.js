@@ -1,6 +1,6 @@
 import './style.css';
-import { Euler, Quaternion, MathUtils } from 'three';
-import { orientationQuaternion, relativeAngles, compensationQuaternion, controlRates, advanceSpeed } from './controls.js';
+import { Quaternion, MathUtils } from 'three';
+import { orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, composeDevicePose, controlRates, advanceSpeed } from './controls.js';
 import { createStage } from './stage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -10,7 +10,11 @@ let stage;
 let phase = 'intro';
 let inputMode = null;
 let reference = null;
+let craftReference = null;
+let referenceScreenAngle = 0;
 let latestQuaternion = null;
+let latestInputQuaternion = null;
+let latestOrientationSample = null;
 let lastOrientationAt = 0;
 let lastMotionAt = 0;
 let sensorListening = false;
@@ -22,11 +26,11 @@ let angles = { pitch: 0, steer: 0, twist: 0 };
 let rates = { pitchRate: 0, yawRate: 0, acceleration: 0, brake: 0 };
 let speed = 0;
 const craftQuaternion = new Quaternion();
-const practiceQuaternion = new Quaternion();
-const practiceEuler = new Euler(0, 0, 0, 'XYZ');
+const neutralQuaternion = new Quaternion();
 const practiceAngles = { pitch: 0, steer: 0, twist: 0 };
 const heldKeys = new Set();
 let keyboardActive = false;
+let keyboardTwistBase = 0;
 let previousCollected = 0;
 let toastUntil = 0;
 const screenAngle = () => screen.orientation?.angle ?? window.orientation ?? 0;
@@ -66,6 +70,7 @@ function showError(message) {
 function zeroPractice() {
   heldKeys.clear();
   keyboardActive = false;
+  keyboardTwistBase = 0;
   for (const axis of controls) { practiceAngles[axis] = 0; $(`practice-${axis}`).value = '0'; }
 }
 
@@ -109,20 +114,40 @@ function run(mode) {
   $('input-mode').textContent = mode === 'sensor' ? 'スマホの傾きで操作中' : '画面操作・センサー未使用';
   zeroPractice();
   speed = 0;
-  craftQuaternion.identity();
+  if (mode === 'sensor' && craftReference && latestQuaternion) craftQuaternion.copy(compensationQuaternion(craftReference, latestQuaternion));
+  else craftQuaternion.identity();
   setPhase('running');
   $('pause-button').focus({ preventScroll: true });
   keepAwake();
 }
 
+function refreshOrientations() {
+  latestQuaternion = orientationQuaternion(latestOrientationSample, screenAngle());
+  // A browser layout rotation is not a physical twist of the phone.
+  latestInputQuaternion = orientationQuaternion(latestOrientationSample, referenceScreenAngle);
+}
+
+function readPose(displayPose, inputPose, neutralReference, physicalReference) {
+  craftQuaternion.copy(compensationQuaternion(physicalReference, displayPose));
+  const neutralCompensation = compensationQuaternion(neutralReference, displayPose);
+  return {
+    ...projectedTiltAngles(craftQuaternion, neutralCompensation),
+    twist: relativeAngles(neutralReference, inputPose).twist,
+  };
+}
+
 function receiveOrientation(event) {
-  const q = orientationQuaternion(event, screenAngle());
+  const sample = { alpha: event.alpha, beta: event.beta, gamma: event.gamma };
+  const q = orientationQuaternion(sample, screenAngle());
   if (!q) {
     latestQuaternion = null;
+    latestInputQuaternion = null;
+    latestOrientationSample = null;
     if (phase === 'running' && inputMode === 'sensor') pause('3方向すべての傾きが読めなくなったため停止しました。');
     return;
   }
-  latestQuaternion = q;
+  latestOrientationSample = sample;
+  refreshOrientations();
   lastOrientationAt = performance.now();
   if (pendingCalibration && phase === 'waiting') {
     pendingCalibration = false;
@@ -150,6 +175,8 @@ function attachSensors() {
     if (moving && now - lastOrientationAt > 400) {
       // Motion without a corresponding orientation must not keep old acceleration alive.
       latestQuaternion = null;
+      latestInputQuaternion = null;
+      latestOrientationSample = null;
       if (phase === 'running' && inputMode === 'sensor') pause('スマホの動きに対する向きの更新が届かないため停止しました。');
     } else if (!moving) lastMotionAt = now;
   });
@@ -157,10 +184,13 @@ function attachSensors() {
 }
 
 async function requestSensors() {
+  if (inputMode !== 'sensor') craftReference = null;
   halt();
   const attempt = ++permissionAttempt;
   pendingCalibration = false;
   latestQuaternion = null;
+  latestInputQuaternion = null;
+  latestOrientationSample = null;
   lastOrientationAt = 0;
   lastMotionAt = 0;
   reference = null;
@@ -202,10 +232,13 @@ function calibrate() {
 function finishCalibration() {
   pendingCalibration = false;
   clearTimeout(waitingTimer);
+  referenceScreenAngle = screenAngle();
+  refreshOrientations();
   reference = latestQuaternion.clone();
+  if (!craftReference) craftReference = reference.clone();
   angles = { pitch: 0, steer: 0, twist: 0 };
   run('sensor');
-  showToast('上部を下げると加速、起こすとブレーキ。自機は最初の上向きを保ちます。', 4300);
+  showToast('自機の先端側を下げると加速、逆側を下げるとブレーキ。持ち直しても自機の向きは保ちます。', 4300);
 }
 
 function showToast(text, duration = 2600) {
@@ -220,6 +253,7 @@ function startPractice() {
   clearTimeout(waitingTimer);
   halt();
   reference = null;
+  craftReference = null;
   run('practice');
   showToast('画面操作の練習です。スマホの傾きは使っていません。');
 }
@@ -233,23 +267,32 @@ $('start-button').addEventListener('click', () => {
 });
 $('practice-button').addEventListener('click', () => {
   if (!stage) return;
-  if (phase === 'complete') { stage.reset(); previousCollected = 0; }
+  if (phase === 'complete') { stage.reset(); previousCollected = 0; craftReference = null; }
   inputMode === 'practice' ? requestSensors() : startPractice();
 });
 $('pause-button').addEventListener('click', () => pause());
-$('recenter-button').addEventListener('click', () => pause('一度停止しました。楽な持ち方に戻し、下のボタンで新しい基準を決めてください。'));
+$('recenter-button').addEventListener('click', () => pause('一度停止しました。自機の向きは保ったまま、今の持ち方を操作の中立に合わせ直します。'));
 $('help-button').addEventListener('click', () => {
   if (phase !== 'running') return;
-  pause('上部を下げると加速、起こすとブレーキ。基準に戻すと速さを保ちます。左右の傾きで左右へ、右ひねりで上・左ひねりで下へ曲がり続けます。自機は最初の上向きを保ちます。');
+  pause('自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。傾きを中立へ戻すと速さを保ち、ひねりで上下へ。半回転付近では上下のひねりが中立に戻ります。');
   $('control-guide').hidden = false;
 });
 $('practice-neutral').addEventListener('click', zeroPractice);
-$('practice-brake').addEventListener('click', () => { zeroPractice(); practiceAngles.pitch = 25; $('practice-pitch').value = '25'; });
+function pointPracticeTilt(pitch, steer, twist = practiceAngles.twist) {
+  const radians = MathUtils.degToRad(twist);
+  practiceAngles.pitch = Math.round(pitch * Math.cos(radians) - steer * Math.sin(radians));
+  practiceAngles.steer = Math.round(pitch * Math.sin(radians) + steer * Math.cos(radians));
+  practiceAngles.twist = twist;
+  for (const axis of controls) $(`practice-${axis}`).value = practiceAngles[axis];
+}
+$('practice-brake').addEventListener('click', () => { heldKeys.clear(); keyboardActive = false; pointPracticeTilt(25, 0); });
 for (const axis of controls) $(`practice-${axis}`).addEventListener('input', (event) => { keyboardActive = false; heldKeys.clear(); practiceAngles[axis] = Number(event.target.value); });
 
 function resetStage() {
   permissionAttempt++;
   halt();
+  reference = null;
+  craftReference = null;
   stage.reset();
   previousCollected = 0;
   $('toast').hidden = true;
@@ -260,13 +303,16 @@ $('reset-button').addEventListener('click', resetStage);
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause('画面が隠れたため停止しました。持ち方を合わせて再開してください。'); });
 window.addEventListener('blur', () => { heldKeys.clear(); if (phase === 'running') pause('画面から離れたため停止しました。'); });
-const screenChanged = () => { latestQuaternion = null; lastOrientationAt = 0; lastMotionAt = 0; pause('画面の向きが変わったため停止しました。持ち方を合わせ直してください。'); resize(); };
+const screenChanged = () => { refreshOrientations(); resize(); };
 screen.orientation?.addEventListener('change', screenChanged);
 if (!screen.orientation) window.addEventListener('orientationchange', screenChanged);
 window.addEventListener('keydown', (event) => {
   if (phase !== 'running' || inputMode !== 'practice' || /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
   const key = event.key.toLowerCase();
-  if (['w','s','a','d','e','q'].includes(key)) { heldKeys.add(key); keyboardActive = true; event.preventDefault(); }
+  if (['w','s','a','d','e','q'].includes(key)) {
+    if (!keyboardActive) keyboardTwistBase = practiceAngles.twist;
+    heldKeys.add(key); keyboardActive = true; event.preventDefault();
+  }
   if (event.code === 'Space') { event.preventDefault(); pause(); }
 });
 window.addEventListener('keyup', (event) => heldKeys.delete(event.key.toLowerCase()));
@@ -276,7 +322,8 @@ function resize() { stage?.resize(window.innerWidth, window.innerHeight, Math.mi
 window.addEventListener('resize', resize);
 
 function meter(axis, limit) {
-  const value = Number.isFinite(angles[axis]) ? angles[axis] : 0;
+  const angle = Number.isFinite(angles[axis]) ? angles[axis] : 0;
+  const value = axis === 'twist' ? MathUtils.radToDeg(Math.asin(Math.sin(MathUtils.degToRad(angle)))) : angle;
   $(`${axis}-value`).textContent = `${Math.round(value)}°`;
   const el = $(`${axis}-meter`);
   el.style.left = `${value < 0 ? 50 - Math.min(-value / limit, 1) * 50 : 50}%`;
@@ -313,21 +360,22 @@ function frame(now) {
     if (phase === 'running') {
       if (inputMode === 'sensor') {
         if (now - Math.max(lastOrientationAt, lastMotionAt) > 1800) pause('センサーの更新が届かなくなったため停止しました。持ち方を合わせて再開してください。');
-        else if (reference && latestQuaternion) {
-          angles = relativeAngles(reference, latestQuaternion);
-          craftQuaternion.copy(compensationQuaternion(reference, latestQuaternion));
+        else if (reference && craftReference && latestOrientationSample) {
+          refreshOrientations();
+          angles = readPose(latestQuaternion, latestInputQuaternion, reference, craftReference);
         }
       } else {
         if (keyboardActive) {
-          practiceAngles.pitch = (heldKeys.has('s') ? 22 : 0) - (heldKeys.has('w') ? 18 : 0);
-          practiceAngles.steer = (heldKeys.has('d') ? 18 : 0) - (heldKeys.has('a') ? 18 : 0);
-          practiceAngles.twist = (heldKeys.has('e') ? 22 : 0) - (heldKeys.has('q') ? 22 : 0);
-          for (const axis of controls) $(`practice-${axis}`).value = practiceAngles[axis];
+          const pitch = (heldKeys.has('s') ? 22 : 0) - (heldKeys.has('w') ? 18 : 0);
+          const steer = (heldKeys.has('d') ? 18 : 0) - (heldKeys.has('a') ? 18 : 0);
+          const turn = keyboardTwistBase + (heldKeys.has('e') ? 22 : 0) - (heldKeys.has('q') ? 22 : 0);
+          const wrappedTurn = ((turn + 180) % 360 + 360) % 360 - 180;
+          pointPracticeTilt(pitch, steer, wrappedTurn);
         }
-        angles = { ...practiceAngles };
-        practiceEuler.set(MathUtils.degToRad(angles.pitch), MathUtils.degToRad(angles.steer), -MathUtils.degToRad(angles.twist), 'XYZ');
-        craftQuaternion.copy(practiceQuaternion.setFromEuler(practiceEuler)).invert();
+        const pose = composeDevicePose(practiceAngles);
+        angles = readPose(pose, pose, neutralQuaternion, neutralQuaternion);
       }
+      if (phase === 'running' && angles.valid === false) pause('自機の先端が見えにくい角度になったため停止しました。画面を少し戻して、操作の中立を合わせ直してください。');
     }
     rates = phase === 'running' ? controlRates(angles) : { pitchRate: 0, yawRate: 0, acceleration: 0, brake: 0 };
     if (phase === 'running') {
