@@ -9,7 +9,7 @@
 - [飛行機・ひねる（標準・おすすめ）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&v=0.1.8)
 - [飛行機・回す（比較）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=twist&v=0.1.8)
 
-`mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。今回の操作と確認状況は [v0.1.8の操作・地面表示](docs/device-controls-v018.md) を参照します。更新公開の確認はこれからです。
+`mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
 
 ## 飛行機の入力を比べる
 

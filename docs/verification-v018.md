@@ -16,7 +16,13 @@
 
 ## 公開版
 
-GitHub Pages更新処理と公開版の操作・表示・資産・読込エラー確認後に追記する。
+- アプリコミット `d2ce872f8de8937e5091835f6e8ebf421b987f5c`、[Pages公開処理](https://github.com/gerupon-lgtm/twist/actions/runs/42312224085) は全step成功。CIでも84件の単体テストとビルドを通過。
+- [標準のひねる操作](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&v=0.1.8) と [比較の回す操作](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=twist&v=0.1.8)。`steer` 指定なしでもtiltが選ばれること、画面上の両ボタン名と図解を確認。
+- 公開HTMLのHTTP200/HTML型、画面v0.1.8、JS `index--maMe7vi.js` / CSS `index-Ck8BSCuf.css` が最終ビルドと一致。ブラウザー実行エラー0、HTTP読込エラー0。
+- 公開疑似センサーで左右端上下の標準操作と非選択の面内回転の非干渉、回転後の本体上端入力、比較方式へ切替、出力保持、上昇減速/下降加速、無効センサー停止と手動再開を確認。
+- 公開タッチスロットル・出力0で滑空・探索の12度加速/中立維持/制動・見失い対策/従来切替・後方目標マーカーを確認。
+- 公開版でも地面表示clear→low→danger→stopped、橙赤の縁、2m停止と手動再出発clear/7mを確認。390×844・360×640・844×390の開始画面、図解、低空/接近時の画像を取得し、図解・360幅開始画面・接近表示を目視。
+- 検証スクリプト `node_modules/.cache/twist-public-check-v018.mjs`、結果 `test-results/public-v018-result.json`、画像 `test-results/public-v018-*.png`（Git管理外）。次のPlaywright実行ではtest-resultsが初期化される。
 
 ## 実機で確認すること（未確認）
 
