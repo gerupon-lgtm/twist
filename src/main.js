@@ -3,6 +3,7 @@ import { Quaternion, MathUtils } from 'three';
 import { CONTROL_LIMITS, orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, deviceTiltAngles, composeDevicePose, controlRates, flightRates, advanceSpeed } from './controls.js';
 import { createStage } from './stage.js';
 import { projectEdgeTarget } from './visibility.js';
+import { getGroundProximity } from './ground-proximity.js';
 
 const $ = (id) => document.getElementById(id);
 const app = $('app');
@@ -11,7 +12,8 @@ let stage;
 let phase = 'intro';
 let playMode = new URLSearchParams(location.search).get('mode') === 'flight' ? 'flight' : 'explore';
 let visibility = new URLSearchParams(location.search).get('view') === 'classic' ? 'classic' : 'assisted';
-let flightSteering = new URLSearchParams(location.search).get('steer') === 'tilt' ? 'tilt' : 'twist';
+// URL names stay compatible: tilt = ひねる (raise/lower phone sides), twist = 回す (in-plane turn).
+let flightSteering = new URLSearchParams(location.search).get('steer') === 'twist' ? 'twist' : 'tilt';
 let inputMode = null;
 let reference = null;
 let craftReference = null;
@@ -70,7 +72,7 @@ function applyVisibilityUI() {
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? '視野を広く。色と形の目印と、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.7`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.8`;
 }
 
 function selectVisibility(next) {
@@ -81,7 +83,7 @@ function selectVisibility(next) {
   const url = new URL(location.href);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.7');
+  url.searchParams.set('v', '0.1.8');
   history.replaceState(null, '', url);
 }
 $('view-assisted').addEventListener('click', () => selectVisibility('assisted'));
@@ -99,31 +101,36 @@ function applyModeUI() {
   $('steer-control-meter').hidden = flight && twistSteering;
   $('twist-control-meter').hidden = flight && !twistSteering;
   $('pitch-label').textContent = flight ? 'スマホ上端の傾き' : '先端側の傾き';
-  $('steer-label').textContent = flight ? 'スマホ右端の傾き' : '自機の左右';
-  $('twist-label').textContent = flight ? 'スマホのひねり' : '左右のひねり';
+  $('steer-label').textContent = flight ? '左右のひねり' : '自機の左右';
+  $('twist-label').textContent = '左右に回す角度';
   $('flight-steering-picker').hidden = !flight;
+  $('motion-explanation').hidden = !flight;
   $('steering-twist').setAttribute('aria-pressed', String(twistSteering));
   $('steering-tilt').setAttribute('aria-pressed', String(!twistSteering));
   $('steering-note').textContent = twistSteering
-    ? '画面を見たままハンドルのように回す。右回しで右旋回。'
-    : 'お盆のように左右の端を上下する。下げた側へ旋回。';
+    ? 'スマホの面を保って回す。時計回りで右旋回。'
+    : '右端・左端を上下にひねる。下げた側へ旋回。';
   $('practice-panel').open = !flight;
   $('practice-summary').hidden = !flight;
   $('mode-explore').setAttribute('aria-pressed', String(!flight));
   $('mode-flight').setAttribute('aria-pressed', String(flight));
   $('pitch-caption').textContent = flight ? '上端を起こすと機首上げ' : '先端側で加速・逆で制動';
   $('steer-caption').textContent = flight ? '下げた側へ旋回' : '下げた側へ曲がる';
-  $('twist-caption').textContent = flight ? '右回しで右・左回しで左旋回' : '右で上・左で下へ曲がる';
+  $('twist-caption').textContent = flight ? '右回しで右・左回しで左旋回' : '右回しで上・左回しで下';
   $('stop-hint').textContent = flight ? '停止は一時停止ボタン' : `加減速は${CONTROL_LIMITS.throttleMaximum}°で最大`;
+  $('stop-hint').hidden = flight;
+  $('ground-clearance').textContent = flight ? '地面まで' : '高さ';
+  $('ground-height-meter').hidden = !flight;
+  $('ground-warning-text').hidden = !flight;
   $('guide-pitch-title').textContent = flight ? 'スマホ本体の上端を起こす・倒す' : '自機の先端側へ倒す';
   $('guide-pitch-text').textContent = flight ? '起こすと機首上げ、前へ倒すと機首下げ' : '先端側で加速、逆側でブレーキ';
-  $('guide-steer-title').textContent = flight ? (twistSteering ? 'ハンドルのように左右へひねる' : 'スマホの左右の端を上下する') : '自機の左右へ倒す';
+  $('guide-steer-title').textContent = flight ? (twistSteering ? '面を保って左右に回す' : '左右の端を上下にひねる') : '自機の左右へ倒す';
   $('guide-steer-text').textContent = flight ? (twistSteering ? '回した側へ旋回。戻すと翼が水平へ' : '下げた側へ旋回。戻すと翼が水平へ') : '下げた側へ曲がり続ける';
   $('guide-steer-glyph').textContent = flight && twistSteering ? '↻' : '↔';
   $('guide-steer-glyph').classList.toggle('twist-glyph', flight && twistSteering);
   $('guide-steer-glyph').classList.toggle('steer-glyph', !flight || !twistSteering);
-  $('guide-twist-title').textContent = flight ? '画面下のスロットル' : '左右へひねって保つ';
-  $('guide-twist-text').textContent = flight ? 'エンジン出力を調整' : '右で上、左で下へ曲がり続ける';
+  $('guide-twist-title').textContent = flight ? '画面下のスロットル' : 'スマホを左右に回して保つ';
+  $('guide-twist-text').textContent = flight ? 'エンジン出力を調整' : '右回しで上、左回しで下へ曲がる';
   $('guide-third-glyph').textContent = flight ? '⇄' : '↻';
   $('guide-third-glyph').classList.toggle('twist-glyph', !flight);
   $('keyboard-guide').textContent = flight ? 'W・S 機首の上・下\nA・D 旋回 / Q・E 出力の弱・強' : 'W 加速 / S ブレーキ\nA・D 左右 / Q・E 下・上';
@@ -139,7 +146,7 @@ function selectSteering(next) {
   applyModeUI();
   const url = new URL(location.href);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.7');
+  url.searchParams.set('v', '0.1.8');
   history.replaceState(null, '', url);
 }
 $('steering-twist').addEventListener('click', () => selectSteering('twist'));
@@ -161,7 +168,7 @@ function selectMode(next) {
   url.searchParams.set('mode', playMode);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.7');
+  url.searchParams.set('v', '0.1.8');
   history.replaceState(null, '', url);
   if (resume) {
     setPhase('paused');
@@ -176,6 +183,7 @@ $('mode-explore').addEventListener('click', () => selectMode('explore'));
 $('mode-flight').addEventListener('click', () => selectMode('flight'));
 
 function dialog({ title, description, note = '', action = '再開する', guide = false, error = '' }) {
+  $('motion-explanation').open = false;
   $('dialog-title').textContent = title;
   $('dialog-description').textContent = description;
   $('dialog-note').textContent = note;
@@ -188,7 +196,7 @@ function dialog({ title, description, note = '', action = '再開する', guide 
   $('reset-button').hidden = !inputMode;
   $('practice-button').hidden = false;
   $('practice-button').textContent = inputMode === 'practice' ? 'スマホの傾きに切り替える' : '画面操作で試す';
-  $('dialog-kicker').textContent = inputMode === 'practice' ? '画面操作・センサー未使用' : playMode === 'flight' ? '傾き操縦と画面スロットル' : '傾きとひねりの操作検証';
+  $('dialog-kicker').textContent = inputMode === 'practice' ? '画面操作・センサー未使用' : playMode === 'flight' ? '傾き操縦と画面スロットル' : '傾きと回転の操作検証';
 }
 
 function showError(message) {
@@ -372,7 +380,7 @@ function finishCalibration() {
   if (!craftReference) craftReference = latestQuaternion.clone();
   angles = { pitch: 0, steer: 0, twist: 0 };
   run('sensor');
-  showToast(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ。${flightSteering === 'twist' ? 'ハンドルのようにひねって' : '左右の端を上下して'}旋回します。` : '自機の先端側を下げると加速、逆側を下げるとブレーキ。持ち直しても自機の向きは保ちます。', 4300);
+  showToast(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ。${flightSteering === 'twist' ? '面を保って左右に回して' : '左右の端を上下にひねって'}旋回します。` : '自機の先端側を下げると加速、逆側を下げるとブレーキ。持ち直しても自機の向きは保ちます。', 4300);
 }
 
 function showToast(text, duration = 2600) {
@@ -409,8 +417,9 @@ $('pause-button').addEventListener('click', () => pause());
 $('recenter-button').addEventListener('click', () => pause('一度停止しました。自機の向きは保ったまま、今の持ち方を操作の中立に合わせ直します。'));
 $('help-button').addEventListener('click', () => {
   if (phase !== 'running') return;
-  pause(playMode === 'flight' ? `自機の表示向きに関係なく、スマホ本体の上端を手前へ起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '画面を見たままハンドルのように右へ回すと右旋回、左へ回すと左旋回。左右の端を倒す動きは旋回に使いません。' : 'スマホの右端を下げると右旋回、左端を下げると左旋回。ひねりは旋回に使いません。'}戻すと翼は水平へ戻りますが、機首は今の角度を保ちます。スロットルはエンジンの強さで、指を離すと出力を保ちます。出力0%でも滑空するため、停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。傾きを中立へ戻すと速さを保ち、ひねりで上下へ。半回転付近では上下のひねりが中立に戻ります。');
+  pause(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、機首は今の角度を保ちます。画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
   $('control-guide').hidden = false;
+  $('motion-explanation').open = playMode === 'flight';
 });
 $('practice-neutral').addEventListener('click', zeroPractice);
 function pointPracticeTilt(pitch, steer, twist = practiceAngles.twist) {
@@ -471,6 +480,24 @@ function meter(axis, limit) {
 }
 
 let lastHudAt = 0;
+function updateGroundProximity(state) {
+  const proximity = getGroundProximity({ altitude: state.groundClearance, verticalSpeed: state.verticalSpeed, grounded: state.grounded });
+  const flight = playMode === 'flight';
+  const level = flight ? proximity.level : 'clear';
+  $('ground-proximity').dataset.level = level;
+  $('ground-height-meter').style.setProperty('--clearance-ratio', String(proximity.ratio));
+  $('altitude-value').textContent = proximity.known ? proximity.clearance.toFixed(1) : '—';
+  const messages = { clear: '地面との間隔', low: '低空に注意', danger: '地面接近！', stopped: '接近して停止', unknown: '高さを確認できません' };
+  const message = messages[level];
+  if ($('ground-warning-text').textContent !== message) $('ground-warning-text').textContent = message;
+  $('ground-warning-text').dataset.level = level;
+  const edge = $('ground-edge-warning');
+  edge.dataset.level = level;
+  edge.hidden = !flight || phase !== 'running' || !['low', 'danger'].includes(level);
+  app.dataset.groundLevel = flight ? level : 'hidden';
+  app.dataset.groundClearance = proximity.known ? String(proximity.clearance) : '';
+}
+
 function updateEdgeMarker(state) {
   const marker = $('target-edge-marker');
   if (visibility !== 'assisted' || phase !== 'running' || state.complete || !state.targetLocal) {
@@ -515,7 +542,7 @@ function updateHud(now, state) {
   lastHudAt = now;
   for (const axis of controls) meter(axis, playMode === 'explore' && axis === 'pitch' ? CONTROL_LIMITS.throttleMaximum : axis === 'twist' ? CONTROL_LIMITS.twistMaximum : CONTROL_LIMITS.tiltMaximum);
   $('speed-value').textContent = state.speed.toFixed(1);
-  $('altitude-value').textContent = state.altitude.toFixed(1);
+  updateGroundProximity(state);
   $('nose-value').textContent = `${Math.round(MathUtils.radToDeg(state.pitch))}°`;
   $('bank-value').textContent = `${Math.round(MathUtils.radToDeg(state.bank || 0))}°`;
   $('climb-value').textContent = `${(state.verticalSpeed || 0) > 0 ? '+' : ''}${(state.verticalSpeed || 0).toFixed(1)}`;
@@ -586,11 +613,11 @@ function frame(now) {
     if (state.complete && phase === 'running') {
       halt();
       setPhase('complete');
-      dialog({ title: '出口に到着しました', description: playMode === 'flight' ? '3つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？' : '3つの光を集めて、探索クリア。傾きとひねりは操作しやすかったですか？', note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
+      dialog({ title: '出口に到着しました', description: playMode === 'flight' ? '3つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？' : '3つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？', note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
     }
     if (state.grounded && phase === 'running') {
       pause('地面に近づいたため停止しました。最初から飛び直せます。');
-      dialog({ title: '地面に近づいたため停止', description: '出力と機首を調整しながら飛んでみましょう。', note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
+      dialog({ title: '地面に近づいたため停止', description: '地面まで2mで停止しました。機首と出力を調整して、高さを保ちましょう。', note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
     }
     updateHud(now, state);
   }

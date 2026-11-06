@@ -4,17 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta name="theme-color" content="#dcebf1" />
-    <meta name="description" content="自分はそのまま、世界を動かす。スマホの傾きとひねりで進む3D探索の操作検証。" />
+    <meta name="description" content="自分はそのまま、世界を動かす。スマホの動きで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.7" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.8" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
+      <div id="ground-edge-warning" class="ground-edge-warning" data-level="clear" aria-hidden="true" hidden></div>
       <header class="topbar">
-        <a class="brand" id="home-link" href="./?v=0.1.7" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <a class="brand" id="home-link" href="./?v=0.1.8" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
         <span class="mode-tag" id="play-mode-label">探索モード</span>
-        <span class="version">操作検証 <b>v0.1.7</b></span>
+        <span class="version">操作検証 <b>v0.1.8</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
@@ -36,9 +37,9 @@
         <div class="meters">
           <div class="meter"><div><span id="pitch-label">先端側の傾き</span><output id="pitch-value">0°</output></div><div class="meter-track bilateral"><i id="pitch-meter"></i></div><small id="pitch-caption">先端側で加速・逆で制動</small></div>
           <div class="meter" id="steer-control-meter"><div><span id="steer-label">自機の左右</span><output id="steer-value">0°</output></div><div class="meter-track bilateral"><i id="steer-meter"></i></div><small id="steer-caption">下げた側へ曲がる</small></div>
-          <div class="meter" id="twist-control-meter"><div><span id="twist-label">左右のひねり</span><output id="twist-value">0°</output></div><div class="meter-track bilateral"><i id="twist-meter"></i></div><small id="twist-caption">右で上・左で下へ曲がる</small></div>
+          <div class="meter" id="twist-control-meter"><div><span id="twist-label">スマホを回す</span><output id="twist-value">0°</output></div><div class="meter-track bilateral"><i id="twist-meter"></i></div><small id="twist-caption">右に回して上・左で下へ</small></div>
         </div>
-        <div class="flight-line"><span>速さ <b id="speed-value">0.0</b> m/s</span><span>高さ <b id="altitude-value">7.0</b> m</span><span id="stop-hint">逆側を下げるとブレーキ</span></div>
+        <div class="flight-line"><span>速さ <b id="speed-value">0.0</b> m/s</span><span id="ground-proximity" data-level="clear"><span id="ground-clearance">高さ</span> <b id="altitude-value">7.0</b> m<span id="ground-height-meter" aria-hidden="true" hidden><i></i></span></span><span id="stop-hint">逆側を下げるとブレーキ</span><span id="ground-warning-text" hidden>地面との間隔</span></div>
         <div class="flight-attitude" id="flight-attitude" hidden><span>機首 <b id="nose-value">0°</b></span><span>翼の傾き <b id="bank-value">0°</b></span><span>昇降 <b id="climb-value">0.0</b> m/s</span><small>中立で翼を戻す</small></div>
         <div class="flight-throttle" id="flight-throttle" hidden>
           <div class="throttle-heading"><label for="throttle-input">エンジン出力</label><output id="throttle-value" for="throttle-input">0%</output></div>
@@ -59,17 +60,36 @@
       <div class="veil" id="veil">
         <section class="intro-card" id="intro-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-description">
           <span class="card-symbol" aria-hidden="true">↝</span>
-          <p class="card-kicker" id="dialog-kicker">傾きとひねりの操作検証</p>
+          <p class="card-kicker" id="dialog-kicker">スマホの動きで操作検証</p>
           <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
           <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。金色の光を3つ集めて出口へ。</p>
           <div class="mode-picker" role="group" aria-label="遊び方"><button id="mode-explore" type="button" aria-pressed="true">探索</button><button id="mode-flight" type="button" aria-pressed="false">飛行機</button><small>切替はステージを最初から</small></div>
           <div class="view-picker" role="group" aria-label="見え方"><span>見え方</span><button id="view-assisted" type="button" aria-pressed="true">見失い対策</button><button id="view-classic" type="button" aria-pressed="false">従来</button><small id="view-note">視野を広く、色と形の目印、画面外の目標マーク</small></div>
-          <div class="steering-picker" id="flight-steering-picker" role="group" aria-label="飛行機の旋回操作" hidden><span>旋回</span><button id="steering-twist" type="button" aria-pressed="true">ひねって旋回</button><button id="steering-tilt" type="button" aria-pressed="false">左右を倒して旋回</button><small id="steering-note">操縦輪のようにひねって、翼を傾けて旋回</small></div>
+          <div class="steering-picker" id="flight-steering-picker" role="group" aria-label="飛行機の旋回操作" hidden><span>旋回</span><button id="steering-tilt" type="button" aria-pressed="true">ひねる（標準）</button><button id="steering-twist" type="button" aria-pressed="false">回す（比較）</button><small id="steering-note">水平に持ち、左右の端を上げ下げして旋回</small></div>
           <div class="control-guide" id="control-guide">
             <div><span class="phone-glyph pitch-glyph" aria-hidden="true">↕</span><p><b id="guide-pitch-title">自機の先端側へ倒す</b><span id="guide-pitch-text">先端側で加速、逆側でブレーキ</span></p></div>
             <div><span class="phone-glyph steer-glyph" id="guide-steer-glyph" aria-hidden="true">↔</span><p><b id="guide-steer-title">自機の左右へ倒す</b><span id="guide-steer-text">下げた側へ曲がり続ける</span></p></div>
-            <div><span class="phone-glyph twist-glyph" id="guide-third-glyph" aria-hidden="true">↻</span><p><b id="guide-twist-title">左右へひねって保つ</b><span id="guide-twist-text">右で上、左で下へ曲がり続ける</span></p></div>
+            <div><span class="phone-glyph twist-glyph" id="guide-third-glyph" aria-hidden="true">↻</span><p><b id="guide-twist-title">左右へ回して保つ</b><span id="guide-twist-text">右に回すと上、左で下へ曲がる</span></p></div>
           </div>
+          <details class="motion-explanation" id="motion-explanation">
+            <summary>ひねる・回すの違い</summary>
+            <div class="motion-examples">
+              <figure>
+                <div class="motion-diagram">
+                  <svg class="motion-arrows" viewBox="0 0 140 88" aria-hidden="true"><ellipse cx="70" cy="65" rx="32" ry="5" class="motion-shadow"/><path d="M20 31v26m-4-21 4-5 4 5m-8 16 4 5 4-5M120 31v26m-4-21 4-5 4 5m-8 16 4 5 4-5"/></svg>
+                  <svg class="motion-handset motion-handset-rock" viewBox="0 0 60 100" aria-hidden="true"><rect x="5" y="3" width="50" height="94" rx="8"/><rect class="motion-screen" x="10" y="12" width="40" height="72" rx="3"/><path d="M23 8h14M25 91h10"/></svg>
+                </div>
+                <figcaption><b>ひねる</b><span>左右の端を上げ下げ</span><small>右端を下げると右へ旋回</small></figcaption>
+              </figure>
+              <figure>
+                <div class="motion-diagram">
+                  <svg class="motion-arrows" viewBox="0 0 140 88" aria-hidden="true"><ellipse cx="70" cy="65" rx="32" ry="5" class="motion-shadow"/><path d="M100 25c17 10 17 29 0 39m-1-8 1 8 8-1M40 64c-17-10-17-29 0-39m1 8-1-8-8 1"/></svg>
+                  <svg class="motion-handset motion-handset-turn" viewBox="0 0 60 100" aria-hidden="true"><rect x="5" y="3" width="50" height="94" rx="8"/><rect class="motion-screen" x="10" y="12" width="40" height="72" rx="3"/><path d="M23 8h14M25 91h10"/></svg>
+                </div>
+                <figcaption><b>回す</b><span>水平のまま時計回り・反時計回り</span><small>「回す（比較）」で旋回に使う</small></figcaption>
+              </figure>
+            </div>
+          </details>
           <p class="dialog-note" id="dialog-note">回した後も、自機の先端が操作の目印です。<br />傾きを中立に戻すと、今の速さを保ちます。</p>
           <p class="error-message" id="error-message" role="alert" hidden></p>
           <button class="primary-button" id="start-button" type="button">スマホの傾きで始める</button>

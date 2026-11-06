@@ -57,6 +57,10 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   const stone = new THREE.MeshStandardMaterial({ color: 0xf4f5f0, roughness: 0.95 });
   const stoneSide = new THREE.MeshStandardMaterial({ color: 0xb8cbd0, roughness: 1 });
   const blueStone = new THREE.MeshStandardMaterial({ color: 0xc7dce1, roughness: 0.9 });
+  // Unlit floor colors retain their contrast under the bright sky lighting.
+  const groundMaterial = new THREE.MeshBasicMaterial({ color: 0xb6c9cc });
+  const groundTileMaterial = new THREE.MeshBasicMaterial({ color: 0x9fb9bf });
+  const groundMarkMaterial = new THREE.MeshBasicMaterial({ color: 0x547f8d });
   const gold = new THREE.MeshBasicMaterial({ color: 0xe3a139 });
   const core = new THREE.MeshBasicMaterial({ color: 0xfff4c0 });
   const guide = new THREE.MeshBasicMaterial({ color: 0x117f97 });
@@ -136,27 +140,49 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   island.position.set(0, -3.1, -24);
   island.scale.z = 1.1;
   world.add(island);
-  const islandTop = new THREE.Mesh(new THREE.CircleGeometry(83.8, 64), stone);
+  const islandTop = new THREE.Mesh(new THREE.CircleGeometry(83.8, 64), groundMaterial);
+  islandTop.name = 'ground-surface';
   islandTop.rotation.x = -Math.PI / 2;
-  islandTop.position.set(0, -0.07, -24);
+  islandTop.position.set(0, 0, -24);
   islandTop.scale.y = 1.1;
   world.add(islandTop);
+
+  // The safety floor is conceptually Y=0 throughout the reachable square.
+  // This outer sheet sits eight centimeters lower only to avoid coplanar
+  // flicker with the existing island. It does not change collision/height math.
+  const outerGround = new THREE.Mesh(new THREE.PlaneGeometry(320, 320), groundMaterial);
+  outerGround.name = 'ground-outer-surface';
+  outerGround.rotation.x = -Math.PI / 2;
+  outerGround.position.y = -0.08;
+  world.add(outerGround);
+  const outerGridPoints = [];
+  for (let offset = -160; offset <= 160; offset += 8) {
+    outerGridPoints.push(offset, -0.045, -160, offset, -0.045, 160);
+    outerGridPoints.push(-160, -0.045, offset, 160, -0.045, offset);
+  }
+  const outerGridGeometry = new THREE.BufferGeometry();
+  outerGridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(outerGridPoints, 3));
+  const outerGrid = new THREE.LineSegments(outerGridGeometry,
+    new THREE.LineBasicMaterial({ color: 0x76939b, transparent: true, opacity: 0.4 }));
+  outerGrid.name = 'ground-outer-grid';
+  world.add(outerGrid);
 
   const gridPoints = [];
   for (let offset = -80; offset <= 80; offset += 8) {
     const extent = Math.sqrt(83 * 83 - offset * offset);
-    gridPoints.push(offset, 0, -24 - extent * 1.1, offset, 0, -24 + extent * 1.1);
-    gridPoints.push(-extent, 0, -24 + offset * 1.1, extent, 0, -24 + offset * 1.1);
+    gridPoints.push(offset, 0.035, -24 - extent * 1.1, offset, 0.035, -24 + extent * 1.1);
+    gridPoints.push(-extent, 0.035, -24 + offset * 1.1, extent, 0.035, -24 + offset * 1.1);
   }
   const gridGeometry = new THREE.BufferGeometry();
   gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridPoints, 3));
   const grid = new THREE.LineSegments(gridGeometry,
-    new THREE.LineBasicMaterial({ color: 0x8eb1bc, transparent: true, opacity: 0.28 }));
+    new THREE.LineBasicMaterial({ color: 0x4d7480, transparent: true, opacity: 0.58 }));
+  grid.name = 'ground-grid';
   world.add(grid);
 
   // The broad stripe and cross marks establish forward motion at the start.
-  box(world, 0, 0.025, -25, 0.15, 0.05, 106, blueStone);
-  const floorMarks = new THREE.InstancedMesh(unitBox, blueStone, 14);
+  box(world, 0, 0.025, -25, 0.15, 0.05, 106, groundMarkMaterial);
+  const floorMarks = new THREE.InstancedMesh(unitBox, groundMarkMaterial, 14);
   const matrix = new THREE.Matrix4();
   const markPosition = new THREE.Vector3();
   const markScale = new THREE.Vector3(3.6, 0.04, 0.16);
@@ -167,6 +193,42 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
     floorMarks.setMatrixAt(i, matrix);
   }
   world.add(floorMarks);
+
+  // Four-unit paving cells give translation and distance a reference even
+  // near the floor, where a bright featureless surface hid speed and height.
+  // One shared low box and one draw call cover this finite island.
+  const groundTilePositions = [];
+  for (let tileX = -21; tileX <= 20; tileX += 1) {
+    for (let tileZ = -23; tileZ <= 22; tileZ += 1) {
+      if ((tileX + tileZ) % 2 !== 0) continue;
+      const x = tileX * 4 + 2;
+      const z = tileZ * 4 + 2;
+      if (x * x + (z / 1.1) ** 2 > 80 ** 2) continue;
+      groundTilePositions.push([x, z - 24]);
+    }
+  }
+  const groundTiles = new THREE.InstancedMesh(unitBox, groundTileMaterial, groundTilePositions.length);
+  groundTiles.name = 'ground-paving';
+  groundTilePositions.forEach(([x, z], index) => {
+    matrix.compose(markPosition.set(x, 0.012, z), identity, markScale.set(3.7, 0.02, 3.7));
+    groundTiles.setMatrixAt(index, matrix);
+  });
+  world.add(groundTiles);
+
+  // A world-space ground projection, not a screen-space cursor or a real
+  // shadow calculation. It follows the craft's X/Z above the actual floor.
+  const groundProjection = new THREE.Group();
+  groundProjection.name = 'craft-ground-projection';
+  groundProjection.rotation.x = -Math.PI / 2;
+  const groundShadowMaterial = new THREE.MeshBasicMaterial({
+    color: 0x25485a, transparent: true, opacity: 0.18, depthWrite: false,
+  });
+  const groundOutlineMaterial = new THREE.MeshBasicMaterial({
+    color: 0x315e70, transparent: true, opacity: 0.32, depthWrite: false,
+  });
+  groundProjection.add(new THREE.Mesh(new THREE.CircleGeometry(0.85, 32), groundShadowMaterial));
+  groundProjection.add(new THREE.Mesh(new THREE.RingGeometry(0.96, 1.15, 32), groundOutlineMaterial));
+  world.add(groundProjection);
 
   const columnGeometry = new THREE.CylinderGeometry(0.68, 0.85, 1, 10);
   const columnLayout = [
@@ -431,6 +493,14 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
     viewQuaternion.copy(orientation).invert();
     world.quaternion.copy(viewQuaternion);
     world.position.copy(position).negate().applyQuaternion(viewQuaternion);
+    // This group is a child of world, so it receives the same inverse pose as
+    // the floor. Its local location remains the craft's true ground position.
+    const overIsland = position.x ** 2 + ((position.z + 24) / 1.1) ** 2 < 83.5 ** 2;
+    groundProjection.position.set(position.x, overIsland ? 0.075 : -0.025, position.z);
+    groundProjection.scale.setScalar(1.1 + position.y * 0.045);
+    groundProjection.visible = true;
+    groundShadowMaterial.opacity = THREE.MathUtils.clamp(0.22 - position.y * 0.003, 0.08, 0.22);
+    groundOutlineMaterial.opacity = THREE.MathUtils.clamp(0.36 - position.y * 0.004, 0.14, 0.36);
   }
 
   function stopMotion() {
@@ -664,6 +734,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
       bearing: Math.atan2(localRelative.x, -localRelative.z),
       elevation: Math.atan2(localRelative.y, Math.hypot(localRelative.x, localRelative.z)),
       altitude: position.y,
+      groundClearance: position.y,
       speed,
       throttle,
       verticalSpeed: velocity.y,

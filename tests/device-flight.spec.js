@@ -57,7 +57,7 @@ async function beginSensor(page) {
   await expect(page.locator('#throttle-value')).toHaveText('50%');
 }
 
-async function startSensor(page, steering = 'twist', screenAngle = 0) {
+async function startSensor(page, steering = 'tilt', screenAngle = 0) {
   await prepareSensor(page, steering, screenAngle);
   await beginSensor(page);
 }
@@ -75,27 +75,27 @@ async function expectPhysicalReference(page, currentDevicePose, initialScreenAng
   }).toBeCloseTo(1, 5);
 }
 
-test('flight steering defaults to twist and can change only before launch or while paused without resetting position', async ({ page }) => {
+test('flight steering defaults to tilt and can change only before launch or while paused without resetting position', async ({ page }) => {
   await prepareSensor(page);
-  await expect(page.locator('#app')).toHaveAttribute('data-flight-steering', 'twist');
-  await expect(page.locator('#steering-twist')).toHaveAttribute('aria-pressed', 'true');
-  await page.locator('#steering-tilt').click();
   await expect(page.locator('#app')).toHaveAttribute('data-flight-steering', 'tilt');
-  await expect(page).toHaveURL(/[?&]steer=tilt(?:&|$)/);
+  await expect(page.locator('#steering-tilt')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#steering-twist').click();
+  await expect(page.locator('#app')).toHaveAttribute('data-flight-steering', 'twist');
+  await expect(page).toHaveURL(/[?&]steer=twist(?:&|$)/);
   await beginSensor(page);
-  for (const steering of ['twist', 'tilt']) await expect(page.locator(`#steering-${steering}`)).toBeDisabled();
+  for (const steering of ['tilt', 'twist']) await expect(page.locator(`#steering-${steering}`)).toBeDisabled();
   await expect.poll(() => position(page).then(p => p?.z ?? Infinity)).toBeLessThan(25);
   await page.locator('#pause-button').click();
   await expect(page.locator('#speed-value')).toHaveText('0.0');
   const stopped = await position(page);
-  await page.locator('#steering-twist').click();
-  await expect(page.locator('#app')).toHaveAttribute('data-flight-steering', 'twist');
+  await page.locator('#steering-tilt').click();
+  await expect(page.locator('#app')).toHaveAttribute('data-flight-steering', 'tilt');
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused');
   expect(await position(page)).toEqual(stopped);
   await expect(page.locator('#throttle-value')).toHaveText('0%');
-  await expect(page).toHaveURL(/[?&]steer=twist(?:&|$)/);
+  await expect(page).toHaveURL(/[?&]steer=tilt(?:&|$)/);
   const home = new URL(await page.locator('#home-link').getAttribute('href'), 'https://example.test/');
-  expect(home.searchParams.get('steer')).toBe('twist');
+  expect(home.searchParams.get('steer')).toBe('tilt');
   await page.locator('#mode-explore').click();
   await expect(page.locator('#flight-steering-picker')).toBeHidden();
   await page.locator('#practice-button').click();
