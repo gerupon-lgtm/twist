@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { FLIGHT_MODEL, stepFlightVelocity } from './flight-physics.js';
 
 const START = new THREE.Vector3(0, 7, 26);
 const BEACONS = [
@@ -11,10 +12,9 @@ const COLLECT_RADIUS = 3.2;
 const EXIT_RADIUS = 4;
 const SKY = 0xdcebf1;
 const MAX_BANK = THREE.MathUtils.degToRad(40);
-const FLIGHT_GRAVITY = 9.81;
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const flightYawForBank = (angle, speed) => speed > 0
-  ? THREE.MathUtils.clamp(FLIGHT_GRAVITY * Math.tan(angle) / Math.max(speed, 6), -0.8, 0.8)
+  ? THREE.MathUtils.clamp(FLIGHT_MODEL.gravity * Math.tan(angle) / Math.max(speed, 6), -0.8, 0.8)
   : 0;
 
 /** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */
@@ -324,9 +324,19 @@ export function createStage(canvas) {
   const bankAxis = new THREE.Vector3(0, 0, 1);
   const halfTurn = new THREE.Quaternion();
   const fullTurn = new THREE.Quaternion();
+  const halfFlightYaw = new THREE.Quaternion();
+  const fullFlightYaw = new THREE.Quaternion();
+  const halfFlightPitch = new THREE.Quaternion();
+  const fullFlightPitch = new THREE.Quaternion();
+  const worldUpAxis = new THREE.Vector3(0, 1, 0);
+  const localPitchAxis = new THREE.Vector3(1, 0, 0);
   const middleOrientation = new THREE.Quaternion();
+  const flightOrientation = new THREE.Quaternion();
   const rotationAxis = new THREE.Vector3();
   const forward = new THREE.Vector3();
+  const up = new THREE.Vector3();
+  const velocity = new THREE.Vector3();
+  const previousVelocity = new THREE.Vector3();
   const segment = new THREE.Vector3();
   const relative = new THREE.Vector3();
   const localRelative = new THREE.Vector3();
@@ -335,6 +345,8 @@ export function createStage(canvas) {
   let bank = 0;
   let yawRate = 0;
   let speed = 0;
+  let throttle = 0;
+  let grounded = false;
   let collected = 0;
   let complete = false;
   let width = 1;
@@ -351,6 +363,29 @@ export function createStage(canvas) {
     viewQuaternion.copy(orientation).invert();
     world.quaternion.copy(viewQuaternion);
     world.position.copy(position).negate().applyQuaternion(viewQuaternion);
+  }
+
+  function stopMotion() {
+    velocity.set(0, 0, 0);
+    speed = 0;
+    throttle = 0;
+    yawRate = 0;
+  }
+
+  function launchFlight() {
+    if (disposed || grounded || complete) return;
+    if (mode !== 'flight') {
+      baseOrientation.copy(orientation);
+      bank = 0;
+    }
+    mode = 'flight';
+    forward.set(0, 0, -1).applyQuaternion(baseOrientation);
+    velocity.copy(forward).multiplyScalar(FLIGHT_MODEL.cruiseSpeed);
+    speed = velocity.length();
+    throttle = FLIGHT_MODEL.defaultThrottle;
+    yawRate = 0;
+    syncWorld();
+    render();
   }
 
   function render() {
@@ -428,57 +463,106 @@ export function createStage(canvas) {
       // preserve its visible pose and clear previous bank instead of snapping.
       baseOrientation.copy(orientation);
       bank = 0;
-      yawRate = 0;
+      stopMotion();
+      grounded = false;
       mode = nextMode;
     }
     const pitchRate = finite(input.pitchRate);
     const exploreYawRate = finite(input.yawRate);
     const targetBank = THREE.MathUtils.clamp(finite(input.bankAngle), -MAX_BANK, MAX_BANK);
-    speed = complete || elapsed === 0 ? 0 : Math.max(0, finite(input.speed));
-    if (elapsed === 0) {
-      yawRate = 0;
+    const targetThrottle = THREE.MathUtils.clamp(
+      finite(input.throttle, FLIGHT_MODEL.defaultThrottle), 0, 1);
+    if (elapsed === 0 || (mode === 'flight' && (grounded || complete))) {
+      stopMotion();
       syncWorld();
       render();
       return;
     }
+    if (mode === 'explore') {
+      speed = complete ? 0 : Math.max(0, finite(input.speed));
+      throttle = 0;
+    }
     // Midpoint integration keeps simultaneous turning and travel smooth. A cap
-    // on substep count also makes a resumed, unusually long frame bounded work.
-    const steps = Math.min(240, Math.max(1, Math.ceil(elapsed * 60)));
+    // preserves exploration behavior. Flight always subdivides the full frame
+    // so its force integrator never receives more than 0.05 seconds.
+    const requestedSteps = Math.max(1, Math.ceil(elapsed * 60));
+    const steps = mode === 'flight' ? requestedSteps : Math.min(240, requestedSteps);
     const step = elapsed / steps;
     for (let i = 0; i < steps; i += 1) {
       let turnYawRate = exploreYawRate;
+      let middleBank = 0;
       if (mode === 'flight') {
         const previousBank = bank;
         bank = THREE.MathUtils.damp(bank, targetBank, 4, step);
         // Use the middle bank for integration, while diagnostics report the
         // instantaneous rate at the final bank. No bank-generated turn at rest.
-        const middleBank = (previousBank + bank) / 2;
+        middleBank = (previousBank + bank) / 2;
         turnYawRate = flightYawForBank(middleBank, speed);
         yawRate = flightYawForBank(bank, speed);
       } else {
         bank = 0;
         yawRate = exploreYawRate;
       }
-      // Body-local positive X looks up; negative Y turns right. Base rotation
-      // remains continuous through vertical loops in both modes, without a
-      // pitch clamp. Bank affects scenery, independently of craft compensation.
-      const angularSpeed = rotationAxis.set(pitchRate, -turnYawRate, 0).length();
-      if (angularSpeed > 0) rotationAxis.multiplyScalar(1 / angularSpeed);
-      halfTurn.setFromAxisAngle(rotationAxis, angularSpeed * step / 2);
-      fullTurn.setFromAxisAngle(rotationAxis, angularSpeed * step);
-      middleOrientation.copy(baseOrientation).multiply(halfTurn);
+      if (mode === 'flight') {
+        // World-up yaw followed by local-X pitch keeps the flight base in
+        // heading * pitch form. Combined input cannot accumulate another roll;
+        // the explicit bank remains the normal source of wing tilt. Pitch is
+        // unbounded, so this also stays continuous through a vertical loop.
+        halfFlightYaw.setFromAxisAngle(worldUpAxis, -turnYawRate * step / 2);
+        fullFlightYaw.setFromAxisAngle(worldUpAxis, -turnYawRate * step);
+        halfFlightPitch.setFromAxisAngle(localPitchAxis, pitchRate * step / 2);
+        fullFlightPitch.setFromAxisAngle(localPitchAxis, pitchRate * step);
+        middleOrientation.copy(baseOrientation).premultiply(halfFlightYaw).multiply(halfFlightPitch);
+      } else {
+        // Preserve exploration's body-local combined rotation exactly.
+        const angularSpeed = rotationAxis.set(pitchRate, -turnYawRate, 0).length();
+        if (angularSpeed > 0) rotationAxis.multiplyScalar(1 / angularSpeed);
+        halfTurn.setFromAxisAngle(rotationAxis, angularSpeed * step / 2);
+        fullTurn.setFromAxisAngle(rotationAxis, angularSpeed * step);
+        middleOrientation.copy(baseOrientation).multiply(halfTurn);
+      }
       forward.set(0, 0, -1).applyQuaternion(middleOrientation);
       previousPosition.copy(position);
-      position.addScaledVector(forward, speed * step);
-      position.x = THREE.MathUtils.clamp(position.x, -110, 110);
-      position.y = THREE.MathUtils.clamp(position.y, 2, 45);
-      position.z = THREE.MathUtils.clamp(position.z, -110, 110);
-      baseOrientation.multiply(fullTurn).normalize();
+      if (mode === 'flight') {
+        bankRotation.setFromAxisAngle(bankAxis, -middleBank);
+        flightOrientation.copy(middleOrientation).multiply(bankRotation);
+        forward.set(0, 0, -1).applyQuaternion(flightOrientation);
+        up.set(0, 1, 0).applyQuaternion(flightOrientation);
+        previousVelocity.copy(velocity);
+        const next = stepFlightVelocity(velocity, step, { forward, up, throttle: targetThrottle });
+        velocity.set(next.velocity.x, next.velocity.y, next.velocity.z);
+        throttle = next.throttle;
+        position.addScaledVector(previousVelocity, step / 2).addScaledVector(velocity, step / 2);
+        if (position.y <= 2 && velocity.y < 0) {
+          position.y = 2;
+          grounded = true;
+          stopMotion();
+        }
+        position.x = THREE.MathUtils.clamp(position.x, -110, 110);
+        position.y = THREE.MathUtils.clamp(position.y, 2, 45);
+        position.z = THREE.MathUtils.clamp(position.z, -110, 110);
+        if ((position.x <= -110 && velocity.x < 0) || (position.x >= 110 && velocity.x > 0)) velocity.x = 0;
+        if (position.y >= 45 && velocity.y > 0) velocity.y = 0;
+        if ((position.z <= -110 && velocity.z < 0) || (position.z >= 110 && velocity.z > 0)) velocity.z = 0;
+        speed = velocity.length();
+        yawRate = grounded ? 0 : flightYawForBank(bank, speed);
+      } else {
+        // Exploration remains direct movement at the supplied speed, with no
+        // stored momentum or force calculation.
+        position.addScaledVector(forward, speed * step);
+        position.x = THREE.MathUtils.clamp(position.x, -110, 110);
+        position.y = THREE.MathUtils.clamp(position.y, 2, 45);
+        position.z = THREE.MathUtils.clamp(position.z, -110, 110);
+        velocity.subVectors(position, previousPosition).divideScalar(step);
+      }
+      if (mode === 'flight') baseOrientation.premultiply(fullFlightYaw).multiply(fullFlightPitch).normalize();
+      else baseOrientation.multiply(fullTurn).normalize();
       collectAlongSegment(previousPosition, position);
       if (complete) {
-        speed = 0;
-        if (mode === 'flight') yawRate = 0;
+        if (mode === 'flight') stopMotion();
+        else { speed = 0; velocity.set(0, 0, 0); }
       }
+      if (mode === 'flight' && (grounded || complete)) break;
     }
     syncWorld();
     render();
@@ -499,6 +583,10 @@ export function createStage(canvas) {
       elevation: Math.atan2(localRelative.y, Math.hypot(localRelative.x, localRelative.z)),
       altitude: position.y,
       speed,
+      throttle,
+      verticalSpeed: velocity.y,
+      velocity: { x: velocity.x, y: velocity.y, z: velocity.z },
+      grounded,
       mode,
       bank,
       yawRate,
@@ -522,8 +610,8 @@ export function createStage(canvas) {
     orientation.identity();
     craft.quaternion.identity();
     bank = 0;
-    yawRate = 0;
-    speed = 0;
+    stopMotion();
+    grounded = false;
     collected = 0;
     complete = false;
     refreshTargets();
@@ -549,5 +637,5 @@ export function createStage(canvas) {
   }
 
   reset();
-  return { resize, update, getStatus, reset, dispose };
+  return { resize, update, getStatus, reset, launchFlight, dispose };
 }

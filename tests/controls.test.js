@@ -397,7 +397,7 @@ test('twist response preserves small-angle sensitivity and returns continuously 
   near(controlRates({ twist: 370 }).pitchRate, controlRates({ twist: 10 }).pitchRate);
 });
 
-test('flight mode maps each input independently to pitch, bank, and throttle', () => {
+test('flight mode maps pitch and bank independently while twist cannot change output', () => {
   for (const value of Object.values(flightRates({ pitch: 0, steer: 0, twist: 0 }))) near(value, 0);
   const climb = flightRates({ pitch: 25 });
   near(climb.pitchRate, 0.65);
@@ -407,38 +407,38 @@ test('flight mode maps each input independently to pitch, bank, and throttle', (
   near(flightRates({ pitch: -25 }).pitchRate, -0.65);
   near(flightRates({ steer: 25 }).bankAngle, rad(40));
   near(flightRates({ steer: -25 }).bankAngle, rad(-40));
-  near(flightRates({ twist: 12 }).acceleration, 3.5);
+  near(flightRates({ twist: 12 }).acceleration, 0);
   near(flightRates({ twist: 12 }).brake, 0);
   near(flightRates({ twist: -12 }).acceleration, 0);
-  near(flightRates({ twist: -12 }).brake, 6.5);
+  near(flightRates({ twist: -12 }).brake, 0);
 });
 
-test('flight mode combines climb, bank, and speed changes without replacing another command', () => {
+test('flight mode combines climb and bank without a simultaneous twist changing output', () => {
   const climbingRight = flightRates({ pitch: 14, steer: 14, twist: 8.5 });
   near(climbingRight.pitchRate, 0.325);
   near(climbingRight.bankAngle, rad(20));
-  near(climbingRight.acceleration, 1.75);
+  near(climbingRight.acceleration, 0);
   near(climbingRight.brake, 0);
   const descendingLeft = flightRates({ pitch: -14, steer: -14, twist: -8.5 });
   near(descendingLeft.pitchRate, -0.325);
   near(descendingLeft.bankAngle, rad(-20));
   near(descendingLeft.acceleration, 0);
-  near(descendingLeft.brake, 3.25);
+  near(descendingLeft.brake, 0);
 });
 
 test('flight mode keeps deadzones and fixed maxima while sensitivity scales the response', () => {
   for (const value of Object.values(flightRates({ pitch: 3, steer: -3, twist: 5 }))) near(value, 0);
   assert.ok(flightRates({ pitch: 3.001 }).pitchRate > 0);
   assert.ok(flightRates({ steer: -3.001 }).bankAngle < 0);
-  assert.ok(flightRates({ twist: 5.001 }).acceleration > 0);
+  near(flightRates({ twist: 5.001 }).acceleration, 0);
   const sensitive = flightRates({ pitch: 14, steer: 14, twist: 8.5 }, 2);
   near(sensitive.pitchRate, 0.65);
   near(sensitive.bankAngle, rad(40));
-  near(sensitive.acceleration, 3.5);
+  near(sensitive.acceleration, 0);
   const gentle = flightRates({ pitch: 14, steer: 14, twist: -8.5 }, 0.5);
   near(gentle.pitchRate, 0.1625);
   near(gentle.bankAngle, rad(10));
-  near(gentle.brake, 1.625);
+  near(gentle.brake, 0);
   for (const gain of [0, -1]) {
     for (const value of Object.values(flightRates({ pitch: 25, steer: 25, twist: 32 }, gain))) near(value, 0);
   }
@@ -446,11 +446,11 @@ test('flight mode keeps deadzones and fixed maxima while sensitivity scales the 
     const saturated = flightRates({ pitch: 100, steer: -100, twist: 90 }, gain);
     near(saturated.pitchRate, 0.65);
     near(saturated.bankAngle, rad(-40));
-    near(saturated.acceleration, 3.5);
+    near(saturated.acceleration, 0);
   }
 });
 
-test('flight throttle folds continuously through half and full turns with the 12-degree throttle range', () => {
+test('flight twist stays inactive at small angles, half turns, and full turns', () => {
   for (const center of [-360, -180, 0, 180, 360]) {
     for (const epsilon of [-0.0001, 0, 0.0001]) {
       const rate = flightRates({ twist: center + epsilon });
@@ -458,8 +458,8 @@ test('flight throttle folds continuously through half and full turns with the 12
       near(rate.brake, 0);
     }
   }
-  near(flightRates({ twist: 10 }).acceleration, 3.5 * 5 / 7);
-  near(flightRates({ twist: -10 }).brake, 6.5 * 5 / 7);
+  near(flightRates({ twist: 10 }).acceleration, 0);
+  near(flightRates({ twist: -10 }).brake, 0);
   for (const [equivalent, original] of [[170, 10], [190, -10], [350, -10], [370, 10]]) {
     near(flightRates({ twist: equivalent }).acceleration, flightRates({ twist: original }).acceleration);
     near(flightRates({ twist: equivalent }).brake, flightRates({ twist: original }).brake);
@@ -470,14 +470,14 @@ test('flight throttle folds continuously through half and full turns with the 12
   }
 });
 
-test('flight throttle increases speed, coasts, brakes, and reuses the non-reversing speed bounds', () => {
+test('flight rate commands leave speed integration to the engine and physical model', () => {
   const accelerating = flightRates({ twist: 8.5 });
   const braking = flightRates({ twist: -8.5 });
-  near(advanceSpeed(6, 1, accelerating), 7.75);
+  near(advanceSpeed(6, 1, accelerating), 6);
   near(advanceSpeed(7.75, 10, flightRates({ pitch: 25, steer: 25, twist: 0 })), 7.75);
-  near(advanceSpeed(7.75, 1, braking), 4.5);
-  near(advanceSpeed(9, 1, accelerating), 10);
-  near(advanceSpeed(1, 1, braking), 0);
+  near(advanceSpeed(7.75, 1, braking), 7.75);
+  near(advanceSpeed(9, 1, accelerating), 9);
+  near(advanceSpeed(1, 1, braking), 1);
   near(advanceSpeed(0, 1, braking), 0);
 });
 
@@ -490,7 +490,7 @@ test('flight input handles invalid components and sensitivity with finite indepe
   const partial = flightRates({ pitch: NaN, steer: 14, twist: 8.5 });
   near(partial.pitchRate, 0);
   near(partial.bankAngle, rad(20));
-  near(partial.acceleration, 1.75);
+  near(partial.acceleration, 0);
   for (const gain of [NaN, Infinity, -Infinity]) {
     near(flightRates({ pitch: 14 }, gain).pitchRate, 0.325);
   }
@@ -517,29 +517,28 @@ test('exploration throttle reaches both maxima at 12 degrees with graded respons
   near(controlRates({ pitch: 30 }).brake, 6.5);
 });
 
-test('flight throttle reaches both maxima at 12 degrees with graded response above 5-degree neutral', () => {
-  near(flightRates({ twist: 12 }).acceleration, 3.5);
-  near(flightRates({ twist: -12 }).brake, 6.5);
+test('flight twist is inactive across the former 12-degree throttle range', () => {
+  near(flightRates({ twist: 12 }).acceleration, 0);
+  near(flightRates({ twist: -12 }).brake, 0);
   for (const [angle, fraction] of [[5, 0], [6.75, 0.25], [8.5, 0.5], [10.25, 0.75], [12, 1]]) {
     const accelerating = flightRates({ twist: angle });
     const braking = flightRates({ twist: -angle });
-    near(accelerating.acceleration, 3.5 * fraction);
+    near(accelerating.acceleration, 0);
     near(accelerating.brake, 0);
     near(braking.acceleration, 0);
-    near(braking.brake, 6.5 * fraction);
+    near(braking.brake, 0);
   }
   for (const angle of [-5, -4, 0, 4, 5]) {
     near(flightRates({ twist: angle }).acceleration, 0);
     near(flightRates({ twist: angle }).brake, 0);
   }
-  near(flightRates({ twist: 30 }).acceleration, 3.5);
-  near(flightRates({ twist: -30 }).brake, 6.5);
+  near(flightRates({ twist: 30 }).acceleration, 0);
+  near(flightRates({ twist: -30 }).brake, 0);
 });
 
-test('returning from maximum throttle to neutral preserves speed until the opposite deadzone is crossed', () => {
+test('exploration returning from maximum throttle to neutral preserves speed until the opposite deadzone is crossed', () => {
   for (const mode of [
     { rates: (angle) => controlRates({ pitch: angle }), returnPath: [-12, -9, -6, -3, 0, 2, 3], reverse: 4 },
-    { rates: (angle) => flightRates({ twist: angle }), returnPath: [12, 9, 6, 5, 0, -4, -5], reverse: -6 },
   ]) {
     let speed = 2;
     for (const angle of mode.returnPath) {
@@ -562,7 +561,7 @@ test('shorter throttle range does not change exploration steering or flight pitc
   near(explore.yawRate, 0.4);
   near(explore.pitchRate, 0.325);
   const flight = flightRates({ pitch: 14, steer: 14, twist: 8.5 });
-  near(flight.acceleration, 1.75);
+  near(flight.acceleration, 0);
   near(flight.pitchRate, 0.325);
   near(flight.bankAngle, rad(20));
   near(controlRates({ steer: 25 }).yawRate, 0.8);

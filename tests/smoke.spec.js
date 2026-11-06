@@ -256,7 +256,7 @@ test('reset cancels a pending baseline timer before the next run', async ({ page
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
 });
 
-for (const mode of ['explore', 'flight']) {
+for (const mode of ['explore']) {
   test(`${mode}: twelve degrees fills throttle; returning to neutral coasts, crossing it brakes`, async ({ page }) => {
     await startFakeSensor(page, mode);
     await page.evaluate(() => {

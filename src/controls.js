@@ -157,18 +157,16 @@ export function controlRates(angles, sensitivity = 1) {
   };
 }
 
-/** Flight mode: lift the visible nose to climb, lower a wing to bank, twist for speed. */
+/** Flight mode: nose and wing input only; the on-screen engine output drives speed. */
 export function flightRates(angles, sensitivity = 1) {
   const gain = Number.isFinite(sensitivity) ? Math.max(0, sensitivity) : 1;
-  const throttle = angleDemand(foldedTwist(angles?.twist), gain,
-    CONTROL_LIMITS.twistDeadzone, CONTROL_LIMITS.throttleMaximum);
   return {
     pitchRate: angleDemand(angles?.pitch, gain,
       CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum) * CONTROL_LIMITS.pitchRate,
     bankAngle: angleDemand(angles?.steer, gain,
       CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum) * CONTROL_LIMITS.flightBankAngle,
-    acceleration: Math.max(0, throttle) * CONTROL_LIMITS.acceleration,
-    brake: Math.max(0, -throttle) * CONTROL_LIMITS.brake,
+    acceleration: 0,
+    brake: 0,
   };
 }
 
