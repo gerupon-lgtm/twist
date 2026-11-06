@@ -9,6 +9,12 @@
 - 390×844の低空、360×640の接近、東向きの画面画像を目視し、空の水色と地面の茶色/黄土色が分かれて描かれることを確認。画像名は既存テスト由来のv018/v016だが、画面の版表示はv0.1.9。
 - `npm run build` 成功。最終JS `index-DflB3Fy5.js`、CSS `index-Ck8BSCuf.css`。CSSは変更なし、JSは新しい内容のファイル名でキャッシュ更新。
 
-公開処理と公開版の確認結果は完了後に追記する。
+## 公開版
+
+- アプリコミット `8ceb5bd58e39c66fb16242a34c084d35ff09232c`。[GitHub Pages公開処理](https://github.com/gerupon-lgtm/twist/actions/runs/42312999886) は全工程成功、CIの84件の単体テストとビルドも成功。
+- [公開URL](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&v=0.1.9) のHTTP200/HTML型、画面v0.1.9、JS/CSSがローカル最終ビルドと一致。実行エラー0、HTTP読込エラー0。
+- 公開PCブラウザーの低空画像でも、空の水色と地面の茶色・黄土色、濃茶の格子を確認。
+- 公開版の左右端上下と面内回転の比較、出力保持、登り減速/降り加速、センサー欠落時停止、タッチスロットル、探索、目標マーク、見え方比較、地面のclear→low→danger→stoppedと手動再出発が成功。
+- スクリプト `node_modules/.cache/twist-public-check-v019.mjs`、結果 `test-results/public-v019-result.json`、画像 `test-results/public-v019-low.png` 等はGit管理外。次回Playwright実行で画像/結果フォルダーが初期化される。
 
 スマホ実機での気づきやすさは未確認。機首や進行方向によって地面が視野外にある場合は、配色だけでは地面は映らない。今回の実機報告がその状態かは断定せず、地面距離と接近表示も確認対象に残す。
