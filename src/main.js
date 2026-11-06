@@ -2,6 +2,7 @@ import './style.css';
 import { Quaternion, MathUtils } from 'three';
 import { CONTROL_LIMITS, orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, composeDevicePose, controlRates, flightRates, advanceSpeed } from './controls.js';
 import { createStage } from './stage.js';
+import { projectEdgeTarget } from './visibility.js';
 
 const $ = (id) => document.getElementById(id);
 const app = $('app');
@@ -9,6 +10,7 @@ const canvas = $('world');
 let stage;
 let phase = 'intro';
 let playMode = new URLSearchParams(location.search).get('mode') === 'flight' ? 'flight' : 'explore';
+let visibility = new URLSearchParams(location.search).get('view') === 'classic' ? 'classic' : 'assisted';
 let inputMode = null;
 let reference = null;
 let craftReference = null;
@@ -46,6 +48,7 @@ function setPhase(next) {
   $('veil').hidden = next === 'running';
   for (const mode of ['explore', 'flight']) $(`mode-${mode}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   $('throttle-input').disabled = next !== 'running' || playMode !== 'flight';
+  for (const view of ['assisted', 'classic']) $(`view-${view}`).disabled = ['waiting', 'ready'].includes(next);
 }
 
 const modeNote = () => playMode === 'flight'
@@ -57,6 +60,29 @@ function setThrottle(value) {
   $('throttle-input').value = String(Math.round(throttle * 100));
   $('throttle-value').textContent = `${Math.round(throttle * 100)}%`;
 }
+
+function applyVisibilityUI() {
+  const assisted = visibility === 'assisted';
+  app.dataset.visibility = visibility;
+  $('play-mode-label').textContent = `${playMode === 'flight' ? '飛行機' : '探索'}・${assisted ? '対策' : '従来'}`;
+  $('view-assisted').setAttribute('aria-pressed', String(assisted));
+  $('view-classic').setAttribute('aria-pressed', String(!assisted));
+  $('view-note').textContent = assisted ? '視野を広く。色と形の目印と、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&v=0.1.6`;
+}
+
+function selectVisibility(next) {
+  if (!stage || next === visibility || !['assisted', 'classic'].includes(next) || ['waiting', 'ready'].includes(phase)) return;
+  visibility = next;
+  stage.setVisibility(visibility);
+  applyVisibilityUI();
+  const url = new URL(location.href);
+  url.searchParams.set('view', visibility);
+  url.searchParams.set('v', '0.1.6');
+  history.replaceState(null, '', url);
+}
+$('view-assisted').addEventListener('click', () => selectVisibility('assisted'));
+$('view-classic').addEventListener('click', () => selectVisibility('classic'));
 
 function applyModeUI() {
   const flight = playMode === 'flight';
@@ -85,7 +111,7 @@ function applyModeUI() {
   $('practice-brake').textContent = flight ? '出力0%' : 'ブレーキ';
   $('dialog-note').textContent = modeNote();
   $('dialog-note').hidden = false;
-  $('home-link').href = `./?mode=${playMode}&v=0.1.5`;
+  applyVisibilityUI();
 }
 
 function selectMode(next) {
@@ -102,7 +128,8 @@ function selectMode(next) {
   stage.update(0, { mode: playMode, speed: 0, craftQuaternion });
   const url = new URL(location.href);
   url.searchParams.set('mode', playMode);
-  url.searchParams.set('v', '0.1.5');
+  url.searchParams.set('view', visibility);
+  url.searchParams.set('v', '0.1.6');
   history.replaceState(null, '', url);
   if (resume) {
     setPhase('paused');
@@ -110,7 +137,7 @@ function selectMode(next) {
   } else {
     inputMode = null;
     setPhase('intro');
-    dialog({ title: '自分はそのまま。世界を動かそう。', description: '空中の光を3つ集めて出口へ。自機は最初の上向きを保ちます。', note: modeNote(), action: 'スマホの傾きで始める', guide: true });
+    dialog({ title: '自分はそのまま。世界を動かそう。', description: '金色の光を3つ集めて出口へ。自機は最初の上向きを保ちます。', note: modeNote(), action: 'スマホの傾きで始める', guide: true });
   }
 }
 $('mode-explore').addEventListener('click', () => selectMode('explore'));
@@ -411,6 +438,45 @@ function meter(axis, limit) {
 }
 
 let lastHudAt = 0;
+function updateEdgeMarker(state) {
+  const marker = $('target-edge-marker');
+  if (visibility !== 'assisted' || phase !== 'running' || state.complete || !state.targetLocal) {
+    marker.hidden = true;
+    app.dataset.edgeStatus = 'hidden';
+    return;
+  }
+  const width = window.innerWidth, height = window.innerHeight;
+  const cx = width / 2, cy = height / 2;
+  let left = 12, right = width - 12, top = 12, bottom = height - 12;
+  const nav = document.querySelector('.navigation').getBoundingClientRect();
+  const hud = $('bottom-panel').getBoundingClientRect();
+  top = Math.max(top, nav.bottom + 12);
+  if (hud.left < cx && hud.right > cx) bottom = Math.min(bottom, hud.top - 12);
+  else if (hud.left >= cx) right = Math.min(right, hud.left - 12);
+  else left = Math.max(left, hud.right + 12);
+  if (!$('practice-panel').hidden && width >= 600 && height <= 500) {
+    const practice = $('practice-panel').getBoundingClientRect();
+    if (practice.right < cx) left = Math.max(left, practice.right + 12);
+  }
+  if (!$('toast').hidden) top = Math.max(top, $('toast').getBoundingClientRect().bottom + 12);
+  const projected = projectEdgeTarget({
+    target: state.targetLocal, width, height, verticalFov: state.fieldOfView.vertical,
+    bounds: { left: left + 50, top: top + 25, right: right - 50, bottom: bottom - 25 },
+    avoid: { left: cx - 100, top: cy - 75, right: cx + 100, bottom: cy + 75 },
+  });
+  marker.hidden = !projected.visible;
+  app.dataset.edgeStatus = projected.visible ? 'shown' : projected.inView ? 'onscreen' : 'hidden';
+  app.dataset.edgeBehind = String(projected.behind);
+  if (!projected.visible) return;
+  marker.style.left = `${projected.x}px`;
+  marker.style.top = `${projected.y}px`;
+  $('edge-arrow').style.transform = `rotate(${projected.rotation}deg)`;
+  $('edge-label').textContent = state.targetLabel;
+  const vertical = Math.abs(state.elevation) > 0.13 ? (state.elevation > 0 ? '上' : '下') : '';
+  $('edge-detail').textContent = `${[projected.behind ? '後ろ' : '', vertical].filter(Boolean).join('・')} ${Math.round(state.distance)}m`.trim();
+  marker.setAttribute('aria-label', `${state.targetLabel} ${$('edge-detail').textContent}`);
+}
+
 function updateHud(now, state) {
   if (now - lastHudAt < 80) return;
   lastHudAt = now;
@@ -429,7 +495,8 @@ function updateHud(now, state) {
   $('objective').textContent = state.collected < state.total ? '3つの光を集めて、出口へ' : '光がそろいました。出口へ';
   $('nav-arrow').style.transform = `rotate(${state.bearing * 180 / Math.PI}deg)`;
   const behind = Math.abs(state.bearing) > Math.PI / 2;
-  const horizontal = behind ? (state.bearing > 0 ? '右の後ろ' : '左の後ろ') : Math.abs(state.bearing) > 0.25 ? (state.bearing > 0 ? '右' : '左') : '正面';
+  const directlyBehind = visibility === 'assisted' && Math.abs(state.bearing) >= 175 * Math.PI / 180;
+  const horizontal = behind ? (directlyBehind ? '後ろ' : state.bearing > 0 ? '右の後ろ' : '左の後ろ') : Math.abs(state.bearing) > 0.25 ? (state.bearing > 0 ? '右' : '左') : '正面';
   const vertical = Math.abs(state.elevation) > 0.13 ? (state.elevation > 0 ? '上' : '下') : '';
   $('target-direction').textContent = `${horizontal}${vertical ? `・${vertical}` : ''}`;
   app.dataset.speed = state.speed.toFixed(3);
@@ -442,6 +509,9 @@ function updateHud(now, state) {
   app.dataset.verticalSpeed = String(state.verticalSpeed || 0);
   app.dataset.throttle = String(state.throttle || 0);
   app.dataset.grounded = String(Boolean(state.grounded));
+  app.dataset.horizontalFov = String(state.fieldOfView?.horizontal || 0);
+  app.dataset.landmarkCount = String(state.landmarks?.length || 0);
+  updateEdgeMarker(state);
 }
 
 let previousFrame = performance.now();
@@ -494,7 +564,7 @@ function frame(now) {
 
 applyModeUI();
 try {
-  stage = createStage(canvas);
+  stage = createStage(canvas, { visibility });
   stage.update(0, { mode: playMode, speed: 0, craftQuaternion });
   resize();
   requestAnimationFrame(frame);

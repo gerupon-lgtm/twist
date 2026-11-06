@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FLIGHT_MODEL, stepFlightVelocity } from './flight-physics.js';
+import { computeFieldOfView } from './visibility.js';
 
 const START = new THREE.Vector3(0, 7, 26);
 const BEACONS = [
@@ -12,13 +13,20 @@ const COLLECT_RADIUS = 3.2;
 const EXIT_RADIUS = 4;
 const SKY = 0xdcebf1;
 const MAX_BANK = THREE.MathUtils.degToRad(40);
+const DIRECTION_LANDMARKS = [
+  { id: 'north', label: '北の三角塔', color: '#2c81b7', shape: 'triangle', position: { x: 0, y: 16, z: -98 } },
+  { id: 'east', label: '東の四角塔', color: '#bf6559', shape: 'square', position: { x: 74, y: 16, z: -24 } },
+  { id: 'south', label: '南のひし形', color: '#8b6bb3', shape: 'diamond', position: { x: 0, y: 16, z: 54 } },
+  { id: 'west', label: '西のアーチ', color: '#478f73', shape: 'arch', position: { x: -74, y: 16, z: -24 } },
+];
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const flightYawForBank = (angle, speed) => speed > 0
   ? THREE.MathUtils.clamp(FLIGHT_MODEL.gravity * Math.tan(angle) / Math.max(speed, 6), -0.8, 0.8)
   : 0;
 
 /** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */
-export function createStage(canvas) {
+export function createStage(canvas, { visibility = 'assisted' } = {}) {
+  visibility = visibility === 'classic' ? 'classic' : 'assisted';
   let renderer;
   try {
     renderer = new THREE.WebGLRenderer({
@@ -61,6 +69,65 @@ export function createStage(canvas) {
     mesh.scale.set(width, height, depth);
     parent.add(mesh);
     return mesh;
+  }
+
+  // Stage directions, independent of the phone's compass. Hollow silhouettes
+  // and distant placement leave the nearer golden objectives unobstructed.
+  // This entire group is hidden in classic, keeping the old composition.
+  const directionLandmarks = new THREE.Group();
+  directionLandmarks.name = 'assisted-direction-landmarks';
+  world.add(directionLandmarks);
+  function polygon(points) {
+    const shape = new THREE.Shape();
+    points.forEach(([x, y], index) => index === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y));
+    shape.closePath();
+    return shape;
+  }
+  for (const landmark of DIRECTION_LANDMARKS) {
+    let shape;
+    let landmarkHeight = 28;
+    if (landmark.shape === 'triangle') {
+      landmarkHeight = 30;
+      shape = polygon([[-5.5, 0], [0, 30], [5.5, 0]]);
+      shape.holes.push(polygon([[-3.5, 1.5], [3.5, 1.5], [0, 22.5]]));
+    } else if (landmark.shape === 'square') {
+      shape = polygon([[-5, 0], [5, 0], [5, 28], [-5, 28]]);
+      shape.holes.push(polygon([[-3.4, 1.6], [-3.4, 26.4], [3.4, 26.4], [3.4, 1.6]]));
+    } else if (landmark.shape === 'diamond') {
+      shape = polygon([[0, 0], [5.5, 14], [0, 28], [-5.5, 14]]);
+      shape.holes.push(polygon([[0, 4], [-3.6, 14], [0, 24], [3.6, 14]]));
+    } else {
+      shape = new THREE.Shape();
+      shape.moveTo(-6, 0);
+      shape.lineTo(-6, 22);
+      shape.absarc(0, 22, 6, Math.PI, 0, true);
+      shape.lineTo(6, 0);
+      shape.lineTo(4.4, 0);
+      shape.lineTo(4.4, 22);
+      shape.absarc(0, 22, 4.4, 0, Math.PI, false);
+      shape.lineTo(-4.4, 0);
+      shape.closePath();
+    }
+    const group = new THREE.Group();
+    group.name = `direction-${landmark.id}`;
+    group.position.set(landmark.position.x, landmark.position.y, landmark.position.z);
+    // Faces look toward the arena's center; the three-unit extrusion also
+    // gives the landmark a silhouette when approached from an oblique angle.
+    if (landmark.id === 'east') group.rotation.y = -Math.PI / 2;
+    else if (landmark.id === 'south') group.rotation.y = Math.PI;
+    else if (landmark.id === 'west') group.rotation.y = Math.PI / 2;
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth: 3, steps: 1, bevelEnabled: true, bevelSize: 0.12, bevelThickness: 0.12,
+      bevelSegments: 1, curveSegments: 16,
+    });
+    geometry.translate(0, -landmarkHeight / 2, -1.5);
+    const material = new THREE.MeshBasicMaterial({ color: landmark.color, fog: false });
+    group.add(new THREE.Mesh(geometry, material));
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 25),
+      new THREE.LineBasicMaterial({ color: 0xeaf4f7, fog: false, transparent: true, opacity: 0.72 }));
+    group.add(edges);
+    box(group, 0, -landmarkHeight / 2 - 0.6, 0, 12.6, 1, 5, stone);
+    directionLandmarks.add(group);
   }
 
   // A finite floating island, its perimeter, and neighboring islands give height
@@ -351,6 +418,7 @@ export function createStage(canvas) {
   let complete = false;
   let width = 1;
   let height = 1;
+  let fieldOfView = { vertical: 64, horizontal: 64 };
   let disposed = false;
 
   function syncWorld() {
@@ -433,13 +501,27 @@ export function createStage(canvas) {
     height = Math.max(1, finite(nextHeight, 1));
     renderer.setPixelRatio(THREE.MathUtils.clamp(finite(pixelRatio, 1), 0.5, 1.6));
     renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
+    updateProjection();
     craftCamera.left = -width / 2;
     craftCamera.right = width / 2;
     craftCamera.top = height / 2;
     craftCamera.bottom = -height / 2;
     craftCamera.updateProjectionMatrix();
+    render();
+  }
+
+  function updateProjection() {
+    fieldOfView = computeFieldOfView(width, height, visibility);
+    camera.aspect = width / height;
+    camera.fov = fieldOfView.vertical;
+    camera.updateProjectionMatrix();
+    directionLandmarks.visible = visibility === 'assisted';
+  }
+
+  function setVisibility(profile) {
+    if (disposed) return;
+    visibility = profile === 'classic' ? 'classic' : 'assisted';
+    updateProjection();
     render();
   }
 
@@ -601,6 +683,12 @@ export function createStage(canvas) {
       craftScreen: { x: width / 2, y: height / 2 },
       cameraPosition: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
       targetPosition: { x: target.x, y: target.y, z: target.z },
+      visibility,
+      fieldOfView: { ...fieldOfView },
+      targetLocal: { x: localRelative.x, y: localRelative.y, z: localRelative.z },
+      landmarks: visibility === 'assisted' ? DIRECTION_LANDMARKS.map((landmark) => ({
+        ...landmark, position: { ...landmark.position },
+      })) : [],
     };
   }
 
@@ -636,6 +724,7 @@ export function createStage(canvas) {
     renderer.dispose();
   }
 
+  updateProjection();
   reset();
-  return { resize, update, getStatus, reset, launchFlight, dispose };
+  return { resize, update, getStatus, reset, launchFlight, setVisibility, dispose };
 }

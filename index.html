@@ -6,15 +6,15 @@
     <meta name="theme-color" content="#dcebf1" />
     <meta name="description" content="自分はそのまま、世界を動かす。スマホの傾きとひねりで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.5" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.6" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
       <header class="topbar">
-        <a class="brand" id="home-link" href="./?v=0.1.5" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <a class="brand" id="home-link" href="./?v=0.1.6" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
         <span class="mode-tag" id="play-mode-label">探索モード</span>
-        <span class="version">操作検証 <b>v0.1.5</b></span>
+        <span class="version">操作検証 <b>v0.1.6</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
@@ -25,6 +25,10 @@
       </section>
 
       <div class="center-mark" aria-hidden="true"><span></span></div>
+      <div class="target-edge-marker" id="target-edge-marker" hidden>
+        <svg id="edge-arrow" viewBox="0 0 40 40" aria-hidden="true"><path d="m20 5 12 27-12-6-12 6Z"/></svg>
+        <div class="edge-copy"><strong id="edge-label">光 1</strong><span id="edge-detail">上 26m</span></div>
+      </div>
       <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
       <section class="bottom-panel" aria-label="操作の状態" id="bottom-panel">
@@ -57,8 +61,9 @@
           <span class="card-symbol" aria-hidden="true">↝</span>
           <p class="card-kicker" id="dialog-kicker">傾きとひねりの操作検証</p>
           <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
-          <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。空中の光を3つ集めて出口へ。</p>
+          <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。金色の光を3つ集めて出口へ。</p>
           <div class="mode-picker" role="group" aria-label="遊び方"><button id="mode-explore" type="button" aria-pressed="true">探索</button><button id="mode-flight" type="button" aria-pressed="false">飛行機</button><small>切替はステージを最初から</small></div>
+          <div class="view-picker" role="group" aria-label="見え方"><span>見え方</span><button id="view-assisted" type="button" aria-pressed="true">見失い対策</button><button id="view-classic" type="button" aria-pressed="false">従来</button><small id="view-note">視野を広く、色と形の目印、画面外の目標マーク</small></div>
           <div class="control-guide" id="control-guide">
             <div><span class="phone-glyph pitch-glyph" aria-hidden="true">↕</span><p><b id="guide-pitch-title">自機の先端側へ倒す</b><span id="guide-pitch-text">先端側で加速、逆側でブレーキ</span></p></div>
             <div><span class="phone-glyph steer-glyph" aria-hidden="true">↔</span><p><b id="guide-steer-title">自機の左右へ倒す</b><span id="guide-steer-text">下げた側へ曲がり続ける</span></p></div>
