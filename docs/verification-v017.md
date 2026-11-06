@@ -14,7 +14,14 @@
 
 ## 公開版
 
-更新公開と、公開URLの版・資産・操作・表示・読込エラーの確認後に結果を追記する。
+- アプリコミット: `4a0f15ef51ec52be2f14ddc224995c47c0e132a3`。
+- [GitHub Actionsの公開処理](https://github.com/gerupon-lgtm/twist/actions/runs/42309142955): 成功。CIの依存取得・75件の単体テスト・ビルド・Pages公開を完了。
+- [ひねり旋回の公開URL](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=twist&v=0.1.7)、[左右倒しの比較URL](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&v=0.1.7)。公開HTMLと版番号0.1.7、JS `index-DTxck--K.js`、CSS `index-D3zbCBaM.css` がローカルの最終ビルドと一致。
+- 公開ブラウザーで、右/左ひねりによる旋回と逆方向の左右倒しの非干渉、出力50%保持、同じ出力での上昇減速/下降加速、無効センサー入力時停止を確認。
+- 公開版で方式を切り替えて手動再開し、±90/180度回した後も本体上端12度が前後12度・左右0度を保つことを確認。左右倒しによる旋回も確認。
+- 公開タッチスライダー、出力保持、出力0での滑空、停止/再開、探索の12度加速・中立維持・制動、4目印と45度の横視野、後方の目標案内、同位置での見え方切替を確認。
+- 390×844・360×640・844×390の公開開始画面と、右ひねり時の操縦画面を画像で確認。開始・旋回選択のボタンが使え、左右のはみ出しなし。ブラウザー実行エラー0・HTTP読込エラー0。
+- 検証用スクリプトは `node_modules/.cache/twist-public-check-v017.mjs`、結果は `test-results/public-v017-result.json`。いずれもGit管理外。画像は `test-results/public-v017-intro-{390,360,844}.png`、`public-v017-right-turn.png` など。同じフォルダーは次回のPlaywright実行で初期化される。
 
 ## スマホ実機で確認すること（未確認）
 
