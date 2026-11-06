@@ -1,6 +1,6 @@
 import './style.css';
 import { Quaternion, MathUtils } from 'three';
-import { CONTROL_LIMITS, orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, composeDevicePose, controlRates, flightRates, advanceSpeed } from './controls.js';
+import { CONTROL_LIMITS, orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, deviceTiltAngles, composeDevicePose, controlRates, flightRates, advanceSpeed } from './controls.js';
 import { createStage } from './stage.js';
 import { projectEdgeTarget } from './visibility.js';
 
@@ -11,6 +11,7 @@ let stage;
 let phase = 'intro';
 let playMode = new URLSearchParams(location.search).get('mode') === 'flight' ? 'flight' : 'explore';
 let visibility = new URLSearchParams(location.search).get('view') === 'classic' ? 'classic' : 'assisted';
+let flightSteering = new URLSearchParams(location.search).get('steer') === 'tilt' ? 'tilt' : 'twist';
 let inputMode = null;
 let reference = null;
 let craftReference = null;
@@ -49,10 +50,11 @@ function setPhase(next) {
   for (const mode of ['explore', 'flight']) $(`mode-${mode}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   $('throttle-input').disabled = next !== 'running' || playMode !== 'flight';
   for (const view of ['assisted', 'classic']) $(`view-${view}`).disabled = ['waiting', 'ready'].includes(next);
+  for (const steering of ['twist', 'tilt']) $(`steering-${steering}`).disabled = ['waiting', 'ready', 'running'].includes(next);
 }
 
 const modeNote = () => playMode === 'flight'
-  ? '出力50%で出発します。同じ出力でも上昇で減速、下降で加速。低出力では降下しやすくなります。'
+  ? 'スマホ本体を基準に操縦します。出力50%で出発。上昇で減速、下降で加速し、低出力では降下しやすくなります。'
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
 
 function setThrottle(value) {
@@ -68,7 +70,7 @@ function applyVisibilityUI() {
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? '視野を広く。色と形の目印と、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&v=0.1.6`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.7`;
 }
 
 function selectVisibility(next) {
@@ -78,7 +80,8 @@ function selectVisibility(next) {
   applyVisibilityUI();
   const url = new URL(location.href);
   url.searchParams.set('view', visibility);
-  url.searchParams.set('v', '0.1.6');
+  url.searchParams.set('steer', flightSteering);
+  url.searchParams.set('v', '0.1.7');
   history.replaceState(null, '', url);
 }
 $('view-assisted').addEventListener('click', () => selectVisibility('assisted'));
@@ -86,23 +89,39 @@ $('view-classic').addEventListener('click', () => selectVisibility('classic'));
 
 function applyModeUI() {
   const flight = playMode === 'flight';
+  const twistSteering = flightSteering === 'twist';
   app.dataset.playMode = playMode;
+  app.dataset.controlBasis = flight ? 'device' : 'craft';
+  app.dataset.flightSteering = flightSteering;
   $('play-mode-label').textContent = flight ? '飛行機モード' : '探索モード';
   $('flight-attitude').hidden = !flight;
   $('flight-throttle').hidden = !flight;
-  $('twist-control-meter').hidden = flight;
+  $('steer-control-meter').hidden = flight && twistSteering;
+  $('twist-control-meter').hidden = flight && !twistSteering;
+  $('pitch-label').textContent = flight ? 'スマホ上端の傾き' : '先端側の傾き';
+  $('steer-label').textContent = flight ? 'スマホ右端の傾き' : '自機の左右';
+  $('twist-label').textContent = flight ? 'スマホのひねり' : '左右のひねり';
+  $('flight-steering-picker').hidden = !flight;
+  $('steering-twist').setAttribute('aria-pressed', String(twistSteering));
+  $('steering-tilt').setAttribute('aria-pressed', String(!twistSteering));
+  $('steering-note').textContent = twistSteering
+    ? '画面を見たままハンドルのように回す。右回しで右旋回。'
+    : 'お盆のように左右の端を上下する。下げた側へ旋回。';
   $('practice-panel').open = !flight;
   $('practice-summary').hidden = !flight;
   $('mode-explore').setAttribute('aria-pressed', String(!flight));
   $('mode-flight').setAttribute('aria-pressed', String(flight));
-  $('pitch-caption').textContent = flight ? '先端側を起こすと機首上げ' : '先端側で加速・逆で制動';
-  $('steer-caption').textContent = flight ? '翼を傾けて旋回' : '下げた側へ曲がる';
-  $('twist-caption').textContent = flight ? '回しても出力は変わらない' : '右で上・左で下へ曲がる';
+  $('pitch-caption').textContent = flight ? '上端を起こすと機首上げ' : '先端側で加速・逆で制動';
+  $('steer-caption').textContent = flight ? '下げた側へ旋回' : '下げた側へ曲がる';
+  $('twist-caption').textContent = flight ? '右回しで右・左回しで左旋回' : '右で上・左で下へ曲がる';
   $('stop-hint').textContent = flight ? '停止は一時停止ボタン' : `加減速は${CONTROL_LIMITS.throttleMaximum}°で最大`;
-  $('guide-pitch-title').textContent = flight ? '先端側を起こす・倒す' : '自機の先端側へ倒す';
-  $('guide-pitch-text').textContent = flight ? '機首を上下へ向ける' : '先端側で加速、逆側でブレーキ';
-  $('guide-steer-title').textContent = flight ? '翼を傾けるように倒す' : '自機の左右へ倒す';
-  $('guide-steer-text').textContent = flight ? '傾けた側へ旋回' : '下げた側へ曲がり続ける';
+  $('guide-pitch-title').textContent = flight ? 'スマホ本体の上端を起こす・倒す' : '自機の先端側へ倒す';
+  $('guide-pitch-text').textContent = flight ? '起こすと機首上げ、前へ倒すと機首下げ' : '先端側で加速、逆側でブレーキ';
+  $('guide-steer-title').textContent = flight ? (twistSteering ? 'ハンドルのように左右へひねる' : 'スマホの左右の端を上下する') : '自機の左右へ倒す';
+  $('guide-steer-text').textContent = flight ? (twistSteering ? '回した側へ旋回。戻すと翼が水平へ' : '下げた側へ旋回。戻すと翼が水平へ') : '下げた側へ曲がり続ける';
+  $('guide-steer-glyph').textContent = flight && twistSteering ? '↻' : '↔';
+  $('guide-steer-glyph').classList.toggle('twist-glyph', flight && twistSteering);
+  $('guide-steer-glyph').classList.toggle('steer-glyph', !flight || !twistSteering);
   $('guide-twist-title').textContent = flight ? '画面下のスロットル' : '左右へひねって保つ';
   $('guide-twist-text').textContent = flight ? 'エンジン出力を調整' : '右で上、左で下へ曲がり続ける';
   $('guide-third-glyph').textContent = flight ? '⇄' : '↻';
@@ -113,6 +132,18 @@ function applyModeUI() {
   $('dialog-note').hidden = false;
   applyVisibilityUI();
 }
+
+function selectSteering(next) {
+  if (!stage || next === flightSteering || !['twist', 'tilt'].includes(next) || ['waiting', 'ready', 'running'].includes(phase)) return;
+  flightSteering = next;
+  applyModeUI();
+  const url = new URL(location.href);
+  url.searchParams.set('steer', flightSteering);
+  url.searchParams.set('v', '0.1.7');
+  history.replaceState(null, '', url);
+}
+$('steering-twist').addEventListener('click', () => selectSteering('twist'));
+$('steering-tilt').addEventListener('click', () => selectSteering('tilt'));
 
 function selectMode(next) {
   if (!stage || next === playMode || ['waiting', 'ready', 'running'].includes(phase)) return;
@@ -129,7 +160,8 @@ function selectMode(next) {
   const url = new URL(location.href);
   url.searchParams.set('mode', playMode);
   url.searchParams.set('view', visibility);
-  url.searchParams.set('v', '0.1.6');
+  url.searchParams.set('steer', flightSteering);
+  url.searchParams.set('v', '0.1.7');
   history.replaceState(null, '', url);
   if (resume) {
     setPhase('paused');
@@ -225,11 +257,12 @@ function run(mode) {
 function refreshOrientations() {
   latestQuaternion = orientationQuaternion(latestOrientationSample, screenAngle());
   // A browser layout rotation is not a physical twist of the phone.
-  latestInputQuaternion = orientationQuaternion(latestOrientationSample, referenceScreenAngle);
+  latestInputQuaternion = orientationQuaternion(latestOrientationSample, playMode === 'flight' ? 0 : referenceScreenAngle);
 }
 
 function readPose(displayPose, inputPose, neutralReference, physicalReference) {
   craftQuaternion.copy(compensationQuaternion(physicalReference, displayPose));
+  if (playMode === 'flight') return deviceTiltAngles(neutralReference, inputPose);
   const neutralCompensation = compensationQuaternion(neutralReference, displayPose);
   return {
     ...projectedTiltAngles(craftQuaternion, neutralCompensation),
@@ -335,11 +368,11 @@ function finishCalibration() {
   clearTimeout(waitingTimer);
   referenceScreenAngle = screenAngle();
   refreshOrientations();
-  reference = latestQuaternion.clone();
-  if (!craftReference) craftReference = reference.clone();
+  reference = (playMode === 'flight' ? latestInputQuaternion : latestQuaternion).clone();
+  if (!craftReference) craftReference = latestQuaternion.clone();
   angles = { pitch: 0, steer: 0, twist: 0 };
   run('sensor');
-  showToast(playMode === 'flight' ? '先端側を起こすと機首上げ。左右で旋回し、画面下でエンジン出力を調整します。' : '自機の先端側を下げると加速、逆側を下げるとブレーキ。持ち直しても自機の向きは保ちます。', 4300);
+  showToast(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ。${flightSteering === 'twist' ? 'ハンドルのようにひねって' : '左右の端を上下して'}旋回します。` : '自機の先端側を下げると加速、逆側を下げるとブレーキ。持ち直しても自機の向きは保ちます。', 4300);
 }
 
 function showToast(text, duration = 2600) {
@@ -376,12 +409,12 @@ $('pause-button').addEventListener('click', () => pause());
 $('recenter-button').addEventListener('click', () => pause('一度停止しました。自機の向きは保ったまま、今の持ち方を操作の中立に合わせ直します。'));
 $('help-button').addEventListener('click', () => {
   if (phase !== 'running') return;
-  pause(playMode === 'flight' ? '先端側を手前へ起こす感覚で機首上げ、倒すと機首下げ。左右へ傾けて旋回します。スロットルはエンジンの強さで、指を離すと出力を保ちます。出力0%でも滑空するため、停止は一時停止を使います。機首は自動で水平へ戻りません。' : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。傾きを中立へ戻すと速さを保ち、ひねりで上下へ。半回転付近では上下のひねりが中立に戻ります。');
+  pause(playMode === 'flight' ? `自機の表示向きに関係なく、スマホ本体の上端を手前へ起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '画面を見たままハンドルのように右へ回すと右旋回、左へ回すと左旋回。左右の端を倒す動きは旋回に使いません。' : 'スマホの右端を下げると右旋回、左端を下げると左旋回。ひねりは旋回に使いません。'}戻すと翼は水平へ戻りますが、機首は今の角度を保ちます。スロットルはエンジンの強さで、指を離すと出力を保ちます。出力0%でも滑空するため、停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。傾きを中立へ戻すと速さを保ち、ひねりで上下へ。半回転付近では上下のひねりが中立に戻ります。');
   $('control-guide').hidden = false;
 });
 $('practice-neutral').addEventListener('click', zeroPractice);
 function pointPracticeTilt(pitch, steer, twist = practiceAngles.twist) {
-  const radians = MathUtils.degToRad(twist);
+  const radians = playMode === 'flight' ? 0 : MathUtils.degToRad(twist);
   practiceAngles.pitch = Math.round(pitch * Math.cos(radians) - steer * Math.sin(radians));
   practiceAngles.steer = Math.round(pitch * Math.sin(radians) + steer * Math.cos(radians));
   practiceAngles.twist = twist;
@@ -529,8 +562,11 @@ function frame(now) {
       } else {
         if (keyboardActive) {
           const pitch = playMode === 'flight' ? (heldKeys.has('w') ? 18 : 0) - (heldKeys.has('s') ? 18 : 0) : (heldKeys.has('s') ? 22 : 0) - (heldKeys.has('w') ? 18 : 0);
-          const steer = (heldKeys.has('d') ? 18 : 0) - (heldKeys.has('a') ? 18 : 0);
-          const turn = keyboardTwistBase + (playMode === 'flight' ? 0 : (heldKeys.has('e') ? 22 : 0) - (heldKeys.has('q') ? 22 : 0));
+          const lateral = (heldKeys.has('d') ? 18 : 0) - (heldKeys.has('a') ? 18 : 0);
+          const steer = playMode === 'flight' && flightSteering === 'twist' ? 0 : lateral;
+          const turn = playMode === 'flight'
+            ? (flightSteering === 'twist' ? lateral : keyboardTwistBase)
+            : keyboardTwistBase + (heldKeys.has('e') ? 22 : 0) - (heldKeys.has('q') ? 22 : 0);
           if (playMode === 'flight' && (heldKeys.has('e') || heldKeys.has('q'))) setThrottle(throttle + ((heldKeys.has('e') ? 1 : 0) - (heldKeys.has('q') ? 1 : 0)) * dt * 0.4);
           const wrappedTurn = ((turn + 180) % 360 + 360) % 360 - 180;
           pointPracticeTilt(pitch, steer, wrappedTurn);
@@ -538,9 +574,9 @@ function frame(now) {
         const pose = composeDevicePose(practiceAngles);
         angles = readPose(pose, pose, neutralQuaternion, neutralQuaternion);
       }
-      if (phase === 'running' && angles.valid === false) pause('自機の先端が見えにくい角度になったため停止しました。画面を少し戻して、操作の中立を合わせ直してください。');
+      if (phase === 'running' && angles.valid === false) pause(playMode === 'flight' ? '中立の持ち方から大きく倒れたため停止しました。画面が見やすい角度に戻して、持ち方を合わせ直してください。' : '自機の先端が見えにくい角度になったため停止しました。画面を少し戻して、操作の中立を合わせ直してください。');
     }
-    rates = phase === 'running' ? (playMode === 'flight' ? flightRates(angles) : controlRates(angles)) : { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };
+    rates = phase === 'running' ? (playMode === 'flight' ? flightRates(angles, 1, flightSteering) : controlRates(angles)) : { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };
     if (phase === 'running') {
       if (playMode === 'explore') speed = advanceSpeed(speed, dt, rates);
       stage.update(dt, { ...rates, mode: playMode, speed, throttle, craftQuaternion });

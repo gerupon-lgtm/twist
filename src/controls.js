@@ -87,6 +87,23 @@ export function compensationQuaternion(referenceQuaternion, currentQuaternion) {
   return current.invert().multiply(reference).normalize();
 }
 
+/** Read tilt along the phone's own top/right edges, independent of craft drawing. */
+export function deviceTiltAngles(referenceQuaternion, currentQuaternion) {
+  const reference = normalizedQuaternion(referenceQuaternion);
+  const current = normalizedQuaternion(currentQuaternion);
+  const invalid = () => ({ pitch: 0, steer: 0, twist: 0, valid: false });
+  if (!reference || !current) return invalid();
+  const compensation = current.clone().invert().multiply(reference).normalize();
+  const normal = new Vector3(0, 0, 1).applyQuaternion(compensation);
+  if (normal.z <= 0.08) return invalid();
+  return {
+    pitch: MathUtils.radToDeg(Math.atan2(normal.y, normal.z)),
+    steer: -MathUtils.radToDeg(Math.atan2(normal.x, normal.z)),
+    twist: relativeAngles(reference, current).twist,
+    valid: true,
+  };
+}
+
 /**
  * Measure the screen plane's slope along the craft's visible nose and right.
  * Drawing and input may have separate references after the user re-centers:
@@ -157,14 +174,16 @@ export function controlRates(angles, sensitivity = 1) {
   };
 }
 
-/** Flight mode: nose and wing input only; the on-screen engine output drives speed. */
-export function flightRates(angles, sensitivity = 1) {
+/** Phone-top pitch plus either twist or side tilt; engine output stays independent. */
+export function flightRates(angles, sensitivity = 1, steering = 'twist') {
   const gain = Number.isFinite(sensitivity) ? Math.max(0, sensitivity) : 1;
+  const bankDemand = steering === 'tilt'
+    ? angleDemand(angles?.steer, gain, CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum)
+    : angleDemand(foldedTwist(angles?.twist), gain, CONTROL_LIMITS.twistDeadzone, CONTROL_LIMITS.twistMaximum);
   return {
     pitchRate: angleDemand(angles?.pitch, gain,
       CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum) * CONTROL_LIMITS.pitchRate,
-    bankAngle: angleDemand(angles?.steer, gain,
-      CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum) * CONTROL_LIMITS.flightBankAngle,
+    bankAngle: bankDemand * CONTROL_LIMITS.flightBankAngle,
     acceleration: 0,
     brake: 0,
   };

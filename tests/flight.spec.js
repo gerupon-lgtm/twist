@@ -7,7 +7,7 @@ const speed = page => page.locator('#speed-value').textContent().then(Number);
 const data = (page, key) => page.locator('#app').getAttribute(`data-${key}`).then(Number);
 const sensor = (page, sample) => page.evaluate(sample => window.dispatchEvent(Object.assign(new Event('deviceorientation'), sample)), sample);
 async function practice(page) {
-  await page.goto('/?mode=flight');
+  await page.goto('/?mode=flight&steer=tilt');
   await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-play-mode', 'flight');
   await expect(page.locator('#throttle-value')).toHaveText('50%');
@@ -20,7 +20,7 @@ async function fakeFlight(page) {
     Object.defineProperty(window, 'DeviceOrientationEvent', { value: Orientation, configurable: true });
     Object.defineProperty(window, 'DeviceMotionEvent', { value: Motion, configurable: true });
   });
-  await page.goto('/?mode=flight');
+  await page.goto('/?mode=flight&steer=tilt');
   await page.getByRole('button', { name: 'スマホの傾きで始める', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'waiting');
   expect(await speed(page)).toBe(0);
@@ -130,7 +130,7 @@ test('mode switch resets the stage and preserves twelve-degree exploration accel
 });
 
 test('flight controls fit portrait and landscape while keeping the craft center uncovered', async ({ page }) => {
-  await page.goto('/?mode=flight');
+  await page.goto('/?mode=flight&steer=tilt');
   await expect(page.locator('#control-guide')).toContainText('画面下のスロットル');
   for (const size of [{ width: 390, height: 844 }, { width: 360, height: 640 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(size);
@@ -205,7 +205,7 @@ test('approaching the ground stops flight and explicit restart resets the route'
 });
 
 test('compound flight steering adds no unintended roll and a full pitch loop stays continuous', async ({ page }) => {
-  await page.goto('/?mode=flight');
+  await page.goto('/?mode=flight&steer=tilt');
   const result = await page.evaluate(async () => {
     const { createStage } = await import('/src/stage.js');
     const stage = createStage(document.createElement('canvas'));
@@ -237,7 +237,7 @@ test('compound flight steering adds no unintended roll and a full pitch loop sta
 });
 
 test('physical flight reaches all aerial targets and the exit without moving the craft or camera', async ({ page }) => {
-  await page.goto('/?mode=flight');
+  await page.goto('/?mode=flight&steer=tilt');
   const result = await page.evaluate(async () => {
     const { createStage } = await import('/src/stage.js');
     const stage = createStage(document.createElement('canvas'));
