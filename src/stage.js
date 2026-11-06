@@ -2,9 +2,9 @@ import * as THREE from 'three';
 
 const START = new THREE.Vector3(0, 7, 26);
 const BEACONS = [
-  new THREE.Vector3(0, 8, 0),
-  new THREE.Vector3(16, 15, -24),
-  new THREE.Vector3(-14, 10, -44),
+  new THREE.Vector3(0, 10, 0),
+  new THREE.Vector3(16, 18, -24),
+  new THREE.Vector3(-14, 12, -44),
 ];
 const EXIT = new THREE.Vector3(0, 7, -62);
 const COLLECT_RADIUS = 3.2;
@@ -12,7 +12,7 @@ const EXIT_RADIUS = 4;
 const SKY = 0xdcebf1;
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 
-/** Fixed camera and craft: only the inverse simulation pose moves the world. */
+/** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */
 export function createStage(canvas) {
   let renderer;
   try {
@@ -139,6 +139,99 @@ export function createStage(canvas) {
   }
   world.add(perimeter);
 
+  // Blue hexagons are landmarks, unlike the round, golden collection targets.
+  // Three visible height bands continue around the island, including behind
+  // the start. Shared geometry keeps these references to just one draw call.
+  const landmarkMaterial = new THREE.MeshBasicMaterial({ color: 0x71aaba });
+  const aerialRingMaterial = new THREE.MeshBasicMaterial({
+    color: 0x92bec9, transparent: true, opacity: 0.32, depthWrite: false,
+  });
+  const aerialRingGeometry = new THREE.TorusGeometry(1.8, 0.045, 4, 6);
+  const aerialRings = new THREE.InstancedMesh(aerialRingGeometry, aerialRingMaterial, 36);
+  const landmarkRotation = new THREE.Quaternion();
+  const landmarkEuler = new THREE.Euler();
+  for (let band = 0; band < 3; band += 1) {
+    const radius = 66 + band * 8;
+    const altitude = 12 + band * 13;
+    for (let index = 0; index < 8; index += 1) {
+      // Offset the rings from the starting centerline: no large nearby frame
+      // should surround or compete with the first golden objective.
+      const angle = index / 8 * Math.PI * 2 + Math.PI / 8 + band * Math.PI / 16;
+      landmarkRotation.setFromEuler(landmarkEuler.set(0, -angle - Math.PI / 2, 0));
+      matrix.compose(markPosition.set(Math.cos(angle) * radius, altitude,
+        -24 + Math.sin(angle) * radius), landmarkRotation, markScale.set(1, 1, 1));
+      aerialRings.setMatrixAt(band * 8 + index, matrix);
+    }
+  }
+  // Horizontal rings above the flight ceiling are visible when looking up;
+  // they are scenery, never destinations the player has to reach.
+  landmarkRotation.setFromEuler(landmarkEuler.set(-Math.PI / 2, 0, 0));
+  for (let index = 0; index < 12; index += 1) {
+    const angle = index / 12 * Math.PI * 2;
+    const radius = index % 2 === 0 ? 24 : 46;
+    matrix.compose(markPosition.set(Math.cos(angle) * radius, 52,
+      -24 + Math.sin(angle) * radius), landmarkRotation, markScale.set(1.2, 1.2, 1.2));
+    aerialRings.setMatrixAt(24 + index, matrix);
+  }
+  world.add(aerialRings);
+
+  // Eight distant height staffs: longer ticks indicate higher levels. The
+  // thin blue shafts link sky objects back to the pale stone arena below.
+  const heightStaffs = new THREE.InstancedMesh(unitBox, landmarkMaterial, 8);
+  const heightTicks = new THREE.InstancedMesh(unitBox, landmarkMaterial, 24);
+  const staffCaps = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1.1), stone, 8);
+  for (let index = 0; index < 8; index += 1) {
+    const angle = index / 8 * Math.PI * 2 + Math.PI / 8;
+    const x = Math.cos(angle) * 76;
+    const z = -24 + Math.sin(angle) * 76;
+    landmarkRotation.setFromEuler(landmarkEuler.set(0, -angle - Math.PI / 2, 0));
+    matrix.compose(markPosition.set(x, 21, z), identity, markScale.set(0.16, 42, 0.16));
+    heightStaffs.setMatrixAt(index, matrix);
+    matrix.compose(markPosition.set(x, 43, z), identity, markScale.set(1, 1.6, 1));
+    staffCaps.setMatrixAt(index, matrix);
+    for (let band = 0; band < 3; band += 1) {
+      matrix.compose(markPosition.set(x, 12 + band * 12, z), landmarkRotation,
+        markScale.set(2.4 + band, 0.16, 0.16));
+      heightTicks.setMatrixAt(index * 3 + band, matrix);
+    }
+  }
+  world.add(heightStaffs, heightTicks, staffCaps);
+
+  // Fixed-size blue points trace the changing height between objectives.
+  // Perspective must never enlarge a nearby guide over a golden target/craft.
+  const routePoints = [START, ...BEACONS, EXIT];
+  const routeGuidePositions = [];
+  for (let section = 0; section < routePoints.length - 1; section += 1) {
+    for (let index = 0; index < 7; index += 1) {
+      markPosition.copy(routePoints[section]).lerp(routePoints[section + 1], (index + 1) / 8);
+      routeGuidePositions.push(markPosition.x, markPosition.y, markPosition.z);
+    }
+  }
+  const routeGuideGeometry = new THREE.BufferGeometry();
+  routeGuideGeometry.setAttribute('position', new THREE.Float32BufferAttribute(routeGuidePositions, 3));
+  const routeGuides = new THREE.Points(routeGuideGeometry, new THREE.PointsMaterial({
+    color: 0x318ca5, size: 4, sizeAttenuation: false,
+    transparent: true, opacity: 0.65, depthWrite: false,
+  }));
+  world.add(routeGuides);
+
+  // Pale floating fragments provide nearby parallax above the floor without
+  // obscuring the main route or adding collisions to this controls prototype.
+  const floatingLayout = [
+    [-17, 17, 10], [22, 25, 3], [-24, 31, -16], [9, 38, -14],
+    [-8, 29, -37], [31, 34, -51], [-28, 21, -72], [15, 45, -69],
+    [-31, 48, 16], [33, 46, 23], [-49, 35, 33], [49, 27, -76],
+  ];
+  const floatingFragments = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1),
+    blueStone, floatingLayout.length);
+  floatingLayout.forEach(([x, y, z], index) => {
+    landmarkRotation.setFromEuler(landmarkEuler.set(index * 0.3, index * 0.6, 0.2));
+    matrix.compose(markPosition.set(x, y, z), landmarkRotation,
+      markScale.set(0.7 + index % 3 * 0.2, 1.1, 0.7));
+    floatingFragments.setMatrixAt(index, matrix);
+  });
+  world.add(floatingFragments);
+
   const ringGeometry = new THREE.TorusGeometry(1.5, 0.075, 6, 40);
   const orbGeometry = new THREE.SphereGeometry(0.43, 16, 12);
   const haloGeometry = new THREE.SphereGeometry(0.85, 16, 12);
@@ -176,8 +269,9 @@ export function createStage(canvas) {
   box(world, 0, 12.7, -62, 11, 1.5, 2.2);
   box(world, 0, 0.3, -62, 12, 0.6, 7, blueStone);
 
-  // Separate orthographic scene: its unit is one CSS pixel. World turning,
-  // movement, and lighting cannot translate or rotate the visible craft.
+  // Separate orthographic scene: its unit is one CSS pixel. The craft pivot
+  // stays centered. Its orientation only follows inverse sensor compensation,
+  // independently of simulation turning, travel, and world lighting.
   const craftScene = new THREE.Scene();
   const craftCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 500);
   craftCamera.position.z = 200;
@@ -299,6 +393,17 @@ export function createStage(canvas) {
 
   function update(dt, input = {}) {
     if (disposed) return;
+    const compensation = input.craftQuaternion;
+    if (compensation && [compensation.x, compensation.y, compensation.z, compensation.w]
+      .every(Number.isFinite)) {
+      const scale = Math.max(Math.abs(compensation.x), Math.abs(compensation.y),
+        Math.abs(compensation.z), Math.abs(compensation.w));
+      if (scale > 0) {
+        // Scaling first also normalizes very large or tiny finite inputs safely.
+        craft.quaternion.set(compensation.x / scale, compensation.y / scale,
+          compensation.z / scale, compensation.w / scale).normalize();
+      } else craft.quaternion.identity();
+    } else craft.quaternion.identity();
     const elapsed = Math.max(0, finite(dt));
     const pitchRate = finite(input.pitchRate);
     const yawRate = finite(input.yawRate);
@@ -348,14 +453,20 @@ export function createStage(canvas) {
       heading: Math.atan2(forward.x, -forward.z),
       pitch: Math.atan2(forward.y, Math.hypot(forward.x, forward.z)),
       orientation: { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w },
+      craftQuaternion: {
+        x: craft.quaternion.x, y: craft.quaternion.y,
+        z: craft.quaternion.z, w: craft.quaternion.w,
+      },
       craftScreen: { x: width / 2, y: height / 2 },
       cameraPosition: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+      targetPosition: { x: target.x, y: target.y, z: target.z },
     };
   }
 
   function reset() {
     position.copy(START);
     orientation.identity();
+    craft.quaternion.identity();
     speed = 0;
     collected = 0;
     complete = false;

@@ -6,14 +6,14 @@
     <meta name="theme-color" content="#dcebf1" />
     <meta name="description" content="自分はそのまま、世界を動かす。スマホの傾きとひねりで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.1" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
       <header class="topbar">
-        <a class="brand" href="./" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
-        <span class="version">操作検証 <b>v0.1.0</b></span>
+        <a class="brand" href="./?v=0.1.1" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <span class="version">操作検証 <b>v0.1.1</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
@@ -29,18 +29,18 @@
       <section class="bottom-panel" aria-label="操作の状態" id="bottom-panel">
         <div class="input-line"><span class="mode" id="input-mode">まだ開始していません</span><span class="motion-state" id="motion-state">停止中</span></div>
         <div class="meters">
-          <div class="meter"><div><span>前後の傾き</span><output id="pitch-value">0°</output></div><div class="meter-track bilateral"><i id="pitch-meter"></i></div><small>上下に曲がる</small></div>
+          <div class="meter"><div><span>前後の傾き</span><output id="pitch-value">0°</output></div><div class="meter-track bilateral"><i id="pitch-meter"></i></div><small>下げて加速・起こして制動</small></div>
           <div class="meter"><div><span>左右の傾き</span><output id="steer-value">0°</output></div><div class="meter-track bilateral"><i id="steer-meter"></i></div><small>左右に曲がる</small></div>
-          <div class="meter"><div><span>右へのひねり</span><output id="twist-value">0°</output></div><div class="meter-track"><i id="twist-meter"></i></div><small>前進・戻すと停止</small></div>
+          <div class="meter"><div><span>左右のひねり</span><output id="twist-value">0°</output></div><div class="meter-track bilateral"><i id="twist-meter"></i></div><small>右で上・左で下へ曲がる</small></div>
         </div>
-        <div class="flight-line"><span>速さ <b id="speed-value">0.0</b> m/s</span><span>高さ <b id="altitude-value">7.0</b> m</span><span id="stop-hint">ひねりを戻すと前進停止</span></div>
+        <div class="flight-line"><span>速さ <b id="speed-value">0.0</b> m/s</span><span>高さ <b id="altitude-value">7.0</b> m</span><span id="stop-hint">上部を起こすとブレーキ</span></div>
         <div class="toolbar"><button id="pause-button" type="button" disabled>一時停止</button><button id="recenter-button" type="button" disabled>持ち方を合わせ直す</button><button id="help-button" type="button" aria-label="操作の説明">?</button></div>
         <div class="practice-panel" id="practice-panel" hidden>
           <p>画面操作の練習 <span>スマホの傾きは使っていません</span></p>
-          <label>上下 <input id="practice-pitch" type="range" min="-25" max="25" value="0" step="1" /></label>
+          <label>加減速 <input id="practice-pitch" type="range" min="-25" max="25" value="0" step="1" /></label>
           <label>左右 <input id="practice-steer" type="range" min="-25" max="25" value="0" step="1" /></label>
-          <label>前進 <input id="practice-twist" type="range" min="0" max="32" value="0" step="1" /></label>
-          <div class="practice-footer"><small>PC：W/S 上下・A/D 左右・E 前進</small><button id="practice-neutral" type="button">全て戻す</button></div>
+          <label>ひねり <input id="practice-twist" type="range" min="-32" max="32" value="0" step="1" /></label>
+          <div class="practice-footer"><small>W 加速 / S ブレーキ<br />A・D 左右 / Q・E 下・上</small><button id="practice-neutral" type="button">傾きを0に</button><button id="practice-brake" type="button">ブレーキ</button></div>
         </div>
       </section>
 
@@ -49,13 +49,13 @@
           <span class="card-symbol" aria-hidden="true">↝</span>
           <p class="card-kicker" id="dialog-kicker">傾きとひねりの操作検証</p>
           <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
-          <p class="dialog-description" id="dialog-description">画面中央の機体を目印に、<br />3つの光を集めて出口へ進みます。</p>
+          <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。空中の光を3つ集めて出口へ。</p>
           <div class="control-guide" id="control-guide">
-            <div><span class="phone-glyph pitch-glyph" aria-hidden="true">↕</span><p><b>前後に傾ける</b><span>上下に曲がり続ける</span></p></div>
+            <div><span class="phone-glyph pitch-glyph" aria-hidden="true">↕</span><p><b>上部を下げる・起こす</b><span>下げて加速、起こしてブレーキ</span></p></div>
             <div><span class="phone-glyph steer-glyph" aria-hidden="true">↔</span><p><b>左右に傾ける</b><span>左右に曲がり続ける</span></p></div>
-            <div><span class="phone-glyph twist-glyph" aria-hidden="true">↻</span><p><b>右へひねって保つ</b><span>前進。ひねりを戻すと停止</span></p></div>
+            <div><span class="phone-glyph twist-glyph" aria-hidden="true">↻</span><p><b>左右へひねって保つ</b><span>右で上、左で下へ曲がり続ける</span></p></div>
           </div>
-          <p class="dialog-note" id="dialog-note">スマホを見やすい角度で持ち、始めてください。<br />開始時の持ち方が操作の基準になります。</p>
+          <p class="dialog-note" id="dialog-note">見やすい持ち方を基準にします。<br />前後の傾きを戻すと、今の速さを保ちます。</p>
           <p class="error-message" id="error-message" role="alert" hidden></p>
           <button class="primary-button" id="start-button" type="button">スマホの傾きで始める</button>
           <button class="secondary-button" id="practice-button" type="button">画面操作で試す</button>

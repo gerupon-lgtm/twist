@@ -12,3 +12,4 @@
 @media(max-width:360px){.intro-card{padding-left:22px;padding-right:22px}h1{font-size:23px}.bottom-panel{padding:11px 12px}.meters{gap:9px}.meter>div:first-child{font-size:9px}#stop-hint{display:none}.navigation{width:calc(100% - 30px);gap:9px}.nav-caption{font-size:9px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}.nav-compass svg{transition:none}}
 .practice-panel label{white-space:nowrap}.practice-panel input{min-width:0}
+.practice-footer{gap:7px}.practice-footer small{margin-right:auto;line-height:1.6}.practice-footer button{flex-shrink:0}.meter small{line-height:1.6}.dialog-description{max-width:290px;margin-left:auto;margin-right:auto}

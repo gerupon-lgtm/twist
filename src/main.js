@@ -1,5 +1,6 @@
 import './style.css';
-import { orientationQuaternion, relativeAngles, controlRates } from './controls.js';
+import { Euler, Quaternion, MathUtils } from 'three';
+import { orientationQuaternion, relativeAngles, compensationQuaternion, controlRates, advanceSpeed } from './controls.js';
 import { createStage } from './stage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -18,7 +19,11 @@ let waitingTimer = null;
 let pendingCalibration = false;
 let wakeLock = null;
 let angles = { pitch: 0, steer: 0, twist: 0 };
-let rates = { pitchRate: 0, yawRate: 0, speed: 0 };
+let rates = { pitchRate: 0, yawRate: 0, acceleration: 0, brake: 0 };
+let speed = 0;
+const craftQuaternion = new Quaternion();
+const practiceQuaternion = new Quaternion();
+const practiceEuler = new Euler(0, 0, 0, 'XYZ');
 const practiceAngles = { pitch: 0, steer: 0, twist: 0 };
 const heldKeys = new Set();
 let keyboardActive = false;
@@ -67,10 +72,11 @@ function zeroPractice() {
 function halt() {
   pendingCalibration = false;
   clearTimeout(waitingTimer);
-  rates = { pitchRate: 0, yawRate: 0, speed: 0 };
+  rates = { pitchRate: 0, yawRate: 0, acceleration: 0, brake: 0 };
+  speed = 0;
   angles = { pitch: 0, steer: 0, twist: 0 };
   zeroPractice();
-  if (stage) stage.update(0, rates);
+  if (stage) stage.update(0, { ...rates, speed, craftQuaternion });
   wakeLock?.release().catch(() => {});
   wakeLock = null;
 }
@@ -102,6 +108,8 @@ function run(mode) {
   $('practice-panel').hidden = mode !== 'practice';
   $('input-mode').textContent = mode === 'sensor' ? 'スマホの傾きで操作中' : '画面操作・センサー未使用';
   zeroPractice();
+  speed = 0;
+  craftQuaternion.identity();
   setPhase('running');
   $('pause-button').focus({ preventScroll: true });
   keepAwake();
@@ -140,7 +148,7 @@ function attachSensors() {
     const now = performance.now();
     const moving = Math.max(Math.abs(rotation.alpha), Math.abs(rotation.beta), Math.abs(rotation.gamma)) > 3;
     if (moving && now - lastOrientationAt > 400) {
-      // Motion without a corresponding orientation must not keep old throttle alive.
+      // Motion without a corresponding orientation must not keep old acceleration alive.
       latestQuaternion = null;
       if (phase === 'running' && inputMode === 'sensor') pause('スマホの動きに対する向きの更新が届かないため停止しました。');
     } else if (!moving) lastMotionAt = now;
@@ -197,7 +205,7 @@ function finishCalibration() {
   reference = latestQuaternion.clone();
   angles = { pitch: 0, steer: 0, twist: 0 };
   run('sensor');
-  showToast('今の持ち方を基準にしました。右へ少しひねると前進します。', 4300);
+  showToast('上部を下げると加速、起こすとブレーキ。自機は最初の上向きを保ちます。', 4300);
 }
 
 function showToast(text, duration = 2600) {
@@ -232,10 +240,11 @@ $('pause-button').addEventListener('click', () => pause());
 $('recenter-button').addEventListener('click', () => pause('一度停止しました。楽な持ち方に戻し、下のボタンで新しい基準を決めてください。'));
 $('help-button').addEventListener('click', () => {
   if (phase !== 'running') return;
-  pause('前後で上下、左右で左右に曲がります。右へのひねりで前進し、ひねりだけ戻すと前進停止。傾きを保つ間は回り続けます。');
+  pause('上部を下げると加速、起こすとブレーキ。基準に戻すと速さを保ちます。左右の傾きで左右へ、右ひねりで上・左ひねりで下へ曲がり続けます。自機は最初の上向きを保ちます。');
   $('control-guide').hidden = false;
 });
 $('practice-neutral').addEventListener('click', zeroPractice);
+$('practice-brake').addEventListener('click', () => { zeroPractice(); practiceAngles.pitch = 25; $('practice-pitch').value = '25'; });
 for (const axis of controls) $(`practice-${axis}`).addEventListener('input', (event) => { keyboardActive = false; heldKeys.clear(); practiceAngles[axis] = Number(event.target.value); });
 
 function resetStage() {
@@ -270,8 +279,8 @@ function meter(axis, limit) {
   const value = Number.isFinite(angles[axis]) ? angles[axis] : 0;
   $(`${axis}-value`).textContent = `${Math.round(value)}°`;
   const el = $(`${axis}-meter`);
-  if (axis === 'twist') { el.style.width = `${Math.max(0, Math.min(value / limit, 1)) * 100}%`; }
-  else { el.style.left = `${value < 0 ? 50 - Math.min(-value / limit, 1) * 50 : 50}%`; el.style.width = `${Math.min(Math.abs(value) / limit, 1) * 50}%`; }
+  el.style.left = `${value < 0 ? 50 - Math.min(-value / limit, 1) * 50 : 50}%`;
+  el.style.width = `${Math.min(Math.abs(value) / limit, 1) * 50}%`;
 }
 
 let lastHudAt = 0;
@@ -281,7 +290,7 @@ function updateHud(now, state) {
   for (const axis of controls) meter(axis, axis === 'twist' ? 32 : 25);
   $('speed-value').textContent = state.speed.toFixed(1);
   $('altitude-value').textContent = state.altitude.toFixed(1);
-  $('motion-state').textContent = phase !== 'running' || state.speed < 0.01 ? '停止中' : '前進中';
+  $('motion-state').textContent = phase !== 'running' || state.speed < 0.01 ? '停止中' : rates.brake > 0 ? 'ブレーキ' : rates.acceleration > 0 ? '加速中' : '速度維持';
   $('target-label').textContent = state.complete ? '到着' : state.targetLabel;
   $('target-distance').textContent = `${Math.round(state.distance)} m`;
   $('collection-count').textContent = state.collected;
@@ -293,6 +302,7 @@ function updateHud(now, state) {
   $('target-direction').textContent = `${horizontal}${vertical ? `・${vertical}` : ''}`;
   app.dataset.speed = state.speed.toFixed(3);
   app.dataset.position = JSON.stringify(state.position);
+  app.dataset.craftQuaternion = JSON.stringify(state.craftQuaternion);
 }
 
 let previousFrame = performance.now();
@@ -303,25 +313,33 @@ function frame(now) {
     if (phase === 'running') {
       if (inputMode === 'sensor') {
         if (now - Math.max(lastOrientationAt, lastMotionAt) > 1800) pause('センサーの更新が届かなくなったため停止しました。持ち方を合わせて再開してください。');
-        else if (reference && latestQuaternion) angles = relativeAngles(reference, latestQuaternion);
+        else if (reference && latestQuaternion) {
+          angles = relativeAngles(reference, latestQuaternion);
+          craftQuaternion.copy(compensationQuaternion(reference, latestQuaternion));
+        }
       } else {
         if (keyboardActive) {
-          practiceAngles.pitch = (heldKeys.has('w') ? 18 : 0) - (heldKeys.has('s') ? 18 : 0);
+          practiceAngles.pitch = (heldKeys.has('s') ? 22 : 0) - (heldKeys.has('w') ? 18 : 0);
           practiceAngles.steer = (heldKeys.has('d') ? 18 : 0) - (heldKeys.has('a') ? 18 : 0);
-          practiceAngles.twist = heldKeys.has('e') ? 26 : 0;
+          practiceAngles.twist = (heldKeys.has('e') ? 22 : 0) - (heldKeys.has('q') ? 22 : 0);
           for (const axis of controls) $(`practice-${axis}`).value = practiceAngles[axis];
         }
         angles = { ...practiceAngles };
+        practiceEuler.set(MathUtils.degToRad(angles.pitch), MathUtils.degToRad(angles.steer), -MathUtils.degToRad(angles.twist), 'XYZ');
+        craftQuaternion.copy(practiceQuaternion.setFromEuler(practiceEuler)).invert();
       }
     }
-    rates = phase === 'running' ? controlRates(angles) : { pitchRate: 0, yawRate: 0, speed: 0 };
-    if (phase === 'running') stage.update(dt, rates);
+    rates = phase === 'running' ? controlRates(angles) : { pitchRate: 0, yawRate: 0, acceleration: 0, brake: 0 };
+    if (phase === 'running') {
+      speed = advanceSpeed(speed, dt, rates);
+      stage.update(dt, { ...rates, speed, craftQuaternion });
+    }
     const state = stage.getStatus();
     if (state.collected > previousCollected) { previousCollected = state.collected; showToast(state.collected === state.total ? '3つの光がそろいました。出口へ向かいましょう。' : `光を集めました。あと${state.total - state.collected}つ。`); }
     if (state.complete && phase === 'running') {
       halt();
       setPhase('complete');
-      dialog({ title: '出口に到着しました', description: '3つの光を集めて、探索クリア。傾きとひねりは操作しやすかったですか？', note: 'ひねりを戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
+      dialog({ title: '出口に到着しました', description: '3つの光を集めて、探索クリア。傾きとひねりは操作しやすかったですか？', note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
     }
     updateHud(now, state);
   }

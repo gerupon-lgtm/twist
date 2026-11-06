@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const twist = (page, value) => page.locator('#practice-twist').evaluate((el, value) => { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); }, value);
+const setAngle = (page, axis, value) => page.locator(`#practice-${axis}`).evaluate((el, value) => { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); }, value);
+const speed = (page) => page.locator('#speed-value').textContent().then(Number);
 const position = (page) => page.locator('#app').getAttribute('data-position').then(JSON.parse);
 const sensor = (page, sample) => page.evaluate((sample) => window.dispatchEvent(Object.assign(new Event('deviceorientation'), sample)), sample);
 
@@ -45,24 +46,33 @@ test('phone sizes show onboarding and the actual 3D stage without overflow', asy
   expect(errors).toEqual([]);
 });
 
-test('practice advances only with throttle and stops immediately on untwist', async ({ page }) => {
+test('nose down accelerates, neutral keeps speed, nose up brakes to a stop', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
   const start = await position(page);
-  await twist(page, 27);
+  await setAngle(page, 'pitch', -25);
   await expect.poll(() => position(page).then((p) => p.z)).toBeLessThan(start.z - 1);
-  await twist(page, 0);
+  await setAngle(page, 'pitch', 0);
+  await expect(page.locator('#motion-state')).toHaveText('速度維持');
+  const coastingSpeed = await speed(page);
+  const coastingPosition = await position(page);
+  await page.waitForTimeout(300);
+  expect(await speed(page)).toBe(coastingSpeed);
+  expect((await position(page)).z).toBeLessThan(coastingPosition.z);
+  await setAngle(page, 'pitch', 25);
   await expect(page.locator('#speed-value')).toHaveText('0.0');
   const stopped = await position(page);
   await page.waitForTimeout(300);
   expect(await position(page)).toEqual(stopped);
   await page.getByRole('button', { name: '一時停止', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused');
+  await page.getByRole('button', { name: '画面操作を再開する', exact: true }).click();
+  await expect(page.locator('#speed-value')).toHaveText('0.0');
 });
 
-test('real event route calibrates, preserves held throttle with heartbeat, and stops on missing axes', async ({ page }) => {
+test('sensor event route accelerates, coasts, brakes, and stops on missing axes', async ({ page }) => {
   await startFakeSensor(page);
-  await sensor(page, { alpha: 340, beta: 0, gamma: 0 });
+  await sensor(page, { alpha: 0, beta: -22, gamma: 0 });
   await page.evaluate(() => {
     window.heartbeat = setInterval(() => window.dispatchEvent(Object.assign(new Event('devicemotion'), { rotationRate: { alpha: 0, beta: 0, gamma: 0 } })), 100);
   });
@@ -70,15 +80,52 @@ test('real event route calibrates, preserves held throttle with heartbeat, and s
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
   expect(Number(await page.locator('#speed-value').textContent())).toBeGreaterThan(0);
   await sensor(page, { alpha: 0, beta: 0, gamma: 0 });
+  await expect(page.locator('#motion-state')).toHaveText('速度維持');
+  const coast = await speed(page);
+  await page.waitForTimeout(200);
+  expect(await speed(page)).toBe(coast);
+  await sensor(page, { alpha: 0, beta: 25, gamma: 0 });
   await expect(page.locator('#speed-value')).toHaveText('0.0');
   await sensor(page, { alpha: null, beta: 0, gamma: 0 });
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused');
   await expect(page.locator('#dialog-description')).toContainText('3方向すべて');
 });
 
+test('phone rotation is canceled in the craft actually drawn by the stage', async ({ page }) => {
+  await startFakeSensor(page);
+  await sensor(page, { alpha: 30, beta: 0, gamma: 0 });
+  const craft = async () => JSON.parse(await page.locator('#app').getAttribute('data-craft-quaternion'));
+  await expect.poll(() => craft().then((q) => q.z)).toBeCloseTo(-Math.sin(Math.PI / 12), 5);
+  expect((await craft()).w).toBeCloseTo(Math.cos(Math.PI / 12), 5);
+  await sensor(page, { alpha: 0, beta: 0, gamma: -20 });
+  await expect.poll(() => craft().then((q) => q.y)).toBeCloseTo(Math.sin(Math.PI / 18), 5);
+  expect(await speed(page)).toBe(0);
+  await sensor(page, { alpha: 0, beta: 0, gamma: 0 });
+  await expect.poll(() => craft().then((q) => q.w)).toBeCloseTo(1, 5);
+});
+
+test('twist turns vertically without accelerating and keyboard follows the new controls', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
+  await setAngle(page, 'twist', 25);
+  await page.waitForTimeout(250);
+  expect(await speed(page)).toBe(0);
+  await page.getByRole('button', { name: '傾きを0に', exact: true }).click();
+  await page.keyboard.down('w');
+  await expect.poll(() => speed(page)).toBeGreaterThan(1);
+  await page.keyboard.up('w');
+  await expect(page.locator('#motion-state')).toHaveText('速度維持');
+  await page.keyboard.down('s');
+  await expect(page.locator('#speed-value')).toHaveText('0.0');
+  await page.keyboard.up('s');
+  await page.keyboard.down('e');
+  await expect(page.locator('#twist-value')).toHaveText('22°');
+  await page.keyboard.up('e');
+});
+
 test('sensor outage stops motion and denied permission stays out of play', async ({ page }) => {
   await startFakeSensor(page);
-  await sensor(page, { alpha: 340, beta: 0, gamma: 0 });
+  await sensor(page, { alpha: 0, beta: -22, gamma: 0 });
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused', { timeout: 4000 });
   await expect(page.locator('#speed-value')).toHaveText('0.0');
   await fakePermissions(page, 'denied');
@@ -90,7 +137,7 @@ test('sensor outage stops motion and denied permission stays out of play', async
 
 test('motion without fresh orientation cannot keep old forward input alive', async ({ page }) => {
   await startFakeSensor(page);
-  await sensor(page, { alpha: 340, beta: 0, gamma: 0 });
+  await sensor(page, { alpha: 0, beta: -22, gamma: 0 });
   await page.waitForTimeout(500);
   await page.evaluate(() => window.dispatchEvent(Object.assign(new Event('devicemotion'), { rotationRate: { alpha: 15, beta: 0, gamma: 0 } })));
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused');
@@ -126,7 +173,7 @@ test('reset cancels a pending baseline timer before the next run', async ({ page
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
 });
 
-test('full stage route collects all targets and exits while camera and craft remain fixed', async ({ page }) => {
+test('all aerial targets and the exit are reachable while the camera and craft center stay fixed', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
     const { createStage } = await import('/src/stage.js');
@@ -152,6 +199,8 @@ test('full stage route collects all targets and exits while camera and craft rem
       fixed &&= state.craftScreen.x === 195 && state.craftScreen.y === 422 && Object.values(state.cameraPosition).every((n) => n === 0);
     }
     const final = { ...state, fixed, start, continuousPitch };
+    stage.update(0, { speed: 0, craftQuaternion: { x: 0, y: 0, z: -Math.sin(Math.PI / 8), w: Math.cos(Math.PI / 8) } });
+    final.drawnCompensation = stage.getStatus().craftQuaternion;
     stage.reset();
     final.reset = stage.getStatus();
     stage.dispose();
@@ -161,6 +210,7 @@ test('full stage route collects all targets and exits while camera and craft rem
   expect(result.collected).toBe(3);
   expect(result.fixed).toBe(true);
   expect(result.continuousPitch).toBe(true);
+  expect(result.drawnCompensation.z).toBeCloseTo(-Math.sin(Math.PI / 8), 6);
   expect(result.reset.position).toEqual(result.start);
   expect(result.reset.collected).toBe(0);
 });
