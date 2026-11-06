@@ -4,7 +4,7 @@
 
 **操作検証 v0.1.0 / 2026-11-06**
 
-公開URL: https://gerupon-lgtm.github.io/twist/
+公開予定URL（まだ未公開）: https://gerupon-lgtm.github.io/twist/
 
 ## スマホで試す
 
