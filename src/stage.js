@@ -781,6 +781,9 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
       position: { x: position.x, y: position.y, z: position.z },
       heading: Math.atan2(forward.x, -forward.z),
       pitch: Math.atan2(forward.y, Math.hypot(forward.x, forward.z)),
+      // Heading * local pitch remains readable through vertical/inverted flight.
+      controlPitch: Math.atan2(2 * (baseOrientation.w * baseOrientation.x - baseOrientation.y * baseOrientation.z),
+        1 - 2 * (baseOrientation.x ** 2 + baseOrientation.z ** 2)),
       orientation: { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w },
       craftQuaternion: {
         x: craft.quaternion.x, y: craft.quaternion.y,

@@ -175,15 +175,17 @@ export function controlRates(angles, sensitivity = 1) {
 }
 
 /** Phone-top pitch plus either twist or side tilt; engine output stays independent. */
-export function flightRates(angles, sensitivity = 1, steering = 'tilt') {
+export function flightRates(angles, sensitivity = 1, steering = 'tilt', settings) {
   const gain = Number.isFinite(sensitivity) ? Math.max(0, sensitivity) : 1;
+  const deadzone = settings?.deadzone ?? CONTROL_LIMITS.tiltDeadzone;
+  const maximum = settings?.maxTilt ?? CONTROL_LIMITS.tiltMaximum;
   const bankDemand = steering === 'twist'
     ? angleDemand(foldedTwist(angles?.twist), gain, CONTROL_LIMITS.twistDeadzone, CONTROL_LIMITS.twistMaximum)
-    : angleDemand(angles?.steer, gain, CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum);
+    : angleDemand(angles?.steer, gain, deadzone, maximum);
   return {
     pitchRate: angleDemand(angles?.pitch, gain,
-      CONTROL_LIMITS.tiltDeadzone, CONTROL_LIMITS.tiltMaximum) * CONTROL_LIMITS.pitchRate,
-    bankAngle: bankDemand * CONTROL_LIMITS.flightBankAngle,
+      deadzone, maximum) * CONTROL_LIMITS.pitchRate,
+    bankAngle: bankDemand * (settings ? settings.maxBank * Math.PI / 180 : CONTROL_LIMITS.flightBankAngle),
     acceleration: 0,
     brake: 0,
   };

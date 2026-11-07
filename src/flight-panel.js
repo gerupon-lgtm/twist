@@ -1,0 +1,75 @@
+import { APP_VERSION } from './version.js';
+import { FLIGHT_SETTING_FIELDS, DEFAULT_FLIGHT_SETTINGS, loadFlightSettings, saveFlightSettings } from './flight-settings.js';
+import { flightReport, copyableFlightReport } from './flight-session.js';
+
+const $ = id => document.getElementById(id);
+const describeSettings = settings => Object.entries(FLIGHT_SETTING_FIELDS)
+  .map(([key, field]) => `${field.label} ${settings[key]}${field.unit}`).join(' / ');
+
+export function createFlightPanel(getModes) {
+  let storage;
+  try { storage = window.localStorage; } catch { /* Defaults also work without storage access. */ }
+  let settings = loadFlightSettings(storage);
+  let result = null;
+  for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
+    const label = document.createElement('label');
+    label.htmlFor = `setting-${key}`;
+    const caption = document.createElement('span'); caption.textContent = field.label;
+    const value = document.createElement('output'); value.id = `setting-value-${key}`;
+    value.htmlFor = label.htmlFor;
+    const input = document.createElement('input');
+    Object.assign(input, { type: 'range', id: label.htmlFor, min: field.min, max: field.max, step: field.step });
+    label.append(caption, value, input); $('flight-settings-fields').append(label);
+    input.addEventListener('input', () => {
+      settings = { ...settings, [key]: Number(input.value) };
+      persist();
+    });
+  }
+  function refresh() {
+    for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
+      $(`setting-${key}`).value = settings[key];
+      $(`setting-value-${key}`).textContent = `${settings[key]}${field.unit}`;
+    }
+  }
+  function persist() {
+    const saved = saveFlightSettings(storage, settings);
+    $('settings-status').textContent = saved ? 'このブラウザーに保存しました。' : '保存できません。この画面を開いている間だけ使えます。';
+    refresh();
+  }
+  async function copy(report, prefix) {
+    const text = copyableFlightReport(report);
+    const output = $(`${prefix}-copy-text`), status = $(`${prefix}-copy-status`);
+    try {
+      await navigator.clipboard.writeText(text);
+      status.textContent = 'コピーしました。'; output.hidden = true;
+    } catch {
+      output.value = text; output.hidden = false; output.focus(); output.select();
+      status.textContent = '自動コピーできません。下の文字列を選択してコピーしてください。';
+    }
+  }
+  $('settings-reset').addEventListener('click', () => { settings = { ...DEFAULT_FLIGHT_SETTINGS }; persist(); });
+  $('settings-copy').addEventListener('click', () => copy(flightReport({ version: APP_VERSION, ...getModes(), settings }), 'settings'));
+  $('result-copy').addEventListener('click', () => { if (result) copy(result, 'result'); });
+  refresh();
+  return {
+    getSettings: () => settings,
+    report: stats => flightReport({ version: APP_VERSION, ...getModes(), settings, stats }),
+    showResult(report) {
+      result = report;
+      $('flight-result').hidden = !report;
+      $('result-copy-text').hidden = true; $('result-copy-status').textContent = '';
+      if (!report) return;
+      const { stats } = report;
+      $('result-elapsed').textContent = `${stats.elapsedSeconds.toFixed(1)}秒`;
+      $('result-contacts').textContent = `${stats.groundContacts}回`;
+      $('result-recovery').textContent = `${stats.recoverySeconds.toFixed(1)}秒`;
+      $('result-modes').textContent = `pitch=${report.pitch} / steer=${report.steer}`;
+      $('result-settings').textContent = describeSettings(report.settings);
+    },
+    setPhase(phase, mode) {
+      $('flight-adjustments').hidden = mode !== 'flight' || phase !== 'paused';
+      if (phase !== 'paused') $('flight-adjustments').open = false;
+      if (phase === 'running' || mode !== 'flight') this.showResult(null);
+    },
+  };
+}

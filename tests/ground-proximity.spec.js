@@ -11,7 +11,7 @@ const output = (page, value) => page.locator('#throttle-input').evaluate((el, pe
 
 async function launch(page, { controlledClock = false } = {}) {
   if (controlledClock) await page.clock.install({ time: new Date('2026-11-07T00:00:00Z') });
-  await page.goto('/?mode=flight');
+  await page.goto('/?mode=flight&pitch=rate');
   if (controlledClock) await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   await page.locator('#practice-button').click();
   if (controlledClock) await page.clock.runFor(100);
@@ -188,7 +188,7 @@ test('motion diagrams remain scrollable with start controls on short screens and
   await page.emulateMedia({ reducedMotion: 'reduce' });
   for (const size of [{ width: 360, height: 640 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(size);
-    await page.goto('/?mode=flight');
+    await page.goto('/?mode=flight&pitch=rate');
     const explanation = page.locator('#motion-explanation');
     await explanation.locator('summary').click();
     await expect(explanation).toHaveAttribute('open', '');
@@ -212,7 +212,7 @@ test('motion diagrams remain scrollable with start controls on short screens and
 });
 
 test('low flight outside the original island still has a rendered floor and ground projection', async ({ page }) => {
-  await page.goto('/?mode=flight');
+  await page.goto('/?mode=flight&pitch=rate');
   const result = await page.evaluate(async () => {
     const { createStage } = await import('/src/stage.js');
     const canvas = document.createElement('canvas');

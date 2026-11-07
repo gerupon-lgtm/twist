@@ -7,7 +7,7 @@ const speed = page => page.locator('#speed-value').textContent().then(Number);
 const data = (page, key) => page.locator('#app').getAttribute(`data-${key}`).then(Number);
 const sensor = (page, sample) => page.evaluate(sample => window.dispatchEvent(Object.assign(new Event('deviceorientation'), sample)), sample);
 async function practice(page) {
-  await page.goto('/?mode=flight&steer=tilt');
+  await page.goto('/?mode=flight&steer=tilt&pitch=rate');
   await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-play-mode', 'flight');
   await expect(page.locator('#throttle-value')).toHaveText('50%');
@@ -20,7 +20,7 @@ async function fakeFlight(page) {
     Object.defineProperty(window, 'DeviceOrientationEvent', { value: Orientation, configurable: true });
     Object.defineProperty(window, 'DeviceMotionEvent', { value: Motion, configurable: true });
   });
-  await page.goto('/?mode=flight&steer=tilt');
+  await page.goto('/?mode=flight&steer=tilt&pitch=rate');
   await page.getByRole('button', { name: 'スマホの傾きで始める', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'waiting');
   expect(await speed(page)).toBe(0);
@@ -131,7 +131,7 @@ test('mode switch resets the stage and preserves twelve-degree exploration accel
 });
 
 test('flight controls fit portrait and landscape while keeping the craft center uncovered', async ({ page }) => {
-  await page.goto('/?mode=flight&steer=tilt');
+  await page.goto('/?mode=flight&steer=tilt&pitch=rate');
   await expect(page.locator('#control-guide')).toContainText('画面下のスロットル');
   for (const size of [{ width: 390, height: 844 }, { width: 360, height: 640 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(size);
@@ -206,7 +206,7 @@ test('approaching the ground stops flight and explicit restart resets the route'
 });
 
 test('compound flight steering adds no unintended roll and a full pitch loop stays continuous', async ({ page }) => {
-  await page.goto('/?mode=flight&steer=tilt');
+  await page.goto('/?mode=flight&steer=tilt&pitch=rate');
   const result = await page.evaluate(async () => {
     const { createStage } = await import('/src/stage.js');
     const stage = createStage(document.createElement('canvas'));
@@ -238,7 +238,7 @@ test('compound flight steering adds no unintended roll and a full pitch loop sta
 });
 
 test('physical flight reaches all aerial targets and the exit without moving the craft or camera', async ({ page }) => {
-  await page.goto('/?mode=flight&steer=tilt');
+  await page.goto('/?mode=flight&steer=tilt&pitch=rate');
   const result = await page.evaluate(async () => {
     const { createStage } = await import('/src/stage.js');
     const stage = createStage(document.createElement('canvas'));
@@ -264,7 +264,7 @@ test('physical flight reaches all aerial targets and the exit without moving the
 
 for (const percent of [50, 100]) test(`restoring level pitch and ${percent}-percent power recovers a real climb-stall before contact`, async ({ page }) => {
   await page.clock.install({ time: new Date('2026-11-07T00:00:00Z') });
-  await page.goto('/?mode=flight&steer=tilt');
+  await page.goto('/?mode=flight&steer=tilt&pitch=rate');
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   await page.locator('#practice-button').click();
   await page.clock.runFor(100);
@@ -305,7 +305,7 @@ for (const percent of [50, 100]) test(`restoring level pitch and ${percent}-perc
 });
 
 test('zero airspeed in midair still accepts pitch, bank and engine input', async ({ page }) => {
-  await page.goto('/?mode=flight');
+  await page.goto('/?mode=flight&pitch=rate');
   const result = await page.evaluate(async () => {
     const { createStage } = await import('/src/stage.js');
     const stage = createStage(document.createElement('canvas'));

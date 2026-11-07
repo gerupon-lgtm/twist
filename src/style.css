@@ -39,3 +39,22 @@
 @keyframes phone-rock{0%,100%{transform:perspective(210px) rotateX(58deg) rotateY(-24deg)}50%{transform:perspective(210px) rotateX(58deg) rotateY(24deg)}}@keyframes phone-turn{0%,100%{transform:perspective(210px) rotateX(58deg) rotateZ(-24deg)}50%{transform:perspective(210px) rotateX(58deg) rotateZ(24deg)}}
 @media(max-height:500px) and (min-width:600px){.intro-card .motion-explanation{grid-column:1 / -1;grid-row:7}.intro-card .dialog-note,.app[data-play-mode="flight"] .intro-card .dialog-note{grid-row:8}.intro-card .text-button,.app[data-play-mode="flight"] .intro-card .text-button{grid-row:9}.intro-card .prototype-note,.app[data-play-mode="flight"] .intro-card .prototype-note{grid-row:10}.motion-examples figure{display:grid;grid-template-columns:120px 1fr;align-items:center;gap:4px}.motion-examples figcaption{text-align:left}.motion-diagram{height:76px}}
 @media(prefers-reduced-motion:reduce){.motion-handset{animation:none!important}}
+/* v0.1.13: readable version inside the opening dialog, with scrollable tuning/results. */
+.intro-version{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:0 0 12px;color:var(--teal);font-size:17px;font-weight:650;letter-spacing:.02em}.intro-version b{font-size:19px}.intro-version span{font-size:10px;font-weight:400;color:#62838e}.intro-card .card-kicker{display:none}.veil{align-items:flex-start}.intro-card{margin-block:auto}.veil:has(details[open]) .intro-card{margin-block:0}
+.flight-adjustments,.flight-result{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);text-align:left;min-width:0}.flight-adjustments summary{font-size:13px;font-weight:650;cursor:pointer;padding:7px 0}.flight-adjustments p,.flight-result p{font-size:11px;line-height:1.6;overflow-wrap:anywhere}.flight-adjustments small,.flight-result small{display:block;font-size:10px;line-height:1.6;color:#62838e}.flight-adjustments label{display:grid;grid-template-columns:1fr auto;gap:4px;margin:14px 0;font-size:12px}.flight-adjustments label input{grid-column:1/-1;width:100%;height:28px;accent-color:var(--teal)}.flight-adjustments output{font-weight:650;color:var(--teal)}.settings-actions{display:flex;gap:8px;margin-top:12px}.settings-actions button,.flight-result button{border:1px solid #9ebdc5;border-radius:7px;background:#e5eff0;padding:9px;font-size:12px}.flight-result h2{font-size:15px;margin:0 0 10px}.flight-result dl{display:flex;justify-content:space-between;gap:8px;margin:0}.flight-result dt{font-size:10px;color:#62838e}.flight-result dd{font-size:17px;font-weight:650;margin:4px 0}.flight-result button{margin-top:10px}.flight-adjustments textarea,.flight-result textarea{width:100%;height:90px;font:11px/1.5 monospace;overflow-wrap:anywhere;resize:vertical}
+@media(max-height:740px) and (max-width:599px){.veil{padding:12px 14px}.intro-version{margin-bottom:8px;font-size:15px}.intro-version b{font-size:17px}.app[data-play-mode="flight"] .intro-card .control-guide{margin:8px 0;gap:5px}.app[data-play-mode="flight"] .intro-card .phone-glyph{height:29px;width:25px;font-size:18px}.app[data-play-mode="flight"] .intro-card .control-guide b{font-size:11px}.app[data-play-mode="flight"] .intro-card .control-guide p span{font-size:10px}}
+@media(max-height:500px) and (min-width:600px){
+  .intro-card .intro-version{grid-column:1/-1;grid-row:1;margin-bottom:7px}
+  .intro-card h1{grid-column:1;grid-row:2}.intro-card .dialog-description{grid-column:1;grid-row:3}
+  .intro-card .mode-picker{grid-column:1;grid-row:4}.intro-card .view-picker{grid-column:1;grid-row:5}
+  .intro-card .steering-picker{grid-column:1;grid-row:6}.intro-card #flight-pitch-picker{grid-row:7}
+  .intro-card .control-guide{grid-column:2;grid-row:2/5}.intro-card .motion-explanation{grid-column:2;grid-row:5}
+  .app .intro-card .dialog-note{grid-column:2;grid-row:6;margin:0}
+  .intro-card .primary-button{grid-column:2;grid-row:7;align-self:end}
+  .intro-card .secondary-button{grid-column:2;grid-row:8}.app .intro-card .text-button{grid-column:1;grid-row:8}
+  .app .intro-card .prototype-note{grid-column:1/-1;grid-row:9}
+  .intro-card .flight-result{grid-column:1/-1;grid-row:10}.intro-card .flight-adjustments{grid-column:1/-1;grid-row:11}
+  .veil:has(#motion-explanation[open]) .intro-card .motion-explanation{grid-column:1/-1;grid-row:10}
+  .veil:has(#motion-explanation[open]) .intro-card .flight-result{grid-row:11}
+  .veil:has(#motion-explanation[open]) .intro-card .flight-adjustments{grid-row:12}
+}

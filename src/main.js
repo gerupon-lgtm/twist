@@ -1,9 +1,13 @@
 import './style.css';
 import { Quaternion, MathUtils } from 'three';
-import { CONTROL_LIMITS, orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, deviceTiltAngles, composeDevicePose, controlRates, flightRates, advanceSpeed } from './controls.js';
+import { CONTROL_LIMITS, orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, deviceTiltAngles, composeDevicePose, controlRates, advanceSpeed } from './controls.js';
 import { createStage } from './stage.js';
 import { projectEdgeTarget } from './visibility.js';
 import { getGroundProximity } from './ground-proximity.js';
+import { APP_VERSION } from './version.js';
+import { flightCommands } from './flight-input.js';
+import { createFlightPanel } from './flight-panel.js';
+import { createFlightSession } from './flight-session.js';
 
 const $ = (id) => document.getElementById(id);
 const app = $('app');
@@ -14,6 +18,9 @@ let playMode = new URLSearchParams(location.search).get('mode') === 'flight' ? '
 let visibility = new URLSearchParams(location.search).get('view') === 'classic' ? 'classic' : 'assisted';
 // URL names stay compatible: tilt = ひねる (raise/lower phone sides), twist = 回す (in-plane turn).
 let flightSteering = new URLSearchParams(location.search).get('steer') === 'twist' ? 'twist' : 'tilt';
+let pitchMode = new URLSearchParams(location.search).get('pitch') === 'rate' ? 'rate' : 'angle';
+const flightSession = createFlightSession();
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering }));
 let inputMode = null;
 let reference = null;
 let craftReference = null;
@@ -47,17 +54,19 @@ const controls = ['pitch', 'steer', 'twist'];
 function setPhase(next) {
   phase = next;
   app.dataset.phase = next;
+  flightPanel.setPhase(next, playMode);
   $('pause-button').disabled = next !== 'running';
   $('recenter-button').disabled = next !== 'running' || inputMode !== 'sensor';
   $('veil').hidden = next === 'running';
   for (const mode of ['explore', 'flight']) $(`mode-${mode}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   $('throttle-input').disabled = next !== 'running' || playMode !== 'flight';
   for (const view of ['assisted', 'classic']) $(`view-${view}`).disabled = ['waiting', 'ready'].includes(next);
+  for (const pitch of ['angle', 'rate']) $(`pitch-${pitch}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   for (const steering of ['twist', 'tilt']) $(`steering-${steering}`).disabled = ['waiting', 'ready', 'running'].includes(next);
 }
 
 const modeNote = () => playMode === 'flight'
-  ? '本体基準で操縦。出力50%で出発。上昇で減速、下降で加速。失速時は機首0°付近・翼水平へ戻し、出力を上げて復帰。'
+  ? (pitchMode === 'angle' ? '中立で機首も水平へ戻ります。上昇で減速、下降で加速。出力50%で出発します。' : '中立でも機首の角度は残ります。逆へ倒して水平へ戻し、出力を上げて失速から復帰。')
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
 const modeIntroduction = () => playMode === 'flight'
   ? '自機は画面中央。右へ曲がると機体も右へ傾きます。金色の光を3つ集めて出口へ。'
@@ -76,7 +85,7 @@ function applyVisibilityUI() {
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? '視野を広く。色と形の目印と、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.12`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&pitch=${pitchMode}&v=${APP_VERSION}`;
 }
 
 function selectVisibility(next) {
@@ -87,7 +96,8 @@ function selectVisibility(next) {
   const url = new URL(location.href);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.12');
+  url.searchParams.set('pitch', pitchMode);
+  url.searchParams.set('v', APP_VERSION);
   history.replaceState(null, '', url);
 }
 $('view-assisted').addEventListener('click', () => selectVisibility('assisted'));
@@ -100,6 +110,11 @@ function applyModeUI() {
   app.dataset.playMode = playMode;
   app.dataset.controlBasis = flight ? 'device' : 'craft';
   app.dataset.flightSteering = flightSteering;
+  app.dataset.pitchMode = pitchMode;
+  $('flight-pitch-picker').hidden = !flight;
+  $('pitch-angle').setAttribute('aria-pressed', String(pitchMode === 'angle'));
+  $('pitch-rate').setAttribute('aria-pressed', String(pitchMode === 'rate'));
+  $('pitch-note').textContent = pitchMode === 'angle' ? '中立へ戻すと、機首も水平へ' : '中立でも機首角度を保つ。逆へ倒して戻す';
   $('play-mode-label').textContent = flight ? '飛行機モード' : '探索モード';
   $('flight-attitude').hidden = !flight;
   $('flight-throttle').hidden = !flight;
@@ -119,7 +134,7 @@ function applyModeUI() {
   $('practice-summary').hidden = !flight;
   $('mode-explore').setAttribute('aria-pressed', String(!flight));
   $('mode-flight').setAttribute('aria-pressed', String(flight));
-  $('pitch-caption').textContent = flight ? '上端を起こすと機首上げ' : '先端側で加速・逆で制動';
+  $('pitch-caption').textContent = flight ? (pitchMode === 'angle' ? '上端で機首角度・中立で水平' : '上端を起こすと機首上げ') : '先端側で加速・逆で制動';
   $('steer-caption').textContent = flight ? '下げた側へ旋回' : '下げた側へ曲がる';
   $('twist-caption').textContent = flight ? '右回しで右・左回しで左旋回' : '右回しで上・左回しで下';
   $('stop-hint').textContent = flight ? '停止は一時停止ボタン' : `加減速は${CONTROL_LIMITS.throttleMaximum}°で最大`;
@@ -128,7 +143,7 @@ function applyModeUI() {
   $('ground-height-meter').hidden = !flight;
   $('ground-warning-text').hidden = !flight;
   $('guide-pitch-title').textContent = flight ? 'スマホ本体の上端を起こす・倒す' : '自機の先端側へ倒す';
-  $('guide-pitch-text').textContent = flight ? '起こすと機首上げ、前へ倒すと機首下げ' : '先端側で加速、逆側でブレーキ';
+  $('guide-pitch-text').textContent = flight ? (pitchMode === 'angle' ? '起こすと上、倒すと下。中立で水平へ' : '起こすと機首上げ、前へ倒すと機首下げ') : '先端側で加速、逆側でブレーキ';
   $('guide-steer-title').textContent = flight ? (twistSteering ? '面を保って左右に回す' : '左右の端を上下にひねる') : '自機の左右へ倒す';
   $('guide-steer-text').textContent = flight ? (twistSteering ? '回した側へ旋回。戻すと翼が水平へ' : '下げた側へ旋回。戻すと翼が水平へ') : '下げた側へ曲がり続ける';
   $('guide-steer-glyph').textContent = flight && twistSteering ? '↻' : '↔';
@@ -151,11 +166,24 @@ function selectSteering(next) {
   applyModeUI();
   const url = new URL(location.href);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.12');
+  url.searchParams.set('pitch', pitchMode);
+  url.searchParams.set('v', APP_VERSION);
   history.replaceState(null, '', url);
 }
 $('steering-twist').addEventListener('click', () => selectSteering('twist'));
 $('steering-tilt').addEventListener('click', () => selectSteering('tilt'));
+
+function selectPitch(next) {
+  if (!stage || next === pitchMode || !['angle', 'rate'].includes(next) || ['waiting', 'ready', 'running'].includes(phase)) return;
+  pitchMode = next;
+  applyModeUI();
+  const url = new URL(location.href);
+  url.searchParams.set('pitch', pitchMode);
+  url.searchParams.set('v', APP_VERSION);
+  history.replaceState(null, '', url);
+}
+$('pitch-angle').addEventListener('click', () => selectPitch('angle'));
+$('pitch-rate').addEventListener('click', () => selectPitch('rate'));
 
 function selectMode(next) {
   if (!stage || next === playMode || ['waiting', 'ready', 'running'].includes(phase)) return;
@@ -167,13 +195,17 @@ function selectMode(next) {
   previousCollected = 0;
   $('toast').hidden = true;
   playMode = next;
+  flightSession.reset();
+  flightPanel.showResult(null);
+  flightPanel.setPhase(phase, playMode);
   applyModeUI();
   stage.update(0, { mode: playMode, speed: 0, craftQuaternion });
   const url = new URL(location.href);
   url.searchParams.set('mode', playMode);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.12');
+  url.searchParams.set('pitch', pitchMode);
+  url.searchParams.set('v', APP_VERSION);
   history.replaceState(null, '', url);
   if (resume) {
     setPhase('paused');
@@ -254,6 +286,7 @@ async function keepAwake() {
 
 function run(mode) {
   lastFlightSnapshot = null;
+  flightSession.restartLeg();
   inputMode = mode;
   app.dataset.input = mode;
   $('practice-panel').hidden = mode !== 'practice';
@@ -408,7 +441,7 @@ function startPractice() {
 
 $('start-button').addEventListener('click', () => {
   if (!stage) return;
-  if (stage.getStatus().grounded) { resetStage(); if (inputMode === 'sensor') calibrate(); return; }
+  if (stage.getStatus().grounded) { resetStage({ preserveSession: true }); if (inputMode === 'sensor') calibrate(); return; }
   if (phase === 'complete') { resetStage(); return; }
   if (phase === 'ready' || (phase === 'paused' && inputMode === 'sensor')) { calibrate(); return; }
   if (phase === 'paused' && inputMode === 'practice') { startPractice(); return; }
@@ -416,14 +449,17 @@ $('start-button').addEventListener('click', () => {
 });
 $('practice-button').addEventListener('click', () => {
   if (!stage) return;
-  if (phase === 'complete') { stage.reset(); previousCollected = 0; craftReference = null; }
+  if (phase === 'complete' || stage.getStatus().grounded) {
+    if (phase === 'complete') flightSession.reset();
+    stage.reset(); previousCollected = 0; craftReference = null;
+  }
   inputMode === 'practice' ? requestSensors() : startPractice();
 });
 $('pause-button').addEventListener('click', () => pause());
 $('recenter-button').addEventListener('click', () => pause(playMode === 'flight' ? '一度停止しました。今の持ち方を操作の中立に合わせ直します。' : '一度停止しました。自機の向きは保ったまま、今の持ち方を操作の中立に合わせ直します。'));
 $('help-button').addEventListener('click', () => {
   if (phase !== 'running') return;
-  pause(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、機首は今の角度を保ちます。画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
+  pause(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、${pitchMode === 'angle' ? '機首も水平へ戻ります。' : '機首は今の角度を保ちます。'}画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
   $('control-guide').hidden = false;
   $('motion-explanation').open = playMode === 'flight';
 });
@@ -443,7 +479,9 @@ $('practice-brake').addEventListener('click', () => {
 $('throttle-input').addEventListener('input', (event) => { if (phase === 'running' && playMode === 'flight') setThrottle(Number(event.target.value) / 100); });
 for (const axis of controls) $(`practice-${axis}`).addEventListener('input', (event) => { keyboardActive = false; heldKeys.clear(); practiceAngles[axis] = Number(event.target.value); });
 
-function resetStage() {
+function resetStage({ preserveSession = false } = {}) {
+  if (!preserveSession) flightSession.reset();
+  flightPanel.showResult(null);
   permissionAttempt++;
   halt();
   reference = null;
@@ -454,7 +492,7 @@ function resetStage() {
   if (inputMode === 'practice') startPractice();
   else { setPhase('paused'); dialog({ title: 'もう一度、出発しましょう', description: '持ち方を決めて、3つの光を集めに行きましょう。', note: modeNote(), action: playMode === 'flight' ? 'この持ち方で飛ぶ' : 'この持ち方で始める' }); }
 }
-$('reset-button').addEventListener('click', resetStage);
+$('reset-button').addEventListener('click', () => resetStage());
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause('画面が隠れたため停止しました。持ち方を合わせて再開してください。'); });
 window.addEventListener('blur', () => { heldKeys.clear(); if (phase === 'running' || pendingCalibration) pause('画面から離れたため停止しました。'); });
@@ -579,6 +617,8 @@ function updateHud(now, state) {
   app.dataset.verticalSpeed = String(state.verticalSpeed || 0);
   app.dataset.throttle = String(state.throttle || 0);
   app.dataset.recoveryAssist = String(state.recoveryAssist || 0);
+  app.dataset.session = JSON.stringify(flightSession.snapshot());
+  app.dataset.pitchTarget = String(rates.pitchTarget || 0);
   app.dataset.grounded = String(Boolean(state.grounded));
   app.dataset.viewPitch = String(state.viewPitch || 0);
   app.dataset.viewAssistance = String(state.viewAssistance || 0);
@@ -601,7 +641,8 @@ function frame(now) {
         }
       } else {
         if (keyboardActive) {
-          const pitch = playMode === 'flight' ? (heldKeys.has('w') ? 18 : 0) - (heldKeys.has('s') ? 18 : 0) : (heldKeys.has('s') ? 22 : 0) - (heldKeys.has('w') ? 18 : 0);
+          const pitchExtent = pitchMode === 'angle' ? flightPanel.getSettings().maxTilt : 18;
+          const pitch = playMode === 'flight' ? (heldKeys.has('w') ? pitchExtent : 0) - (heldKeys.has('s') ? pitchExtent : 0) : (heldKeys.has('s') ? 22 : 0) - (heldKeys.has('w') ? 18 : 0);
           const lateral = (heldKeys.has('d') ? 18 : 0) - (heldKeys.has('a') ? 18 : 0);
           const steer = playMode === 'flight' && flightSteering === 'twist' ? 0 : lateral;
           const turn = playMode === 'flight'
@@ -616,12 +657,14 @@ function frame(now) {
       }
       if (phase === 'running' && angles.valid === false) pause(playMode === 'flight' ? '中立の持ち方から大きく倒れたため停止しました。画面が見やすい角度に戻して、持ち方を合わせ直してください。' : '自機の先端が見えにくい角度になったため停止しました。画面を少し戻して、操作の中立を合わせ直してください。');
     }
-    rates = phase === 'running' ? (playMode === 'flight' ? flightRates(angles, 1, flightSteering) : controlRates(angles)) : { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };
+    rates = phase === 'running' ? (playMode === 'flight' ? flightCommands(angles, { pitchMode, steering: flightSteering, settings: flightPanel.getSettings(), currentPitch: stage.getStatus().controlPitch, dt }) : controlRates(angles)) : { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };
+    const wasFlying = phase === 'running' && playMode === 'flight';
     if (phase === 'running') {
       if (playMode === 'explore') speed = advanceSpeed(speed, dt, rates);
       stage.update(dt, { ...rates, mode: playMode, speed, throttle, craftQuaternion });
     }
     const state = stage.getStatus();
+    if (wasFlying) flightSession.advance(dt, state);
     if (phase === 'running' && playMode === 'flight' && !state.grounded) {
       lastFlightSnapshot = { throttle: state.throttle, pitch: state.pitch,
         verticalSpeed: state.verticalSpeed, inputPitch: angles.pitch };
@@ -631,6 +674,7 @@ function frame(now) {
       halt();
       setPhase('complete');
       dialog({ title: '出口に到着しました', description: playMode === 'flight' ? '3つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？' : '3つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？', note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
+      if (playMode === 'flight') flightPanel.showResult(flightPanel.report(flightSession.snapshot()));
     }
     if (state.grounded && phase === 'running') {
       let description = '地面まで0mで接触しました。';
@@ -644,6 +688,7 @@ function frame(now) {
       }
       pause('地面に接触して停止しました。最初から飛び直せます。');
       dialog({ title: '地面に接触して停止', description, note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
+      flightPanel.showResult(flightPanel.report(flightSession.snapshot()));
     }
     updateHud(now, state);
   }

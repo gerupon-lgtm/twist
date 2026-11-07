@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Euler, MathUtils, Quaternion, Vector3 } from 'three';
 import {
-  advanceSpeed, compensationQuaternion, composeDevicePose, controlRates, deviceTiltAngles, flightRates, orientationQuaternion,
+  CONTROL_LIMITS, advanceSpeed, compensationQuaternion, composeDevicePose, controlRates, deviceTiltAngles, flightRates, orientationQuaternion,
   projectedTiltAngles, relativeAngles,
 } from '../src/controls.js';
 
@@ -753,4 +753,105 @@ test('flight twist steering retains bounded sensitivity and independent finite f
   near(turnFlightRates({ pitch: NaN, steer: -25, twist: 18.5 }).bankAngle, rad(20));
   assert.ok(Object.values(turnFlightRates({ pitch: Number.MAX_VALUE, steer: -Number.MAX_VALUE,
     twist: Number.MAX_VALUE }, Number.MAX_VALUE)).every(Number.isFinite));
+});
+
+// v0.1.13: independent input mapping, device settings, and comparison records.
+import { flightPitchTarget, followFlightPitch, flightCommands } from '../src/flight-input.js';
+import { DEFAULT_FLIGHT_SETTINGS, FLIGHT_SETTING_FIELDS, FLIGHT_SETTINGS_KEY, normalizeFlightSettings, loadFlightSettings, saveFlightSettings } from '../src/flight-settings.js';
+import { createFlightSession, flightReport, copyableFlightReport } from '../src/flight-session.js';
+
+test('angle pitch maps the physical deadzone, both signs and saturation linearly', () => {
+  for (const angle of [-3, 0, 3, NaN, Infinity, undefined]) near(flightPitchTarget(angle), 0);
+  near(flightPitchTarget(14), 7.5 * Math.PI / 180);
+  near(flightPitchTarget(-14), -7.5 * Math.PI / 180);
+  near(flightPitchTarget(25), 15 * Math.PI / 180);
+  near(flightPitchTarget(-100), -15 * Math.PI / 180);
+  near(flightPitchTarget(10, { deadzone: 0, maxTilt: 10, maxPitch: 35 }), 35 * Math.PI / 180);
+});
+
+test('angle following converges without overshoot or exceeding the former rotation limit', () => {
+  for (const dt of [.001, 1/60, .05, 1]) for (const sign of [-1, 1]) {
+    let current = -sign * .8, target = sign * .25;
+    for (let i=0;i<500;i++) {
+      const before = Math.abs(target-current);
+      const rate = followFlightPitch(current, target, dt, .3);
+      assert.ok(Math.abs(rate) <= CONTROL_LIMITS.pitchRate);
+      current += rate*dt;
+      assert.ok(Math.abs(target-current) <= before+1e-10);
+    }
+  }
+  for(const value of [-1,0,NaN,Infinity]) near(followFlightPitch(0,.2,value),0);
+  near(followFlightPitch(NaN,0,.02),0);
+  // Returning from the old mode's inverted pitch uses the shortest rotation.
+  assert.ok(followFlightPitch(3,0,.05)<0);
+  assert.ok(followFlightPitch(-3,0,.05)>0);
+});
+
+test('angle following time constant controls the measured response', () => {
+  const dt=.01, target=.1;
+  let current=0;
+  for(let i=0;i<30;i++) current+=followFlightPitch(current,target,dt,.3)*dt;
+  near(current, target*(1-Math.exp(-1)));
+  assert.ok(followFlightPitch(0,target,dt,.1)>followFlightPitch(0,target,dt,1));
+});
+
+test('rate comparison with default settings matches all former flight rates exactly', () => {
+  for (const steering of ['tilt','twist']) for(const pitch of [-100,-25,-14,-3,0,3,14,25,100,NaN]) {
+    const angles={pitch,steer:14,twist:-18};
+    assert.deepEqual(flightCommands(angles,{pitchMode:'rate',steering}),flightRates(angles,1,steering));
+  }
+  const angled=flightCommands({pitch:25,steer:25},{dt:.05});
+  assert.ok(angled.pitchTarget>0 && angled.pitchRate>0);
+  near(flightCommands({pitch:0},{dt:.05,currentPitch:.2}).pitchTarget,0);
+  assert.ok(flightCommands({pitch:0},{dt:.05,currentPitch:.2}).pitchRate<0);
+});
+
+test('settings normalize unknown, corrupt, and out-of-range input without impossible deadzones', () => {
+  for(const value of [null,undefined,[],{},'bad',{deadzone:NaN,maxTilt:Infinity}]) assert.deepEqual(normalizeFlightSettings(value),DEFAULT_FLIGHT_SETTINGS);
+  for(const key of Object.keys(FLIGHT_SETTING_FIELDS)) {
+    const field=FLIGHT_SETTING_FIELDS[key];
+    near(normalizeFlightSettings({[key]:-100})[key],field.min);
+    near(normalizeFlightSettings({[key]:100})[key],field.max);
+  }
+  assert.ok(normalizeFlightSettings({deadzone:100,maxTilt:-1}).deadzone < normalizeFlightSettings({deadzone:100,maxTilt:-1}).maxTilt);
+  const commands=flightCommands({pitch:10,steer:10},{settings:{deadzone:0,maxTilt:10,maxBank:20},dt:.05});
+  near(commands.bankAngle,20*Math.PI/180);
+});
+
+test('settings save and reload locally with defaults after denied or corrupt storage', () => {
+  let stored=null;
+  const storage={getItem:key=>{assert.equal(key,FLIGHT_SETTINGS_KEY);return stored;},setItem:(key,value)=>{assert.equal(key,FLIGHT_SETTINGS_KEY);stored=value;}};
+  assert.deepEqual(loadFlightSettings(storage),DEFAULT_FLIGHT_SETTINGS);
+  assert.equal(saveFlightSettings(storage,{maxPitch:25}),true);
+  near(loadFlightSettings(storage).maxPitch,25);
+  stored='{broken'; assert.deepEqual(loadFlightSettings(storage),DEFAULT_FLIGHT_SETTINGS);
+  const denied={getItem(){throw new Error('denied');},setItem(){throw new Error('denied');}};
+  assert.deepEqual(loadFlightSettings(denied),DEFAULT_FLIGHT_SETTINGS);
+  assert.equal(saveFlightSettings(denied,DEFAULT_FLIGHT_SETTINGS),false);
+  assert.deepEqual(loadFlightSettings(undefined),DEFAULT_FLIGHT_SETTINGS);
+});
+
+test('flight records retain contacts across legs, ignore invalid time and can start a new challenge', () => {
+  const session=createFlightSession();
+  session.advance(.05,{recoveryAssist:.2,grounded:false});
+  session.advance(.05,{recoveryAssist:0,grounded:true});
+  session.advance(.05,{recoveryAssist:0,grounded:true});
+  for(const dt of [0,-1,NaN,Infinity]) session.advance(dt,{grounded:true});
+  near(session.snapshot().elapsedSeconds,.15);
+  assert.equal(session.snapshot().groundContacts,1); near(session.snapshot().recoverySeconds,.05);
+  session.restartLeg(); session.advance(.05,{grounded:true});
+  assert.equal(session.snapshot().groundContacts,2);
+  session.reset(); assert.deepEqual(session.snapshot(),{elapsedSeconds:0,groundContacts:0,recoverySeconds:0});
+});
+
+test('settings and result reports share a single-line format and snapshot their values', () => {
+  const settings={...DEFAULT_FLIGHT_SETTINGS},stats={elapsedSeconds:1,groundContacts:2,recoverySeconds:.5};
+  const result=flightReport({version:'0.1.13',pitch:'angle',steer:'tilt',settings,stats});
+  const text=copyableFlightReport(result);
+  assert.equal(text.includes('\n'),false);
+  assert.deepEqual(JSON.parse(text),result);
+  settings.maxPitch=30;stats.groundContacts=100;
+  assert.equal(result.settings.maxPitch,15);assert.equal(result.stats.groundContacts,2);
+  const config=flightReport({version:'0.1.13',pitch:'rate',steer:'twist',settings});
+  assert.equal('stats' in config,false);
 });
