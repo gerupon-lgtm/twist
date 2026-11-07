@@ -7,7 +7,7 @@ export function createFlightSession() {
     advance(dt, state) {
       if (!Number.isFinite(dt) || dt <= 0) return;
       elapsedSeconds += dt;
-      if (state.recoveryAssist > .05) recoverySeconds += dt;
+      if (state.recoveryAssist > 0) recoverySeconds += dt;
       if (state.grounded && !wasGrounded) groundContacts++;
       wasGrounded = Boolean(state.grounded);
     },

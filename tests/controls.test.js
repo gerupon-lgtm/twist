@@ -855,3 +855,12 @@ test('settings and result reports share a single-line format and snapshot their 
   const config=flightReport({version:'0.1.13',pitch:'rate',steer:'twist',settings});
   assert.equal('stats' in config,false);
 });
+
+
+test('flight record counts weak active assistance even below the HUD label threshold', () => {
+  const session=createFlightSession();
+  session.advance(.02,{recoveryAssist:.001,grounded:false});
+  near(session.snapshot().recoverySeconds,.02);
+  session.advance(.02,{recoveryAssist:0,grounded:false});
+  near(session.snapshot().recoverySeconds,.02);
+});
