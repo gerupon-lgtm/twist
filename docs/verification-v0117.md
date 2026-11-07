@@ -26,3 +26,7 @@
 ## 実機で確認する項目（未確認）
 
 Pixel 9aのChromeで、開始→音量を小さく確認、出力と風、上昇失速/地面の警告、光/ゴール/墜落の通知、一時停止で停止を確認。楽な同じ持ち方で振動オン/オフを別々に試し、揺れ幅の平均・最大と音源の負荷をコピーする。操作した角度を揺れと取り違えない。音の聞こえ方・振動の感じ方・センサーへの影響・3Dと同時の処理負荷はPixel 9a未確認。iPhone XRは振動なし、音と継続動作を確認する。PC試験は実機の耳・振動・処理負荷の代わりにしない。
+
+## 公開確認
+
+アプリコミット9d01b0bb669617ac551259148ee733f89150face、[Pages処理42360014099](https://github.com/gerupon-lgtm/twist/actions/runs/42360014099)成功。公開25件/3ファイル、Edge・1worker、1.4分、終了コード0、実行/読込エラー0。実Worklet音声ピーク、前後の停止、API非対応、設定/記録、3視点、bank/fixedの全コースを確認。HTML200/型、main/CSS/Worklet/NOTICEの内容型とSHA-256が最終ビルドに一致。公開URLは https://gerupon-lgtm.github.io/twist/?mode=flight&v=0.1.17 。公開検証コードはGit管理外node_modules/.cache/public-v0117-*.spec.js、画像test-results/public-v0117-*。耳・振動・実機負荷は未確認のまま、次のBGM版へ進む。
