@@ -165,3 +165,15 @@ test('display math is finite for invalid, very large, vertical and inverted valu
   }
   assert.ok(withoutViewRoll().orientation.toArray().every(Number.isFinite));
 });
+
+test('fixed roll removal preserves forward direction and inverted rate pitch beyond ninety degrees',()=>{
+ for(const degrees of [-270,-180,-120,-90,90,120,179,180,270])for(const yaw of [-2,0,1.5]){
+  const source=pose(r(degrees),yaw,0), result=withoutViewRoll({orientation:source});
+  sameRotation(result.orientation,source);
+ }
+ for(const degrees of [-120,10,120,180])for(const roll of [-.4,.4]){
+  const source=pose(r(degrees),.7,roll),result=withoutViewRoll({orientation:source});
+  const a=new Vector3(0,0,-1).applyQuaternion(source),b=new Vector3(0,0,-1).applyQuaternion(result.orientation);
+  assert.ok(a.distanceTo(b)<1e-10);
+ }
+});

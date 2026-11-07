@@ -127,6 +127,10 @@ $('display-fixed').addEventListener('click', () => selectDisplay('fixed'));
 function applyModeUI() {
   const flight = playMode === 'flight';
   const twistSteering = flightSteering === 'twist';
+  const basics = $('basic-controls'), guide = $('control-guide');
+  if (flight) basics.append(guide);
+  else basics.before(guide);
+  basics.hidden = !flight || guide.hidden;
   for (const axis of ['pitch', 'steer']) {
     $(`practice-${axis}`).min = flight ? '-30' : '-25';
     $(`practice-${axis}`).max = flight ? '30' : '25';
@@ -256,7 +260,7 @@ function dialog({ title, description, note = '', action = '再開する', guide 
   $('dialog-note').textContent = note;
   $('dialog-note').hidden = !note;
   $('control-guide').hidden = !guide;
-  $('basic-controls').hidden = !guide;
+  $('basic-controls').hidden = !guide || playMode !== 'flight';
   $('start-button').textContent = action;
   $('start-button').disabled = false;
   $('error-message').textContent = error;
@@ -492,7 +496,7 @@ $('help-button').addEventListener('click', () => {
   if (phase !== 'running') return;
   pause(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、${pitchMode === 'angle' ? '機首も水平へ戻ります。' : '機首は今の角度を保ちます。'}画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
   $('control-guide').hidden = false;
-  $('basic-controls').hidden = false;
+  $('basic-controls').hidden = playMode !== 'flight';
   $('basic-controls').open = true;
   $('motion-explanation').open = playMode === 'flight';
 });

@@ -34,8 +34,16 @@ export function withoutViewRoll(view = {}) {
   if (scale > 0) q.set(q.x / scale, q.y / scale, q.z / scale, q.w / scale).normalize();
   else q.identity();
   const right = X.clone().applyQuaternion(q), forward = new Vector3(0, 0, -1).applyQuaternion(q);
-  const heading = Math.atan2(right.z, right.x);
-  const pitch = Math.atan2(forward.y, Math.hypot(forward.x, forward.z));
+  const horizontal = Math.hypot(forward.x, forward.z);
+  let heading = horizontal > 1e-9 ? Math.atan2(forward.x, -forward.z) : Math.atan2(right.z, right.x);
+  let signedHorizontal = horizontal;
+  // The right axis distinguishes a >90-degree pitch from a 180-degree yaw.
+  // Both representations share a forward direction; retain the original side.
+  if (horizontal > 1e-9 && right.x * Math.cos(heading) + right.z * Math.sin(heading) < 0) {
+    heading = wrapDisplayAngle(heading + Math.PI);
+    signedHorizontal = -horizontal;
+  }
+  const pitch = Math.atan2(forward.y, signedHorizontal);
   return { ...view, pitch, orientation: new Quaternion().setFromAxisAngle(Y, -heading)
     .multiply(new Quaternion().setFromAxisAngle(X, pitch)) };
 }
