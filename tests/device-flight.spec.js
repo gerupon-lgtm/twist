@@ -183,7 +183,7 @@ test('right and left turns bank the drawn craft in the same direction despite op
 
 test('PC pitch follows the hardware top after turning and steering keys follow the selected axis while Q/E adjust power', async ({ page }) => {
   for (const steering of ['twist', 'tilt']) {
-    await page.goto(`/?mode=flight&steer=${steering}`);
+    await page.goto(`/?mode=flight&steer=${steering}&pitch=rate`);
     await page.locator('#practice-button').click();
     await expect(page.locator('#throttle-value')).toHaveText('50%');
     await page.locator('#practice-twist').evaluate(el => { el.value = '90'; el.dispatchEvent(new Event('input', { bubbles: true })); });

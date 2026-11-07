@@ -166,3 +166,20 @@ test('angle input can fly the full course and the clear screen has a copyable re
   expect(report.stats.elapsedSeconds).toBeGreaterThan(10);expect(report.stats.groundContacts).toBe(0);
   await page.screenshot({path:'test-results/v0113-clear-record.png'});
 });
+
+test('contact explanation uses the tuned deadzone and exploration retains its original practice range',async({page})=>{
+  await launch(page);
+  for(const [deadzone,input,explanation] of [[8,5,'前後操作：中立'],[0,2,'前後操作：手前へ起こし2°']]) {
+    await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();
+    await slider(page,'setting-deadzone',deadzone);await page.locator('#start-button').click();
+    await slider(page,'throttle-input',0);await slider(page,'practice-pitch',input);
+    for(let i=0;i<300 && await page.locator('#app').getAttribute('data-phase')==='running';i++) await page.clock.runFor(100);
+    await expect(page.locator('#dialog-title')).toHaveText('地面に接触して停止');
+    await expect(page.locator('#dialog-description')).toContainText(explanation);
+    await page.locator('#start-button').click();await page.clock.runFor(100);
+  }
+  await page.locator('#pause-button').click();await page.locator('#mode-explore').click();
+  await expect(page.locator('#practice-pitch')).toHaveAttribute('max','25');
+  await expect(page.locator('#practice-steer')).toHaveAttribute('min','-25');
+  await expect(page.locator('#flight-adjustments')).toBeHidden();
+});

@@ -106,6 +106,10 @@ $('view-classic').addEventListener('click', () => selectVisibility('classic'));
 function applyModeUI() {
   const flight = playMode === 'flight';
   const twistSteering = flightSteering === 'twist';
+  for (const axis of ['pitch', 'steer']) {
+    $(`practice-${axis}`).min = flight ? '-30' : '-25';
+    $(`practice-${axis}`).max = flight ? '30' : '25';
+  }
   if (phase === 'intro') $('dialog-description').textContent = modeIntroduction();
   app.dataset.playMode = playMode;
   app.dataset.controlBasis = flight ? 'device' : 'craft';
@@ -667,7 +671,8 @@ function frame(now) {
     if (wasFlying) flightSession.advance(dt, state);
     if (phase === 'running' && playMode === 'flight' && !state.grounded) {
       lastFlightSnapshot = { throttle: state.throttle, pitch: state.pitch,
-        verticalSpeed: state.verticalSpeed, inputPitch: angles.pitch };
+        verticalSpeed: state.verticalSpeed, inputPitch: angles.pitch,
+        deadzone: flightPanel.getSettings().deadzone };
     }
     if (state.collected > previousCollected) { previousCollected = state.collected; showToast(state.collected === state.total ? '3つの光がそろいました。出口へ向かいましょう。' : `光を集めました。あと${state.total - state.collected}つ。`); }
     if (state.complete && phase === 'running') {
@@ -682,7 +687,7 @@ function frame(now) {
         const s = lastFlightSnapshot;
         const nose = Math.round(MathUtils.radToDeg(s.pitch));
         const noseText = Math.abs(nose) < 1 ? '機首ほぼ水平' : `機首${nose > 0 ? '上' : '下'}${Math.abs(nose)}°`;
-        const operation = Math.abs(s.inputPitch) <= CONTROL_LIMITS.tiltDeadzone ? '中立'
+        const operation = Math.abs(s.inputPitch) <= s.deadzone ? '中立'
           : `${s.inputPitch < 0 ? '前倒し' : '手前へ起こし'}${Math.round(Math.abs(s.inputPitch))}°`;
         description = `接地直前：出力${Math.round(s.throttle * 100)}%・${noseText}・下降${Math.max(0, -s.verticalSpeed).toFixed(1)}m/s。前後操作：${operation}。`;
       }
