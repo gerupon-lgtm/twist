@@ -161,14 +161,15 @@ for(const display of ['bank','fixed']) test(`angle input can fly the full course
     const bearing=Math.atan2(Math.sin(Math.atan2(dx,-dz)-heading),Math.cos(Math.atan2(dx,-dz)-heading));
     const desired=clamp(Math.atan2(dy,Math.hypot(dx,dz)),-.25,.25);
     await slider(page,'practice-pitch',tilt(desired/(15*Math.PI/180)));
-    await slider(page,'practice-steer',tilt(clamp(bearing*1.4,-40*Math.PI/180,40*Math.PI/180)/(40*Math.PI/180)));
+    const bankDemand=clamp(bearing*1.4,-40*Math.PI/180,40*Math.PI/180)/(40*Math.PI/180);
+    await slider(page,'practice-steer',Math.sign(bankDemand)*(3+Math.abs(bankDemand)*12));
     await slider(page,'throttle-input',Math.round(clamp(.5+(6-state.speed)*.3+state.pitch*.8,.15,1)*100));
     await page.clock.runFor(100);
   }
   expect(sawExit).toBe(true);
   await expect(page.locator('#dialog-title')).toHaveText('出口に到着しました');
   await expect(page.locator('#flight-result')).toBeVisible();
-  await expect(page.locator('#result-modes')).toHaveText(`pitch=angle / steer=tilt / display=${display}`);
+  await expect(page.locator('#result-modes')).toHaveText(`pitch=angle / steer=tilt / display=${display} / camera=overlay`);
   await page.locator('#result-copy').click();
   const report=await page.evaluate(()=>JSON.parse(window.copied));
   expect(report.result).toBe('clear');expect(report.display).toBe(display);await expect(page.locator('#result-outcome')).toHaveText('クリア');

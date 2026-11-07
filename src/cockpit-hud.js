@@ -7,7 +7,7 @@ const path = points => points.map((p,i) => `${i?'L':'M'}${point(p)}`).join(' ');
 const format = n => n.toFixed(1);
 const box = (element,x,y,width,height) => Object.assign(element.style,{left:`${x}px`,top:`${y}px`,width:`${width}px`,height:`${height}px`});
 
-export function updateCockpitHud(state, active) {
+export function layoutCockpitHud(active) {
   const root = $('cockpit-hud'); root.hidden = !active;
   if (!active) return;
   const w = innerWidth, h = innerHeight, landscape = w>h;
@@ -23,6 +23,13 @@ export function updateCockpitHud(state, active) {
   box($('cockpit-speed'),12,tapeY,58,tapeHeight);
   box($('cockpit-altitude'),w-70,tapeY,58,tapeHeight);
   box($('cockpit-power'),Math.max(76,powerX),powerY,208,36);
+  return { w,h,landscape,bottom,compassY,powerY };
+}
+
+export function updateCockpitHud(state, active, layout = layoutCockpitHud(active)) {
+  if (!active || !layout) return;
+  const root = $('cockpit-hud');
+  const { w,h,landscape,bottom,compassY,powerY } = layout;
   const readings = cockpitReadings(state);
   const tape = (value,step,label,unit,extra='') => {
     const base = Math.round(value/step)*step;
@@ -46,7 +53,9 @@ export function updateCockpitHud(state, active) {
   const marker = $('target-edge-marker');
   if (!marker.hidden) {
     const r=marker.getBoundingClientRect();
-    clip += `M${r.left-4},${r.top-4}H${r.right+4}V${r.bottom+4}H${r.left-4}Z`;
+    const holeLeft=Math.max(left,r.left-4),holeRight=Math.min(right,r.right+4);
+    const holeTop=Math.max(top,r.top-4),holeBottom=Math.min(low,r.bottom+4);
+    if(holeLeft<holeRight && holeTop<holeBottom) clip += `M${holeLeft},${holeTop}H${holeRight}V${holeBottom}H${holeLeft}Z`;
   }
   const ladder = projection.lines.map(line => {
     const start=line.points[0],end=line.points.at(-1);
@@ -66,7 +75,8 @@ export function updateCockpitHud(state, active) {
       const radius=Math.max(10,Math.min((right-left)/2-16,(low-top)/2-16));
       x=(left+right)/2+dx/norm*radius; y=(top+low)/2+dy/norm*radius;
     }
-    flightPath = `<g data-flight-path="${inside?'visible':'edge'}" transform="translate(${x} ${y})"><circle r="7"/><path d="M-15,0H-7M7,0H15M0,-7V-14"/>${inside?'':'<text x="10" y="-10">進行</text>'}</g>`;
+    const roll=Math.atan2(projection.horizon.a,-projection.horizon.b)*180/Math.PI;
+    flightPath = `<g data-flight-path="${inside?'visible':'edge'}" transform="translate(${x} ${y}) rotate(${roll})"><circle r="7"/><path d="M-15,0H-7M7,0H15M0,-7V-14"/>${inside?'':'<text x="10" y="-10">進行</text>'}</g>`;
   }
   $('cockpit-conformal').setAttribute('viewBox',`0 0 ${w} ${h}`);
   $('cockpit-conformal').innerHTML = `<defs><clipPath id="cockpit-clip"><path d="${clip}" clip-rule="evenodd"/></clipPath></defs><g clip-path="url(#cockpit-clip)">${horizon.length===2?`<path id="cockpit-horizon" d="${path(horizon)}"/>`:''}${ladder}<g data-boresight transform="translate(${nose.x} ${nose.y})"><path d="M-17,0H-6L0,5L6,0H17M0,-6V-2"/></g>${flightPath}</g>`;

@@ -14,8 +14,9 @@ for(const steer of ['tilt','twist'])test(`${steer} small-angle steering is indep
  await page.locator('#settings-copy').click();let copied=await page.evaluate(()=>JSON.parse(window.copied));
  expect(copied.settings).toMatchObject({[active]:10,[neutral]:2,steerCurve:1.5,maxTilt:25,maxPitch:15});expect(copied.inactiveSettings).toContain(inactive);expect(copied.inactiveSettings).not.toContain(active);
  await page.screenshot({path:'test-results/v0116-steering-'+steer+'.png'});
- await page.reload();await page.clock.runFor(100);await page.locator('#practice-button').click();await page.clock.runFor(100);await slider(page,'practice-pitch',15);await slider(page,steer==='tilt'?'practice-steer':'practice-twist',10);await page.clock.runFor(1400);
- expect(await numeric(page,'pitch-target')).toBeCloseTo((15-3)/(25-3)*15*Math.PI/180,8);expect(await numeric(page,'bank')).toBeCloseTo(40*Math.PI/180,2);
+ await page.reload();await page.clock.runFor(100);await page.locator('#practice-button').click();await page.clock.runFor(100);await slider(page,'practice-pitch',15);await page.clock.runFor(200);
+ expect(await numeric(page,'pitch-target')).toBeCloseTo((15-3)/(25-3)*15*Math.PI/180,8);
+ await slider(page,steer==='tilt'?'practice-steer':'practice-twist',10);await page.clock.runFor(1400);expect(await numeric(page,'bank')).toBeCloseTo(40*Math.PI/180,2);
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();
  await expect(page.locator('#setting-'+active)).toHaveValue('10');await expect(page.locator('#setting-steerCurve')).toHaveValue('1.5');await page.locator('#settings-reset').click();
  await expect(page.locator('#setting-'+active)).toHaveValue(steer==='tilt'?'15':'20');await expect(page.locator('#setting-'+neutral)).toHaveValue(steer==='tilt'?'3':'5');await expect(page.locator('#setting-steerCurve')).toHaveValue('1');

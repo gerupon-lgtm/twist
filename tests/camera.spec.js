@@ -80,6 +80,8 @@ test('cockpit horizon follows the actual camera plane and fixed phone roll while
  const f=844/(2*Math.tan(rad(await number(page,'vertical-fov'))/2));
  expect(horizon.a).toBeCloseTo(normal.x,8);expect(horizon.b).toBeCloseTo(-normal.y,8);expect(horizon.c).toBeCloseTo(-f*normal.z,8);
  expect(Math.abs(horizon.a)).toBeGreaterThan(.1);
+ const glyph=await page.locator('[data-flight-path]').getAttribute('transform');
+ expect(Number(glyph.match(/rotate\(([-\d.]+)\)/)[1])).toBeCloseTo(Math.atan2(horizon.a,-horizon.b)*180/Math.PI,7);
  expect(await page.locator('#cockpit-heading').boundingBox()).toEqual(boxes);
  for(const id of ['cockpit-speed','cockpit-altitude','cockpit-heading','cockpit-power','radar','bottom-panel'])expect(await page.locator('#'+id).evaluate(el=>{const m=new DOMMatrix(getComputedStyle(el).transform);return[m.a,m.b,m.c,m.d];})).toEqual([1,0,0,1]);
  await page.screenshot({path:'test-results/v0116-cockpit-fixed-roll.png'});
@@ -124,4 +126,29 @@ test('rendered cockpit ground horizon meets the conformal HUD horizon in actual 
   }stage.dispose();return rows;
  });
  for(const row of result){expect(row.above[1]).toBeGreaterThan(row.above[0]);expect(row.below[0]).toBeGreaterThan(row.below[1]*1.2);}
+});
+
+test('cockpit clipping never adds visible islands outside the central HUD window',async({page})=>{
+ await launch(page);
+ const result=await page.evaluate(async()=>{
+  const {createStage}=await import('/src/stage.js');const {updateCockpitHud}=await import('/src/cockpit-hud.js');
+  const stage=createStage(document.createElement('canvas'),{cameraMode:'cockpit'});stage.resize(390,844,1);stage.launchFlight();
+  const marker=document.getElementById('target-edge-marker');marker.hidden=false;marker.style.left='35px';marker.style.top='220px';
+  updateCockpitHud(stage.getStatus(),true);
+  const path=new Path2D(document.querySelector('#cockpit-clip path').getAttribute('d'));
+  const ctx=document.createElement('canvas').getContext('2d');
+  const results=[ctx.isPointInPath(path,35,220,'evenodd'),ctx.isPointInPath(path,200,350,'evenodd')];stage.dispose();return results;
+ });expect(result).toEqual([false,true]);
+});
+
+test('chase UI exposes a side in a right climb and fixed display keeps its visible wings upright',async({page})=>{
+ await launch(page,'chase');await slider(page,'practice-steer',15);await slider(page,'practice-pitch',15);await page.clock.runFor(900);
+ const position=await parsed(page,'position'),view=await parsed(page,'view-position'),body=await parsed(page,'orientation');
+ const side=new Vector3(view.x-position.x,view.y-position.y,view.z-position.z).applyQuaternion(new Quaternion(body.x,body.y,body.z,body.w).invert());
+ expect(side.x).toBeLessThan(-.01);await expect(page.locator('#app')).toHaveAttribute('data-craft-visible','true');
+ await page.screenshot({path:'test-results/v0116-chase-turn-bank.png'});
+ await page.locator('#pause-button').click();await page.locator('#display-fixed').click();await page.clock.runFor(100);
+ const screen=new Quaternion().fromArray(await parsed(page,'world-craft-screen-quaternion'));
+ expect(Math.abs(new Vector3(1,0,0).applyQuaternion(screen).y)).toBeLessThan(1e-6);
+ await page.screenshot({path:'test-results/v0116-chase-turn-fixed.png'});
 });

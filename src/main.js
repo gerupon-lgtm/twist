@@ -10,7 +10,7 @@ import { flightCommands } from './flight-input.js';
 import { createFlightPanel } from './flight-panel.js';
 import { createFlightSession } from './flight-session.js';
 import { normalizeCameraMode } from './flight-camera.js';
-import { updateCockpitHud } from './cockpit-hud.js';
+import { layoutCockpitHud, updateCockpitHud } from './cockpit-hud.js';
 
 const $ = (id) => document.getElementById(id);
 const app = $('app');
@@ -699,6 +699,7 @@ function updateHud(now, state) {
   app.dataset.landmarkCount = String(state.landmarks?.length || 0);
   app.dataset.beaconAppearance = JSON.stringify(state.beaconAppearance);
   app.dataset.aircraft = JSON.stringify(state.aircraft);
+  app.dataset.worldCraftScreenQuaternion = JSON.stringify(state.worldCraftScreenQuaternion);
   app.dataset.craftVisible = String(state.craftVisible);
   app.dataset.orientation = JSON.stringify(state.orientation);
   app.dataset.velocity = JSON.stringify(state.velocity);
@@ -706,9 +707,10 @@ function updateHud(now, state) {
   app.dataset.verticalFov = String(state.fieldOfView.vertical);
   app.dataset.navigationTargets = JSON.stringify(state.navigationTargets);
   updateRadar(state, { phase, visibility, range: flightPanel.getSettings().radarRange });
-  updateCockpitHud(state, playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running');
+  const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
+  const cockpitLayout = layoutCockpitHud(cockpitActive);
   updateEdgeMarker(state);
-  updateCockpitHud(state, playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running');
+  updateCockpitHud(state, cockpitActive, cockpitLayout);
 }
 
 let previousFrame = performance.now();
