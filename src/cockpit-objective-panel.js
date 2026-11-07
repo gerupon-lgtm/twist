@@ -20,6 +20,7 @@ export function updateCockpitObjective(state,active) {
   const exit=state.collected===state.total;
   svg.removeAttribute('hidden');svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.dataset.kind=mark.kind;svg.dataset.target=exit?'exit':'light';
   svg.dataset.x=String(mark.x);svg.dataset.y=String(mark.y);svg.dataset.behind=String(mark.behind);
+  svg.dataset.occluded=String(Boolean(mark.occluded));
   const shape=mark.kind==='edge'?'<path d="M0,-14L10,8 0,3 -10,8Z"/>'
     :exit?'<path d="M-14,-6V-14H-6M6,-14H14V-6M14,6V14H6M-6,14H-14V6M-7,9V-8H7V9"/>'
       :'<path d="M0,-14L14,0 0,14 -14,0Z"/><path class="objective-center" d="M-3,0H3M0,-3V3"/>';
@@ -27,7 +28,7 @@ export function updateCockpitObjective(state,active) {
   svg.firstElementChild.setAttribute('transform',`translate(${mark.x} ${mark.y}) rotate(${mark.kind==='edge'?mark.rotation:0})`);
   const delta=state.targetPosition.y-state.position.y;
   const height=Math.abs(delta)<.05?'高さ同じ':`${delta>0?'▲上に':'▼下に'}${Math.abs(delta).toFixed(1)}m`;
-  const name=`${state.targetLabel}${mark.behind?'・後ろ':mark.kind==='edge'?'・表示域外':''}`;
+  const name=`${state.targetLabel}${mark.behind?'・後ろ':mark.occluded?'・表示の奥':mark.kind==='edge'?'・表示域外':''}`;
   const detail=`${Math.round(state.distance)}m　${height}`;
   const text=`${name} ${detail}`;svg.setAttribute('aria-label',text);
   const placement=placeObjectiveLabel(mark,{bounds:area,obstacles});

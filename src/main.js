@@ -145,6 +145,7 @@ function selectDisplay(next) {
   flightDisplay = next;
   stage.setDisplay(next);
   applyVisibilityUI();
+  flightPanel.refreshLayout();
   if (phase === 'intro') $('dialog-description').textContent = modeIntroduction();
   const url = new URL(location.href);
   url.searchParams.set('display', flightDisplay);
@@ -252,6 +253,7 @@ function selectPitch(next) {
   if (!stage || next === pitchMode || !['angle', 'rate'].includes(next) || ['waiting', 'ready', 'running'].includes(phase)) return;
   pitchMode = next;
   applyModeUI();
+  flightPanel.refreshLayout();
   const url = new URL(location.href);
   url.searchParams.set('pitch', pitchMode);
   url.searchParams.set('display', flightDisplay);

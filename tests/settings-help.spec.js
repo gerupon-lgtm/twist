@@ -11,3 +11,9 @@ for(const size of [{width:390,height:844},{width:360,height:640},{width:844,heig
  await page.setViewportSize(size);await open(page);await page.locator('#setting-help-maxPitch').scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect(page.locator('#setting-help-maxPitch')).toBeVisible();await page.screenshot({path:`test-results/v0123-settings-${size.width}.png`});
  await page.goto('/settings-guide.html?v=0.1.23');await expect(page.locator('header')).toContainText('v0.1.23');await expect(page.locator('h1')).toContainText('早見表');await expect(page.locator('table')).toHaveCount(5);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+test('problem lookup follows pitch/display/visibility changes made while adjustments stay open',async({page})=>{
+ await open(page);await page.locator('#settings-troubles > summary').click();await expect(page.locator('[data-jump-setting=timeConstant]')).toHaveCount(2);
+ await page.locator('#pitch-rate').click();await expect(page.locator('[data-jump-setting=timeConstant]')).toHaveCount(0);await page.locator('#pitch-angle').click();await expect(page.locator('[data-jump-setting=timeConstant]')).toHaveCount(2);
+ await page.locator('#display-fixed').click();await expect(page.locator('[data-jump-setting=displayTimeConstant]')).toHaveCount(2);await page.locator('#display-bank').click();await expect(page.locator('[data-jump-setting=displayTimeConstant]')).toHaveCount(0);
+ await page.locator('#view-classic').click();await expect(page.locator('[data-jump-setting=radarRange]')).toHaveCount(0);await page.locator('#view-assisted').click();await expect(page.locator('[data-jump-setting=radarRange]')).toHaveCount(2);
+});

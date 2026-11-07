@@ -24,3 +24,8 @@ test('very large hardware tilt holds the previous command and returns without a 
  await pose(80);await expect.poll(()=>page.locator('#app').getAttribute('data-pitch-target').then(Number)).toBeGreaterThan(.2);await pose(110);await expect(page.locator('#app')).toHaveAttribute('data-input-held','true');await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
  await pose(180);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');await pose(-10);await expect(page.locator('#app')).toHaveAttribute('data-input-held','false');await expect.poll(()=>page.locator('#app').getAttribute('data-pitch-target').then(Number)).toBeLessThan(0);
 });
+test('an open landscape practice panel cannot cover an objective diamond',async({page})=>{
+ await page.setViewportSize({width:844,height:390});await launch(page,'&display=fixed');await page.locator('#practice-summary').click();await slider(page,'practice-steer',15);await page.clock.runFor(1200);
+ await expect(page.locator('#cockpit-objective')).toHaveAttribute('data-kind','edge');await expect(page.locator('#cockpit-objective')).toHaveAttribute('data-occluded','true');
+ const r=await page.locator('#practice-panel').boundingBox(),p=await page.locator('#cockpit-objective').evaluate(e=>({x:Number(e.dataset.x),y:Number(e.dataset.y)}));expect(p.x+16>r.x&&p.x-16<r.x+r.width&&p.y+16>r.y&&p.y-16<r.y+r.height).toBe(false);
+});

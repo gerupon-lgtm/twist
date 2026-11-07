@@ -17,6 +17,10 @@ test('labels stay inside HUD bounds and separate from both the target symbol and
  const label=placeObjectiveLabel(p,{bounds});assert.ok(label);assert.ok(label.x>=82&&label.x+116<=288);assert.ok(label.y+34<350||label.y>390);
  assert.equal(placeObjectiveLabel(p,{bounds,obstacles:[{left:0,right:390,top:0,bottom:844}]}),null);
 });
+test('a projected point covered by an instrument becomes an arrow toward its real position',()=>{
+ const p=projectCockpitObjective({...base,target:{x:0,y:0,z:-26},obstacles:[{left:180,right:210,top:400,bottom:445}]});assert.equal(p.kind,'edge');assert.equal(p.occluded,true);
+ const dx=195-p.x,dy=422-p.y,angle=p.rotation*Math.PI/180;assert.ok(Math.abs(dx/Math.hypot(dx,dy)-Math.sin(angle))<1e-8);assert.ok(Math.abs(dy/Math.hypot(dx,dy)+Math.cos(angle))<1e-8);
+});
 test('invalid projections cannot create nonfinite HUD positions',()=>{
  for(const target of [null,{x:NaN,y:0,z:-1},{x:0,y:0,z:0}])assert.equal(projectCockpitObjective({...base,target}),null);
  assert.equal(projectCockpitObjective({...base,target:{x:1,y:0,z:-10},bounds:{left:10,right:5,top:0,bottom:30}}),null);

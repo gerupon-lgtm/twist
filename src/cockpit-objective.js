@@ -5,15 +5,20 @@ const valid=r=>r&&['left','right','top','bottom'].every(k=>Number.isFinite(r[k])
 export function projectCockpitObjective({target,width,height,verticalFov,bounds,obstacles=[]}={}) {
   if(!valid(bounds))return null;
   const projected=projectEdgeTarget({target,width,height,verticalFov,bounds});
-  if(projected.inView)return {...projected,kind:'point'};
-  if(!projected.visible)return null;
+  const covered=projected.inView&&obstacles.some(r=>overlaps(box(projected.x,projected.y,32,32),r));
+  if(projected.inView&&!covered)return {...projected,kind:'point'};
+  if(!projected.visible&&!covered)return null;
   const candidates=[projected];
+  if(covered)for(const r of obstacles)candidates.push({x:r.left-22,y:projected.y},{x:r.right+22,y:projected.y},{x:projected.x,y:r.top-22},{x:projected.x,y:r.bottom+22});
   for(let x=bounds.left;x<=bounds.right;x+=20)candidates.push({x,y:bounds.top},{x,y:bounds.bottom});
   for(let y=bounds.top;y<=bounds.bottom;y+=20)candidates.push({x:bounds.left,y},{x:bounds.right,y});
   candidates.push({x:bounds.right,y:bounds.bottom},{x:bounds.right,y:bounds.top});
   candidates.sort((a,b)=>Math.hypot(a.x-projected.x,a.y-projected.y)-Math.hypot(b.x-projected.x,b.y-projected.y));
-  const free=candidates.find(p=>!obstacles.some(r=>overlaps(box(p.x,p.y,32,32),r)));
-  return free?{...projected,x:free.x,y:free.y,kind:'edge'}:null;
+  const free=candidates.find(p=>p.x>=bounds.left&&p.x<=bounds.right&&p.y>=bounds.top&&p.y<=bounds.bottom&&!obstacles.some(r=>overlaps(box(p.x,p.y,32,32),r)));
+  if(!free)return null;
+  // An obscured on-screen target gets an arrow pointing to its true projected pixel, never a shifted diamond.
+  const rotation=covered?(Math.atan2(projected.x-free.x,-(projected.y-free.y))*180/Math.PI+360)%360:projected.rotation;
+  return {...projected,visible:true,x:free.x,y:free.y,rotation,kind:'edge',occluded:covered};
 }
 export function placeObjectiveLabel(point,{bounds,obstacles=[],width=116,height=34}={}) {
   if(!point||!valid(bounds))return null;

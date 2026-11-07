@@ -122,7 +122,7 @@ export function createFlightPanel(getModes) {
   refresh();
   return {
     getSettings: () => settings,
-    refreshLayout,
+    refreshLayout:()=>{refreshLayout();refreshTroubles();},
     report: (stats, outcome, lastLeg) => flightReport({ version: APP_VERSION, ...getModes(), settings, stats, lastLeg, result: outcome }),
     showResult(report) {
       result = report;
