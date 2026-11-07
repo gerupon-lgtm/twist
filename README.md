@@ -2,9 +2,9 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.26（公開準備中） / 2026-11-08**
+**操作検証 v0.1.26（公開確認済み） / 2026-11-08**
 
-v0.1.26の公開予定URLです。**公開先がこの版になったことの確認はPENDING（未完了）**です。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
+v0.1.26の公開URLです。公開ファイルと実画面の版26を確認済みです。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
 
 - [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.26)
 - [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.26)
@@ -28,7 +28,7 @@ v0.1.26の公開予定URLです。**公開先がこの版になったことの�
 
 開始・一時停止画面で選び、端末に保存できます。初期選択は「やさしい」。停止中にコースを変えると、そのコースの最初からになり、時間と取得数もリセットします。HUD・レーダー・案内・区間時間・目標の初回表示時間は光の数に合わせて変わります。記録にコース名、旋回の強さ、ステージの広さを追加しました。`course=legacy`では旧配置で現在版の旋回を比べられます。
 
-PCの自動検証では、約10m/s・最大翼角30度で3コースを実際の入力から完走しました。10/20m/sの配置の計算と、約10m/sの実飛行の結果は分けて記録しています。**既存ブラウザー全回帰・処理負荷比較・公開確認はPENDING、Pixel 9aの曲がりやすさ・面白さ・重さは未確認**です。[座標と計算](docs/courses-v0126.md)、[検証状況](docs/verification-v0126.md)、[版別比較の保存状況](docs/release-archives.md)を参照してください。保存版のURLは公開確認後に案内します。
+PCの自動検証では、約10m/s・最大翼角30度で3コースを実際の入力から完走しました。10/20m/sの配置の計算と、約10m/sの実飛行の結果は分けて記録しています。単体339件・ブラウザー243件・公開用ビルド成功。公開42ファイルと実画面/workerも一致。**Pixel 9aの曲がりやすさ・面白さ・重さは未確認**です。[座標と計算](docs/courses-v0126.md)、[検証状況](docs/verification-v0126.md)、[版別比較の保存状況](docs/release-archives.md)を参照してください。[保存版v0.1.25](https://twist.sikumilab.com/versions/0.1.25/?mode=flight&camera=cockpit&v=0.1.25)も公開確認済みです。
 
 ## v0.1.25の案内とHUD
 

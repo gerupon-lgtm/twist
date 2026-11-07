@@ -1,6 +1,6 @@
 # v0.1.26 検証記録
 
-2026-11-08：単体・全ブラウザー回帰・ビルド・処理負荷比較は成功。**公開確認はPENDING（未完了）**。個別試験の成功、公開完了、Pixel 9aでの受入は別の確認として扱います。
+2026-11-08：単体・全ブラウザー回帰・ビルド・処理負荷比較は成功。公開ファイル・実画面の確認も成功。個別試験の成功、公開完了、Pixel 9aでの受入は別の確認として扱います。
 
 ## 対象と前提の変更
 
@@ -83,11 +83,19 @@ WindowsのEdge headless（画面を出さない自動操作）・ソフトウェ
 
 平均は約10.3%増。ステージ拡大と境界を含む描画の差であり、この短いPC測定をPixel 9aの性能や過去の約2.6msと同一条件では比較しない。実機の負荷は下記で未確認。元データは`.cache/performance-v0125.json`、`performance-v0126.json`、成功ログは`v0126-performance.log`。
 
-## 公開確認（PENDING）
+## 公開確認（完了）
 
-この版の公開コミット：**PENDING**。Pages実行：**PENDING**。公開確認日：**PENDING**。
+公開アプリのコミット：`35ad94f1ccadb449f2104ca6fcfb1ead1f54c5ec`。Pages実行：[42405201458](https://github.com/gerupon-lgtm/twist/actions/runs/42405201458)。2026-11-08 04:15 JSTに確認。
 
-全42ファイルの状態・MIME・長さ・SHA-256、画面の版、実SW、開始/停止/設定保存/再読込、旧URL転送、保存版25の入れ子のSWと操作を確認してから次版へ進む。
+- GitHub側のnpm ci・npm test・ビルド・Pages配信が全て成功。CIの成功と、上記ローカルの件数は別の証拠。
+- 公開された全42ファイル（現在版21＋保存版25の21）の状態・MIME・長さ・SHA-256が最終distと一致。
+- 現在版の10確認が全成功：画面の版26／配信module、実SW（相対scope・updateViaCache none・空のCacheStorage）、日本語開始画面、実際の開始操作後の英語HUD、日本語の停止/設定画面、言語保存、再開、再読込、旧GitHub URLの全クエリー付き転送。
+- 保存版25は21ファイル一致に加え、版25の画面/module、入れ子の専用SW、開始→英語HUD→停止→再読込の4確認が全成功。
+- 実行・console・HTTP・request失敗0。`.cache/v0126-public-verification.json`、`archives-v0126-verification.json`に記録。
+- 現在版の配信JSは`index-DSGFCtyG.js`、CSSは`index-B83C1GCu.css`、workletは前版と同じ`audio-worklet-B3pdtA8d.js`。
+- v25保存版：[比較用URL](https://twist.sikumilab.com/versions/0.1.25/?mode=flight&camera=cockpit&v=0.1.25)。v26は次版の公開時に保存版URLも確認する。
+
+この版の全テスト・公開確認が終わったため、次のv0.1.27へ進めます。実機の未確認事項は引き続き下記へ残します。
 
 ## Pixel 9aでの確認（全て未確認）
 
