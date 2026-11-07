@@ -1,0 +1,13 @@
+{
+  "flight": {
+    "title": "ひかりの航路（仮）",
+    "file": "flight.mid",
+    "loop": {"start": 0, "end": 45},
+    "parts": {"1":{"waveform":4,"volume":96},"2":{"waveform":2,"volume":78},"3":{"waveform":0,"volume":96},"10":{"volume":85}}
+  },
+  "clear": {
+    "title": "光の到着（仮）",
+    "file": "clear.mid",
+    "parts": {"1":{"waveform":4,"volume":100},"2":{"waveform":2,"volume":84},"3":{"waveform":0,"volume":96},"10":{"volume":90}}
+  }
+}

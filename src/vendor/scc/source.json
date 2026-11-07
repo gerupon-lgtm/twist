@@ -13,6 +13,11 @@
     "core/scc-ref.js": "e943ba33087306be5d6cb41468cd82c46531bf7d6abec9559a418eec92b8c1c8",
     "core/scc-registers.js": "892100d3b6b359ba770293c22901ce497b9bb6788d7a7d2c0533d615baa58cff",
     "core/wave-text.js": "102c695196afeadc3eb52039b00f675fb876d75f28122c4211901624a8f31c54",
-    "core/window-converter.js": "97161f7e396265064bdb8ea47babebf85f9155cbf75f36a76652fd8db2b6d94e"
+    "core/window-converter.js": "97161f7e396265064bdb8ea47babebf85f9155cbf75f36a76652fd8db2b6d94e",
+    "engine/smf-player.js": "fa312a4639f0ede0c0bc3d94494e72e001877645d984612e2fea09b29b86ea28",
+    "engine/synth.js": "42a7340d267ed0d18f07111c1e0da02efa8a7d4628a1949dee5ceafcfe462b95",
+    "engine/voice-allocator.js": "37135c8ef49ae1399b6344a68e7faed5dbb79e502d2ff2a9c7a3d6e2592e270d",
+    "engine/psg-drums.js": "76e31b8a9dc67808a1290868e107788cf4cf2cd2bf540654b912d41fa8838f45",
+    "midi/smf.js": "3d08da0a1caf2abd3de08b6bf8d5fc0b0c862447c88dce41909efce26b544b88"
   }
 }
