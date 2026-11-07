@@ -2,17 +2,29 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.18 / 2026-11-07**
+**操作検証 v0.1.19 / 2026-11-07**
 
 公開先URL（機首angle、左右端を倒す旋回。視点の未指定は従来表示、機体表示はbank/fixedを残します）:
 
-- [従来視点・overlay](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.18)
-- [追尾3D視点・chase](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.18)
-- [操縦席視点・cockpit](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.18)
-- [追尾3D・自機固定fixed](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.18)
-- [機首が回り続けるrate（比較）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.18)
+- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.19)
+- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.19)
+- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.19)
+- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.19)
+- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.19)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.19のホーム画面起動と画面の向き
+
+画面の自動回転で操作の基準がずれないよう、Androidは最後の開始ボタンで全画面を試し、その直前の向きに固定します。固定/全画面が使えなくても遊べます。「持ち方を合わせ直す」で再固定、一時停止には解除ボタンがあります。ホーム画面のアプリ表示はOS側のため、解除後もバーが戻らない場合の案内も出します。
+
+iPhoneは開始時に、縦向きロックの案内を10秒のトーストで表示します。横持ちでは縦ロックが横固定に使えないことを案内。飛行中に画面の向きが切り替わったら停止し、開始時の向きへ戻して、持ち方を合わせ直してから手動再開します。手動の一時停止中は持ち替えられます。
+
+ホーム画面への追加に対応するmanifest/アイコンを同梱。Androidの追加ボタンはブラウザーから提案が来た場合だけ、iPhoneブラウザーには共有→「ホーム画面に追加」を表示し、アプリ起動時は追加案内を隠します。記録/コピーには`launch: browser|installed`と`fullscreen: true|false`を加えます。
+
+毎回通信する最小のサービスワーカーを採用し、オフライン用キャッシュは作りません。開いたままの画面も復帰時に版を調べ、新版があれば停止して更新ボタンを出します。**ホームアイコンからの起動・物理的な向き固定・全画面はPixel 9a/iPhone XRで未確認**です。[検証記録と両端末の確認手順](docs/verification-v0119.md)。
+
+正式URLは [twist.sikumilab.com](https://twist.sikumilab.com/?mode=flight&v=0.1.19)。[旧GitHub Pages URL](https://gerupon-lgtm.github.io/twist/?mode=flight&v=0.1.19)は新ドメインへ転送されます。設定はドメインごとの端末内保存なので、旧URLで保存した値は新ドメインには引き継がれず、初期値になります。
 
 ## v0.1.18のMIDI BGM
 
@@ -150,7 +162,7 @@ v0.1.12では、進行中の前後・上下・左右の勢いを保ち、姿勢�
 4. 飛行機は出力50%・6m/s、探索は停止から始まります。飛行機は画面下の出力スライダー、本体上端の前後、「ひねる」または「回す」を試し、探索は自機の先端・左右の傾きと面内で回す動きを試します。
 5. 見失い対策では空中のピンクの光を順番に3つ集め、案内に従って青い出口へ進みます。青い六角の輪・点の道しるべ・高さ目盛は位置を把握する目印です。
 
-持ち方を変えたいときは「持ち方を合わせ直す」で操作の中立を取り直します。通常の画面の縦横変更では操作基準と速度を維持します。センサー消失や画面を離れた場合は速度・出力0へ停止し、手動で再開します。探索では自機が真横に見えて先端を判別できない角度でも停止します。飛行機は再開ボタンから出力50%・6m/sへ戻り、自動で再開はしません。
+持ち方を変えたいときは「持ち方を合わせ直す」で操作の中立を取り直します。Android/PCでは画面の縦横変更に対する従来の入力補正を保ちます。iPhoneではv0.1.19から向きが切り替わると一時停止します。センサー消失や画面を離れた場合は速度・出力0へ停止し、手動で再開します。探索では自機が真横に見えて先端を判別できない角度でも停止します。飛行機は再開ボタンから出力50%・6m/sへ戻り、自動で再開はしません。
 
 飛行機は地面まで0mで接触して停止します。「最初から飛び直す」で出発地点から出力50%・6m/sで再出発します。
 
@@ -182,6 +194,10 @@ npm run build
 
 ## 記録
 
+- [v0.1.19のPWA・向き固定・iPhone案内と実機手順](docs/verification-v0119.md)
+- [v0.1.18のMIDI BGMと検証](docs/verification-v0118.md)
+- [v0.1.17の振動/効果音と検証](docs/verification-v0117.md)
+
 - [v0.1.15のレーダー・光・最後の1回の検証](docs/verification-v0115.md)
 - [v0.1.14の固定表示・ならし・結果と検証](docs/verification-v0114.md)
 - [v0.1.13の角度操作・調整・記録と検証](docs/verification-v0113.md)
@@ -207,6 +223,6 @@ npm run build
 - [v0.1.1の検証記録](docs/verification-v011.md)
 - [初回公開の検証記録](docs/verification.md)
 
-Viteのビルドでは変更内容に応じたハッシュ付きファイル名を生成します。サービスワーカーは使っていません。更新公開のたびに画面の検証版番号も更新します。
+Viteのビルドでは変更内容に応じたハッシュ付きファイル名を生成します。v0.1.19から毎回通信するサービスワーカーを使います。オフライン用キャッシュは保存しません。更新公開のたびに画面の検証版番号も更新します。
 
 3D描画・計算には [Three.js](https://threejs.org/)（MIT）、開発・ビルドには [Vite](https://vite.dev/)（MIT）を使用しています。

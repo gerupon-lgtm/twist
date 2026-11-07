@@ -12,6 +12,7 @@ import { createFlightSession } from './flight-session.js';
 import { normalizeCameraMode } from './flight-camera.js';
 import { layoutCockpitHud, updateCockpitHud } from './cockpit-hud.js';
 import { createFeedbackController } from './feedback/controller.js';
+import { createPwaController } from './pwa.js';
 
 const $ = (id) => document.getElementById(id);
 const app = $('app');
@@ -27,7 +28,8 @@ let flightDisplay = new URLSearchParams(location.search).get('display') === 'fix
 let cameraMode = normalizeCameraMode(new URLSearchParams(location.search).get('camera'));
 const flightSession = createFlightSession();
 const feedback = createFeedbackController();
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report() }));
+const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dialog });
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), ...pwa.report() }));
 let inputMode = null;
 let reference = null;
 let craftReference = null;
@@ -72,6 +74,7 @@ function setPhase(next) {
   for (const view of ['assisted', 'classic']) $(`view-${view}`).disabled = ['waiting', 'ready'].includes(next);
   for (const pitch of ['angle', 'rate']) $(`pitch-${pitch}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   for (const steering of ['twist', 'tilt']) $(`steering-${steering}`).disabled = ['waiting', 'ready', 'running'].includes(next);
+  pwa.render();
 }
 
 const modeNote = () => playMode === 'flight'
@@ -248,6 +251,7 @@ function selectMode(next) {
   const resume = Boolean(inputMode) && phase !== 'error';
   permissionAttempt++;
   halt();
+  pwa.clearOrientation();
   stage.reset();
   reference = null;
   previousCollected = 0;
@@ -295,6 +299,7 @@ function dialog({ title, description, note = '', action = '再開する', guide 
   $('practice-button').hidden = false;
   $('practice-button').textContent = inputMode === 'practice' ? 'スマホの傾きに切り替える' : '画面操作で試す';
   $('dialog-kicker').textContent = inputMode === 'practice' ? '画面操作・センサー未使用' : playMode === 'flight' ? '傾き操縦と画面スロットル' : '傾きと回転の操作検証';
+  pwa.render();
 }
 
 function showError(message) {
@@ -347,6 +352,7 @@ async function keepAwake() {
 }
 
 function run(mode) {
+  if (!pwa.begin()) return;
   lastFlightSnapshot = null;
   if (playMode === 'flight') flightSession.start();
   inputMode = mode;
@@ -461,6 +467,7 @@ async function requestSensors() {
 }
 
 function calibrate() {
+  if (!pwa.canResume()) return;
   if (!latestQuaternion || performance.now() - lastOrientationAt > 1200) {
     pendingCalibration = true;
     setPhase('waiting');
@@ -474,6 +481,7 @@ function calibrate() {
 }
 
 function finishCalibration() {
+  if (!pwa.canResume()) return;
   pendingCalibration = false;
   clearTimeout(waitingTimer);
   referenceScreenAngle = screenAngle();
@@ -492,6 +500,7 @@ function showToast(text, duration = 2600) {
 }
 
 function startPractice() {
+  if (!pwa.canResume()) return;
   permissionAttempt++;
   pendingCalibration = false;
   clearTimeout(waitingTimer);
@@ -502,19 +511,30 @@ function startPractice() {
   showToast('画面操作の練習です。スマホの傾きは使っていません。');
 }
 
-$('start-button').addEventListener('click', () => {
-  if (!stage) return;
+$('start-button').addEventListener('click', async () => {
+  if (!stage || !pwa.canResume()) return;
   feedback.unlock();
+  if (['ready','paused','complete'].includes(phase)) {
+    const attempt = permissionAttempt;
+    await pwa.enter();
+    if (attempt !== permissionAttempt || !pwa.canResume()) return;
+  }
   if (stage.getStatus().grounded) { resetStage({ preserveSession: true }); if (inputMode === 'sensor') calibrate(); return; }
   if (phase === 'complete') { resetStage(); return; }
   if (phase === 'ready' || (phase === 'paused' && inputMode === 'sensor')) { calibrate(); return; }
   if (phase === 'paused' && inputMode === 'practice') { startPractice(); return; }
   requestSensors();
 });
-$('practice-button').addEventListener('click', () => {
-  if (!stage) return;
+$('practice-button').addEventListener('click', async () => {
+  if (!stage || !pwa.canResume()) return;
   feedback.unlock();
+  if (inputMode !== 'practice') {
+    const attempt = permissionAttempt;
+    await pwa.enter();
+    if (attempt !== permissionAttempt || !pwa.canResume()) return;
+  }
   if (phase === 'complete' || stage.getStatus().grounded) {
+    pwa.clearOrientation();
     if (phase === 'complete') { flightSession.reset(); feedback.reset(); }
     else flightSession.restartLeg();
     stage.reset(); previousCollected = 0; craftReference = null;
@@ -522,7 +542,10 @@ $('practice-button').addEventListener('click', () => {
   inputMode === 'practice' ? requestSensors() : startPractice();
 });
 $('pause-button').addEventListener('click', () => pause());
-$('recenter-button').addEventListener('click', () => pause(playMode === 'flight' ? '一度停止しました。今の持ち方を操作の中立に合わせ直します。' : '一度停止しました。自機の向きは保ったまま、今の持ち方を操作の中立に合わせ直します。'));
+$('recenter-button').addEventListener('click', () => {
+  pause(playMode === 'flight' ? '一度停止しました。今の持ち方を操作の中立に合わせ直します。' : '一度停止しました。自機の向きは保ったまま、今の持ち方を操作の中立に合わせ直します。');
+  void pwa.enter();
+});
 $('help-button').addEventListener('click', () => {
   if (phase !== 'running') return;
   pause(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、${pitchMode === 'angle' ? '機首も水平へ戻ります。' : '機首は今の角度を保ちます。'}画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
@@ -548,6 +571,7 @@ $('throttle-input').addEventListener('input', (event) => { if (phase === 'runnin
 for (const axis of controls) $(`practice-${axis}`).addEventListener('input', (event) => { keyboardActive = false; heldKeys.clear(); practiceAngles[axis] = Number(event.target.value); });
 
 function resetStage({ preserveSession = false } = {}) {
+  pwa.clearOrientation();
   if (!preserveSession) { flightSession.reset(); feedback.reset(); }
   else flightSession.restartLeg();
   flightPanel.showResult(null);
@@ -566,9 +590,9 @@ $('reset-button').addEventListener('click', () => resetStage());
 document.addEventListener('visibilitychange', () => { if (document.hidden) { feedback.stop(); pause('画面が隠れたため停止しました。持ち方を合わせて再開してください。'); } });
 window.addEventListener('blur', () => { feedback.stop(); heldKeys.clear(); if (phase === 'running' || pendingCalibration) pause('画面から離れたため停止しました。'); });
 window.addEventListener('pagehide',()=>feedback.stop());
-const screenChanged = () => { refreshOrientations(); resize(); };
+const screenChanged = () => { refreshOrientations(); resize(); pwa.orientationChanged(); };
 screen.orientation?.addEventListener('change', screenChanged);
-if (!screen.orientation) window.addEventListener('orientationchange', screenChanged);
+window.addEventListener('orientationchange', screenChanged);
 window.addEventListener('keydown', (event) => {
   if (phase !== 'running' || inputMode !== 'practice' || /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
   const key = event.key.toLowerCase();
@@ -582,7 +606,7 @@ window.addEventListener('keyup', (event) => heldKeys.delete(event.key.toLowerCas
 canvas.addEventListener('webglcontextlost', (event) => { event.preventDefault(); pause('3Dの表示が中断しました。ページを再読み込みしてください。'); });
 
 function resize() { stage?.resize(window.innerWidth, window.innerHeight, Math.min(window.devicePixelRatio || 1, 1.6)); }
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { resize(); pwa.orientationChanged(); });
 
 function meter(axis, limit) {
   const angle = Number.isFinite(angles[axis]) ? angles[axis] : 0;
@@ -806,6 +830,7 @@ try {
   stage = createStage(canvas, { visibility, display: flightDisplay, cameraMode });
   stage.update(0, { mode: playMode, speed: 0, craftQuaternion });
   resize();
+  pwa.initialize();
   requestAnimationFrame(frame);
 } catch (error) {
   setPhase('error');

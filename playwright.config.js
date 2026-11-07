@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['**/smoke.spec.js', '**/flight.spec.js', '**/visibility.spec.js', '**/device-flight.spec.js', '**/ground-proximity.spec.js', '**/flight-input.spec.js', '**/flight-display.spec.js', '**/radar.spec.js', '**/camera.spec.js', '**/steering.spec.js', '**/feedback.spec.js', '**/music.spec.js'],
+  testMatch: ['**/smoke.spec.js', '**/flight.spec.js', '**/visibility.spec.js', '**/device-flight.spec.js', '**/ground-proximity.spec.js', '**/flight-input.spec.js', '**/flight-display.spec.js', '**/radar.spec.js', '**/camera.spec.js', '**/steering.spec.js', '**/feedback.spec.js', '**/music.spec.js', '**/pwa.spec.js'],
   workers: 1,
   timeout: 30000,
   use: {

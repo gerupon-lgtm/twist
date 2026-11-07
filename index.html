@@ -4,19 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta name="theme-color" content="#dcebf1" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="twist" />
+    <link rel="manifest" href="./manifest.webmanifest?v=0.1.19" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.19" />
     <meta name="description" content="自分はそのまま、世界を動かす。スマホの動きで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.18" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.19" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
       <div id="ground-edge-warning" class="ground-edge-warning" data-level="clear" aria-hidden="true" hidden></div>
       <header class="topbar">
-        <a class="brand" id="home-link" href="./?v=0.1.18" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <a class="brand" id="home-link" href="./?v=0.1.19" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
         <span class="mode-tag" id="play-mode-label">探索モード</span>
         <details class="feedback-metrics"><summary>計測</summary><p id="feedback-diagnostics" aria-label="操作検証の計測値"></p></details>
-        <span class="version">操作検証 <b>v0.1.18</b></span>
+        <span class="version">操作検証 <b>v0.1.19</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
@@ -72,8 +78,9 @@
         <section class="intro-card" id="intro-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-description">
           <span class="card-symbol" aria-hidden="true">↝</span>
           <p class="card-kicker" id="dialog-kicker">スマホの動きで操作検証</p>
-          <p class="intro-version" id="intro-version">twist <b>v0.1.18</b><span>操作検証版</span></p>
+          <p class="intro-version" id="intro-version">twist <b>v0.1.19</b><span>操作検証版</span></p>
           <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
+          <aside id="orientation-notice" class="orientation-notice" role="status" aria-live="polite" hidden><button type="button" aria-label="向き固定の案内を閉じる">×</button><strong data-notice-title></strong><p data-notice-copy></p></aside>
           <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。ピンクの光を3つ集めて出口へ。</p>
           <div class="mode-picker" role="group" aria-label="遊び方"><button id="mode-explore" type="button" aria-pressed="true">探索</button><button id="mode-flight" type="button" aria-pressed="false">飛行機</button><small>切替はステージを最初から</small></div>
           <div class="view-picker" role="group" aria-label="見え方"><span>見え方</span><button id="view-assisted" type="button" aria-pressed="true">見失い対策</button><button id="view-classic" type="button" aria-pressed="false">従来</button><small id="view-note">視野を広く、色と形の目印、画面外の目標マーク</small></div>
@@ -109,6 +116,11 @@
           </details>
           <p class="dialog-note" id="dialog-note">回した後も、自機の先端が操作の目印です。<br />傾きを中立に戻すと、今の速さを保ちます。</p>
           <p class="error-message" id="error-message" role="alert" hidden></p>
+          <p class="installation-advice" id="installation-advice" hidden></p>
+          <button class="secondary-button pwa-action" id="install-button" type="button" hidden>ホーム画面に追加</button>
+          <button class="secondary-button pwa-action" id="release-screen-button" type="button" hidden>全画面と向き固定を解除</button>
+          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.19" target="_blank" rel="noopener">ブラウザーで開く</a></p>
+          <aside id="update-notice" class="update-notice" role="status" hidden><p>新しい版 <b id="update-version"></b> があります。</p><button id="update-button" type="button">最新版を開く</button></aside>
           <button class="primary-button" id="start-button" type="button">スマホの傾きで始める</button>
           <button class="secondary-button" id="practice-button" type="button">画面操作で試す</button>
           <button class="text-button" id="reset-button" type="button" hidden>最初からやり直す</button>
