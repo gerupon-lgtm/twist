@@ -29,6 +29,11 @@ Standards軸/Spec軸とも、探索の初期化で非表示の飛行設定まで
 
 ## 公開版
 
-公開版の確認後に追記する。
+- アプリコミット `329bfb6bc0280cd098f64da735d5e706be5b8a64`。[GitHub Pages更新](https://github.com/gerupon-lgtm/twist/actions/runs/42352851069) 成功。CIの116件とビルドも成功。
+- [bank表示](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&v=0.1.15)、[fixed表示](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&v=0.1.15) を公開。画面v0.1.15。HTML型/HTTP200、JS `index-Bo9b7zLh.js` / CSS `index-Cyr4Af2S.css` の型・SHA-256が最終ビルドに一致。
+- 公開31件、3ファイル、Edge・1worker、1.8分、全件成功・終了コード0・実行エラー0。飛行/探索・3寸法の非重複、heading-upとfixedの画面軸維持、取得による更新、出口、range保存、legacy/classicの旧色とレーダー非表示、探索リセットが飛行設定を保持することも確認。
+- 公開bankで接地→飛び直し→全光・出口まで進み、clearかつ合計接地1・legs2・lastLeg接地0を確認。fixedの全コースも成功。合計/最後の1回の表示、色とレーダー画像を目視。コピーのスナップショット維持、休止で区切らないことも公開UIで確認。
+- 公開の従来動作回帰も終了コード0、実行/HTTP読込エラー0。疑似センサー、本体基準、旋回、上昇減速/下降加速、出力保持、停止と手動再開、探索、目標と見え方、地面、0m接地、50/100%からの失速復帰を確認。
+- 変更前の厳密な状態比較とソースを直接読む確認はローカル、公開は同じ配信資産の一致と実UIで確認する層を分ける。公開試験は `node_modules/.cache/public-v0115-*.spec.js` と同config、回帰は `node_modules/.cache/twist-public-regression-v0115.mjs`。画像 `test-results/public-v0115-*`、回帰結果 `test-results/public-v0115-rate-result.json` はGit管理外で次の検証で上書きされ得る。
 
 従来の操縦、飛行物理、失速復帰、視点補助、固定表示の回転計算は変更しない。新しいレーダー・光の実機での見やすさは未確認。v0.1.14の固定表示の上向き維持は、今回の資料の本人報告として確認済みと分けて扱う。
