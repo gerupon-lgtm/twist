@@ -2,7 +2,7 @@ import { normalizeFlightSettings } from './flight-settings.js';
 import { FLIGHT_SETTING_FIELDS } from './flight-settings.js';
 import { changedSettings } from './setting-differences.js';
 
-/** Counts simulated flying time; menus and waiting for sensors never advance it. */
+/** Counts active play time supplied by the caller; menus and sensor waits never advance it. */
 export function createFlightSession() {
   const empty = () => ({ elapsedSeconds: 0, groundContacts: 0, recoverySeconds: 0 });
   let totals = { ...empty(), legs: 0 }, leg = empty(), pendingLeg = true, wasGrounded = false;

@@ -26,6 +26,9 @@ for(const base of ['/','/twist/']) test(`${base} loads manifest, icons, 3D and n
   for(const icon of info.icons){expect(icon.status).toBe(200);expect(icon.type).toContain('image/png');expect(new URL(icon.url).pathname.startsWith(`${base}icons/`)).toBe(true);}
   expect(info.appleSize).toEqual([180,180]);expect(new URL(info.scope).pathname).toBe(base);
   expect(new URL(info.scriptURL).pathname).toBe(`${base}sw.js`);expect(new URL(info.scriptURL).searchParams.get('v')).toBe('0.1.23');expect(info.caches).toEqual([]);
+  const guide=await page.request.get(`${base}settings-guide.html?v=0.1.23`);
+  expect(guide.status()).toBe(200);expect(guide.headers()['content-type']).toContain('text/html');
+  expect(await guide.text()).toContain('v0.1.23');expect(await guide.text()).toContain('早見表');
   await page.reload();await page.locator('#practice-button').click();await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
   expect(errors).toEqual([]);
 });

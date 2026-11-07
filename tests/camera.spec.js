@@ -66,7 +66,7 @@ test('cockpit hides both craft scenes, disables ground assistance and reports ac
  expect(await number(page,'view-assistance')).toBe(0);
  const readings=JSON.parse(await page.locator('#cockpit-hud').getAttribute('data-readings'));
  expect(readings.speed).toBeCloseTo(await number(page,'speed'),2);expect(readings.altitude).toBeCloseTo(await number(page,'ground-clearance'),4);
- await expect(page.locator('#cockpit-altitude')).toContainText('地面まで');await expect(page.locator('#cockpit-speed')).toContainText('m/s');
+ await expect(page.locator('#cockpit-altitude')).toContainText('現在高度');await expect(page.locator('#cockpit-speed')).toContainText('m/s');
  const nose=await page.locator('[data-boresight]').getAttribute('transform'),track=await page.locator('[data-flight-path]').getAttribute('transform');expect(nose).not.toEqual(track);
  await page.screenshot({path:'test-results/v0116-cockpit-climb.png'});
 });
@@ -133,6 +133,8 @@ test('cockpit clipping never adds visible islands outside the central HUD window
  const result=await page.evaluate(async()=>{
   const {createStage}=await import('/src/stage.js');const {updateCockpitHud}=await import('/src/cockpit-hud.js');
   const stage=createStage(document.createElement('canvas'),{cameraMode:'cockpit'});stage.resize(390,844,1);stage.launchFlight();
+  // Isolate the edge-card clipping: the new objective label has its own deliberate cutout.
+  document.getElementById('cockpit-objective-label').hidden=true;
   const marker=document.getElementById('target-edge-marker');marker.hidden=false;marker.style.left='35px';marker.style.top='220px';
   updateCockpitHud(stage.getStatus(),true);
   const path=new Path2D(document.querySelector('#cockpit-clip path').getAttribute('d'));
