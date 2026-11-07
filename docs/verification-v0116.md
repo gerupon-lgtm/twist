@@ -50,4 +50,12 @@ v0.1.15 fixed/assistedの合計約418秒・2回飛行・接地1回・クリア�
 
 ## 公開版
 
-公開前。レビュー・回帰確認後に更新する。
+- アプリコミット `9bdd85259b031eafeb893b1a827155b76814035b`。[GitHub Pages公開処理](https://github.com/gerupon-lgtm/twist/actions/runs/42356648611) 成功。CIの単体テストとビルドも成功。
+- 公開URL：[従来](https://gerupon-lgtm.github.io/twist/?mode=flight&camera=overlay&v=0.1.16)、[追尾3D](https://gerupon-lgtm.github.io/twist/?mode=flight&camera=chase&v=0.1.16)、[操縦席](https://gerupon-lgtm.github.io/twist/?mode=flight&camera=cockpit&v=0.1.16)。開始画面と上部の版はv0.1.16。URLでdisplay=fixed・pitch=rate等も併用可能。
+- 公開42件/5ファイル、Edge・疑似タッチ・1worker、1.9分で全件成功・終了コード0、実行/HTTP読込エラー0。3視点と両機体表示、操縦席の実数値/景色との回転/印の回転、3寸法の非重複、追尾旋回、2基の噴射、視点の休止時切替、操縦の保存/初期化/コピー、合計/最後の1回、bank/fixedの全コースクリア、レーダー/光/legacyを確認。
+- HTMLのHTTP200とtext/html、JS `index-BoazTG-1.js` / CSS `index-9XDiLbKa.css` の内容型とSHA-256がローカル最終ビルドと一致。実WebGLピクセル/厳密な物理状態比較/クリップ幾何はローカルで実施し、公開は資産の一致と実UIの検証を別の層として扱う。
+- 公開画像で操縦席の緑線と読める数値、390×844/360×640/844×390の配置、追尾の立体機・2基の噴射を目視。
+- 従来動作の公開回帰も終了コード0、実行/HTTP読込エラー0。疑似センサーの本体基準・両旋回・出力保持・停止/手動再開・探索の12度操作、見え方切替、低空警告・2m未満の飛行継続・0m接触を確認。失速復帰を出力50%/100%で各1条件確認し、慣性でそれぞれ約12.49m/5.28m進みながら接地前に速度を取り戻した（最低高度約6.76m/8.76m）。結果JSONは`test-results/public-v0116-rate-result.json`。
+- 公開試験はGit管理外の`node_modules/.cache/public-v0116-*.spec.js`と同config、従来の公開回帰は`node_modules/.cache/twist-public-regression-v0116.mjs`。画像は`test-results/public-v0116-*`（次の試験で上書きされ得る）。
+
+スマホ実機の見やすさ・酔いやすさ・操作感は未確認。
