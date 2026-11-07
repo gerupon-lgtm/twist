@@ -32,7 +32,8 @@ export function createMusicPlayer(audio,{fetchFile=fetch,base=new URL('./music/'
     if(token!==generation)return 'cancelled';
     const ready=await audio.waitForReady();if(token!==generation)return 'cancelled';
     if(!library?.[id]||!ready)return 'unavailable';
-    await audio.resume();if(token!==generation)return 'cancelled';
+    try{await audio.resume();}catch{if(token!==generation)return 'cancelled';status='unavailable';return 'unavailable';}
+    if(token!==generation)return 'cancelled';
     const {track,score}=library[id],sink=audio.musicClock;
     audio.stopMusic();audio.configure(settings);audio.setMusicGain((settings.bgmVolume??50)/100);
     const synth=new Synth(sink,{drums:true});synth.init();
@@ -50,7 +51,7 @@ export function createMusicPlayer(audio,{fetchFile=fetch,base=new URL('./music/'
     const duration=stream?stream.extend(score.duration*2):score.duration;
     player.load({events:stream?stream.events:score.events,duration});player.play();
     if(stream)expander=setInterval(()=>{
-      if(!player?.playing)return;
+      if(token!==generation||!player?.playing)return;
       player.duration=stream.extend(Math.max(score.duration*2,sink.now()-player.startTime+score.duration));stream.trim(player);
     },100);
     current=id;lastTrack=track.title;if(!playedTracks.includes(track.title))playedTracks.push(track.title);status='playing';return 'played';

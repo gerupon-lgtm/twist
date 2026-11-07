@@ -20,7 +20,7 @@ export function prepareScore(bytes,track){
   for(const event of song.events){
     if(event.time>=start)break;
     const key=`${event.channel}:${event.note}`;
-    if(event.type==='noteOn')active.set(key,event);
+    if(event.type==='noteOn'&&event.channel!==9)active.set(key,event);
     if(event.type==='noteOff')active.delete(key);
     if(event.type==='cc'){
       controllers.set(`${event.channel}:cc:${event.controller}`,event);

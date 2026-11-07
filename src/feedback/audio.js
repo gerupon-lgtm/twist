@@ -10,17 +10,19 @@ export function createGameAudio(){
     const Audio=window.AudioContext||window.webkitAudioContext;
     if(!Audio){status='unsupported';return;}
     try {
-      if(!context)context=new Audio();
-      await context.resume();
-      if(node){status='ready';return;}
+      if(!context||context.state==='closed')context=new Audio();
       if(!pending)pending=(async()=>{
-        await context.audioWorklet.addModule(workletUrl);
-        node=new AudioWorkletNode(context,'twist-audio',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1]});
-        node.connect(context.destination);
-        node.port.onmessage=({data})=>{if(data.type==='metrics'){load=data.load;maxLoad=Math.max(maxLoad,load);peak=data.peak;musicActive=Boolean(data.music);}};
-        poll=setInterval(()=>post({type:'poll'}),1000);status='ready';
-        if(wanted&&lastState)post(lastState);else await context.suspend();
-      })().catch(()=>{status='unavailable';pending=null;});
+        await context.resume();
+        if(!node){
+          await context.audioWorklet.addModule(workletUrl);
+          node=new AudioWorkletNode(context,'twist-audio',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1]});
+          node.connect(context.destination);
+          node.port.onmessage=({data})=>{if(data.type==='metrics'){load=data.load;maxLoad=Math.max(maxLoad,load);peak=data.peak;musicActive=Boolean(data.music);}};
+          poll=setInterval(()=>post({type:'poll'}),1000);
+        }
+        status='ready';
+        if(wanted){if(lastState)post(lastState);}else await context.suspend();
+      })().catch(()=>{status='unavailable';clearInterval(poll);node?.disconnect();node=null;}).finally(()=>{pending=null;});
       await pending;
     }catch{status='unavailable';}
   }

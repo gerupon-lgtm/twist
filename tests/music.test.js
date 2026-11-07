@@ -8,10 +8,10 @@ import { parseSmf } from '../src/vendor/scc/midi/smf.js';
 import { ChipMixer } from '../src/feedback/chip-mixer.js';
 import { Synth } from '../src/vendor/scc/engine/synth.js';
 const songs=generateMusic();
-const config=JSON.parse(await readFile(new URL('../public/music/tracks.json',import.meta.url),'utf8'));
+const config=JSON.parse(await readFile(new URL('../tests/fixtures/music-tracks.json',import.meta.url),'utf8'));
 test('original MIDI generation is reproducible, lasts 45 seconds and stays within five SCC voices',async()=>{
   for(const [id,data]of Object.entries(songs)){
-    const bytes=await readFile(new URL(`../public/music/${id}.mid`,import.meta.url));assert.equal(Buffer.compare(data,bytes),0);
+    assert.equal(Buffer.compare(data,generateMusic()[id]),0);
     const song=parseSmf(data);assert.equal(song.duration,id==='flight'?45:2.4);
     let active=new Set(),max=0;
     for(const e of song.events){if(e.channel===9)continue;const key=e.channel+':'+e.note;
@@ -63,4 +63,36 @@ test('the goal jingle uses the music bus even when flight BGM is off',async()=>{
  const fetchFile=async url=>String(url).includes('tracks.json')?{ok:true,json:async()=>config}:{ok:true,arrayBuffer:async()=>songs[String(url).includes('clear')?'clear':'flight']};
  const p=createMusicPlayer(audio,{fetchFile,base:new URL('https://example.test/music/')});p.setSettings({sound:true,bgm:false,sfx:true,bgmVolume:50});
  assert.equal(await p.play('clear'),'played');assert.equal(p.snapshot().current,'clear');assert.ok(writes>0&&clears>0);p.stop();assert.equal(p.snapshot().playing,false);
+});
+
+test('a rejected audio resume is a silent fallback rather than an unhandled rejection',async()=>{
+ const audio={stopMusic(){},setMusicGain(){},waitForReady:async()=>true,resume:async()=>{throw Error('blocked');}};
+ const fetchFile=async url=>String(url).includes('tracks.json')?{ok:true,json:async()=>config}:{ok:true,arrayBuffer:async()=>songs[String(url).includes('clear')?'clear':'flight']};
+ const p=createMusicPlayer(audio,{fetchFile,base:new URL('https://example.test/music/')});p.setSettings({sound:true,bgm:true,sfx:true});
+ assert.equal(await p.play('flight'),'unavailable');assert.equal(p.snapshot().playing,false);p.stop();
+});
+
+test('loop restoration does not replay old one-shot drums that had no note-off',()=>{
+ const trackBytes=[0,153,36,100,0,144,74,90,131,96,128,74,0,0,255,47,0];
+ const bytes=Uint8Array.from([77,84,104,100,0,0,0,6,0,0,0,1,1,224,77,84,114,107,0,0,0,trackBytes.length,...trackBytes]);
+ const score=prepareScore(bytes,validateTrack({...config.clear,loop:{start:.1,end:.6}}));
+ assert.ok(score.events.some(e=>e.type==='noteOn'&&e.channel===0));
+ assert.equal(score.events.some(e=>e.type==='noteOn'&&e.channel===9),false);
+});
+
+test('a late resume rejection after cancellation cannot trigger a fallback jingle',async()=>{
+ let rejectResume,started=false;
+ const audio={stopMusic(){},setMusicGain(){},waitForReady:async()=>true,resume:()=>{started=true;return new Promise((_resolve,reject)=>{rejectResume=reject;});}};
+ const fetchFile=async url=>String(url).includes('tracks.json')?{ok:true,json:async()=>config}:{ok:true,arrayBuffer:async()=>songs[String(url).includes('clear')?'clear':'flight']};
+ const p=createMusicPlayer(audio,{fetchFile,base:new URL('https://example.test/music/')});p.setSettings({sound:true,bgm:true,sfx:true});
+ const promise=p.play('clear');await new Promise(resolve=>setImmediate(resolve));assert.equal(started,true);p.stop();rejectResume(Error('hidden'));
+ assert.equal(await promise,'cancelled');
+});
+
+test('editable published MIDI/config files are valid without requiring the generated prototype bytes',async()=>{
+ const live=JSON.parse(await readFile(new URL('../public/music/tracks.json',import.meta.url),'utf8'));
+ for(const id of ['flight','clear']){
+  const track=validateTrack(live[id]),bytes=await readFile(new URL('../public/music/'+track.file,import.meta.url));
+  const score=prepareScore(bytes,track);assert.ok(score.duration>0);assert.ok(score.events.some(e=>e.type==='noteOn'));
+ }
 });

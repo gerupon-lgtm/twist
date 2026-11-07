@@ -47,6 +47,7 @@ test('real crash notification interrupts the flight pulse and hidden pages cance
  await slider(page,'throttle-input',0);await slider(page,'practice-pitch',-25);
  for(let i=0;i<150&&await page.locator('#app').getAttribute('data-phase')==='running';i++)await page.clock.runFor(100);
  await expect(page.locator('#app')).toHaveAttribute('data-grounded','true');
+ await page.clock.runFor(50);expect(JSON.parse(await page.locator('#feedback-diagnostics').getAttribute('data-music')).playing).toBe(false);
  expect((await page.evaluate(()=>window.vibrations)).some(p=>Array.isArray(p)&&p.length===1&&p[0]===320)).toBe(true);
  await page.evaluate(()=>{Object.defineProperty(document,'hidden',{value:true,configurable:true});document.dispatchEvent(new Event('visibilitychange'));});
  expect((await page.evaluate(()=>window.vibrations)).at(-1)).toBe(0);
