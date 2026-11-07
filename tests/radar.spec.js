@@ -74,7 +74,7 @@ test('resetting exploration radar preserves saved flight tuning',async({page})=>
  await launch(page,'flight');await page.locator('#pause-button').click();await page.locator('#flight-adjustments>summary').click();
  await slider(page,'setting-maxPitch',25);await page.locator('#mode-explore').click();await page.locator('#start-button').click();await page.clock.runFor(100);
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments>summary').click();await slider(page,'setting-radarRange',20);
- await expect(page.locator('#settings-reset')).toHaveText('レーダーを初期値へ');await page.locator('#settings-reset').click();
+ await expect(page.locator('#settings-reset')).toHaveText('目印をすべて初期値へ');await page.locator('#settings-reset').click();
  await expect(page.locator('#setting-radarRange')).toHaveValue('60');await expect(page.locator('#setting-maxPitch')).toHaveValue('25');
  await page.locator('#mode-flight').click();await expect(page.locator('#setting-maxPitch')).toHaveValue('25');
 });
