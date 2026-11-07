@@ -66,11 +66,11 @@ export function createFeedbackController(){
       if(kind==='clear')void music.play('clear').then(result=>{if(result==='unavailable')audio.event(kind,settings);});
       else audio.event(kind,settings);
     },
-    update(state,angles,inputMode,steering,now){
+    update(state,angles,inputMode,steering,now,navigation=null){
       if(!active)return;
       if(inputMode==='sensor')jitter.add(now,angles.pitch,steering==='twist'?angles.twist:angles.steer);
       const model=flightFeedback(state,settings),phase=haptics.update(model,settings,now);
-      if(now-lastAudio>=40||phase?.restarted){audio.update(model,settings,phase);lastAudio=now;}
+      if(now-lastAudio>=40||phase?.restarted){audio.update(model,settings,phase,navigation);lastAudio=now;}
     },
     frameTiming(ms){if(active&&Number.isFinite(ms)){frames++;frameSum+=ms;frameMax=Math.max(frameMax,ms);}},
     reset(){jitter.reset();music.reset();audio.resetMetrics();frames=0;frameSum=0;frameMax=0;},

@@ -8,7 +8,7 @@ import { initialSettingText } from './setting-differences.js';
 
 const $ = id => document.getElementById(id);
 const describeSettings = report => Object.entries(FLIGHT_SETTING_FIELDS)
-  .map(([key, field]) => `${field.label} ${typeof field.initial==='boolean'?(report.settings[key]?'オン':'オフ'):field.auto && report.settings[key]===0 ? '自動' : report.settings[key]+field.unit}${report.inactiveSettings.includes(key) ? '（未使用）' : ''}`).join(' / ');
+  .map(([key, field]) => `${field.label} ${field.options?field.options[report.settings[key]]:typeof field.initial==='boolean'?(report.settings[key]?'オン':'オフ'):field.auto && report.settings[key]===0 ? '自動' : report.settings[key]+field.unit}${report.inactiveSettings.includes(key) ? '（未使用）' : ''}`).join(' / ');
 
 export function createFlightPanel(getModes) {
   let storage;
@@ -24,8 +24,9 @@ export function createFlightPanel(getModes) {
     const caption = document.createElement('span'); caption.textContent = field.label;
     const value = document.createElement('output'); value.id = `setting-value-${key}`;
     value.htmlFor = label.htmlFor;
-    const input = document.createElement('input');
-    if(typeof field.initial==='boolean')Object.assign(input,{type:'checkbox',id:label.htmlFor});
+    const input = document.createElement(field.options?'select':'input');
+    if(field.options){input.id=label.htmlFor;for(const [id,text]of Object.entries(field.options)){const option=document.createElement('option');option.value=id;option.textContent=text;input.append(option);}}
+    else if(typeof field.initial==='boolean')Object.assign(input,{type:'checkbox',id:label.htmlFor});
     else Object.assign(input, { type: 'range', id: label.htmlFor, min: field.min, max: field.max, step: field.step });
     label.append(caption, value, input); $('flight-settings-fields').append(label);
     input.value=settings[key];
@@ -44,12 +45,12 @@ export function createFlightPanel(getModes) {
       autoLabel.append(fovAuto,document.createTextNode('視野を自動計算する'));$('flight-settings-fields').append(autoLabel);
     }
     input.addEventListener('input', () => {
-      settings = normalizeFlightSettings({ ...settings, [key]: input.type==='checkbox'?input.checked:Number(input.value) });
+      settings = normalizeFlightSettings({ ...settings, [key]: field.options?input.value:input.type==='checkbox'?input.checked:Number(input.value) });
       persist();
     });
     const help=document.createElement('small');help.textContent=FLIGHT_HELP[key];help.className='setting-explanation';help.id=`setting-help-${key}`;input.setAttribute('aria-describedby',help.id);
     const initial=document.createElement('small');initial.className='setting-initial';initial.id=`setting-initial-${key}`;label.append(help,initial);
-    if(input.type==='checkbox'){
+    if(input.type==='checkbox'||field.options){
       const reset=document.createElement('button');reset.type='button';reset.className='setting-checkbox-reset';reset.textContent='この項目だけ初期値へ';reset.dataset.checkboxReset=key;reset.addEventListener('click',()=>{settings=resetFlightSetting(settings,key);persist();});label.append(reset);
     }
   }
@@ -72,7 +73,7 @@ export function createFlightPanel(getModes) {
   function refresh() {
     for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
       if(typeof field.initial==='boolean')$(`setting-${key}`).checked=settings[key];else $(`setting-${key}`).value = settings[key];
-      $(`setting-value-${key}`).textContent = typeof field.initial==='boolean'?'':`${settings[key]}${field.unit}`;
+      $(`setting-value-${key}`).textContent = typeof field.initial==='boolean'||field.options?'':`${settings[key]}${field.unit}`;
       const different=settings[key]!==field.initial,initial=$(`setting-initial-${key}`);initial.hidden=!different;initial.textContent=`● 初期値 ${initialSettingText(field)}`;
       $(`setting-${key}`).closest('label').dataset.changed=String(different);
       const reset=document.querySelector(`[data-checkbox-reset="${key}"]`);if(reset)reset.hidden=!different;
@@ -112,7 +113,7 @@ export function createFlightPanel(getModes) {
   $('settings-reset').addEventListener('click', () => {
     beforeReset={...settings};$('settings-undo-reset').hidden=false;
     settings = getModes().mode === 'explore'
-      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange, targetHeightGuide: true }
+      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange, targetHeightGuide: true, hudLanguage:'en' }
       : { ...DEFAULT_FLIGHT_SETTINGS };
     persist();
   });
@@ -148,11 +149,16 @@ export function createFlightPanel(getModes) {
         const label=document.createElement('dt');label.textContent=segment.label;
         const value=document.createElement('dd');value.textContent=segment.seconds===null?'未完了':`${segment.seconds.toFixed(1)}秒`;row.append(label,value);return row;
       }));
+      $('result-target-views').replaceChildren(...(report.targetViews??[]).map((segment,i)=>{
+        const row=document.createElement('div');row.dataset.targetViewId=segment.id;
+        const label=document.createElement('dt');label.textContent=['開始→光1','光1→光2','光2→光3','光3→出口'][i];
+        const value=document.createElement('dd');value.textContent=segment.firstVisibleSeconds===null?'未表示':`${segment.firstVisibleSeconds.toFixed(1)}秒`;row.append(label,value);return row;
+      }));
     },
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = phase !== 'paused';
       const inactiveSteering = getModes().steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone'];
-      for (const label of $('flight-settings-fields').children) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide'].includes(label.dataset.settingKey))
+      for (const label of $('flight-settings-fields').children) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage'].includes(label.dataset.settingKey))
         || inactiveSteering.includes(label.dataset.settingKey);
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       refreshLayout();

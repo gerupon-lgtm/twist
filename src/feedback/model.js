@@ -1,5 +1,6 @@
 import { getGroundProximity } from '../ground-proximity.js';
 import { varioCue } from '../cockpit-aids.js';
+import { NAVIGATION_BURST_MS,NAVIGATION_TONE_HZ,NAVIGATION_VOLUME } from './navigation-audio.js';
 const clamp = (n,min,max) => Math.max(min,Math.min(max,Number.isFinite(n)?n:min));
 export const FEEDBACK_TUNING = Object.freeze({ buffetStart: 14, stallStart: 20, stallEnd: 70,
   engineCycle: 400, enginePulse: 5, groundPattern: [85,100,85,430], stallPattern: [100,45,55,90,160,110],
@@ -53,7 +54,7 @@ function voice(regs,channel,hz,volume,noise,mixer){
   regs[channel*2]=period&255;regs[channel*2+1]=(period>>8)&15;regs[8+channel]=clamp(Math.round(volume),0,15);
   if(hz>0)mixer&=~(1<<channel);if(noise)mixer&=~(1<<(channel+3));return mixer;
 }
-export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uint8Array(14),varioMs=eventMs) {
+export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uint8Array(14),varioMs=eventMs,navigation=null) {
   regs.fill(0);let mixer=0x3f;
   const eventActive=Boolean(event && EVENT_FEEDBACK[event] && eventMs<EVENT_FEEDBACK[event].duration);
   mixer=voice(regs,0,model.power>0?model.engineHz:0,eventActive?1:Math.max(model.power*4,model.wind*4),model.wind>.12||model.power>.1,mixer);
@@ -70,6 +71,11 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
   if(varioMaySound(model,eventActive)
     &&varioMs%model.vario.periodMs<model.vario.onMs) {
     mixer=voice(regs,2,model.vario.hz,6,false,mixer);
+  }
+  if(navigation&&!eventActive&&!model.vario?.active&&!['ground','stall','buffet'].includes(model.cue)
+    &&Number.isFinite(navigation.elapsedMs)&&navigation.elapsedMs>=0&&navigation.elapsedMs<NAVIGATION_BURST_MS){
+    const envelope=Math.min(1,navigation.elapsedMs/5,(NAVIGATION_BURST_MS-navigation.elapsedMs)/10);
+    mixer=voice(regs,2,NAVIGATION_TONE_HZ,NAVIGATION_VOLUME*envelope,false,mixer);
   }
   regs[7]=mixer;
   return regs;

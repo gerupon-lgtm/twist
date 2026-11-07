@@ -2,19 +2,27 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.24 / 2026-11-08**
+**操作検証 v0.1.25 / 2026-11-08**
 
 公開先URL（機首angle、左右端を倒す旋回。視点の未指定は従来表示、機体表示はbank/fixedを残します）:
 
-- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.24)
-- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.24)
-- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.24)
-- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.24)
-- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.24)
+- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.25)
+- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.25)
+- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.25)
+- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.25)
+- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.25)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
 
-## v0.1.24のコースと専用出口
+## v0.1.25の案内とHUD
+
+飛行中は、白い進行方向の印（FPM）を水色の輪へ近づけて操縦します。合うと輪が緑になります。方位目盛りの目標印、画面の本当の縁の矢印、取得後1.8秒の次目標案内、左右の案内音を個別に切り替えられます。すべて初期値オンです。警告と昇降音・取得音を案内音より優先します。
+
+HUDは英語が初期値です。調整の「HUDの表記」で日本語に戻せます。開始・一時停止・調整・ヘルプ・結果は日本語です。略語の説明は調整パネルにあります。記録には4区間それぞれの目標が初めて画面に入るまでの時間を追加しました。操縦入力・物理計算・コース・取得半径はv0.1.24を維持しています。
+
+実機の分かりやすさとイヤホンの聞こえ方は未確認です。[検証記録](docs/verification-v0125.md)。
+
+## v0.1.24から引き継いだコースと専用出口
 
 追加の速度変更依頼を反映し、初速と50%出力の巡航速度を6→10m/s、速度上限を18→30m/sへ上げました。失速復帰の余裕を取り開始高度は7→14mです。旋回式・重力・舵の初期値は維持します。横持ちも画面の見た目の上下・左右で操縦するよう、入力軸を画面の向きに合わせます。速度8m/s・翼30°を基準に、光と出口を小さなS字に配置しました。力の計算式と判定半径は保ち、追加依頼で速度の基準値を変更します。出口は高さ20mの専用の黄白の輪と、地面から52mまでの光柱。見失い対策では石の門を外し、遠くの輪も大きくします。従来表示の輪と門は、新しい座標へ移して残します。
 

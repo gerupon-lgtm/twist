@@ -1,4 +1,6 @@
 import {test,expect} from '@playwright/test';
+// This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
+test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja"});});
 const sizes=[{width:390,height:844},{width:360,height:640},{width:844,height:390}];
 const overlap=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
 const guide=page=>page.locator('#app').getAttribute('data-target-height').then(JSON.parse);

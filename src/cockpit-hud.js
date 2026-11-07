@@ -3,6 +3,7 @@ import { getGroundProximity } from './ground-proximity.js';
 import { verticalSpeedIndicator } from './cockpit-aids.js';
 import { viewportInsets } from './viewport-insets.js';
 import { heightBandSvg } from './target-height-panel.js';
+import { hudText, hudCockpitWarning, normalizeHudLanguage } from './hud-text.js';
 
 const $ = id => document.getElementById(id);
 const point = p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
@@ -40,30 +41,32 @@ export function layoutCockpitHud(active) {
 export function updateCockpitHud(state, active, layout = layoutCockpitHud(active), settings={}, heightGuide=null) {
   if (!active || !layout) return;
   const root = $('cockpit-hud');
+  const language = normalizeHudLanguage(settings.hudLanguage);
+  root.setAttribute('aria-label', language === 'ja' ? '操縦席の飛行表示' : 'FLIGHT HUD');
   const { w,h,compassY,powerY,insets } = layout;
   const readings = cockpitReadings(state);
   const tape = (value,step,label,unit,extra='') => {
     const base = Math.round(value/step)*step;
     return `<span>${label} ${unit}</span><small>${Math.max(0,base+step)}</small><strong>${format(value)}</strong><small>${Math.max(0,base-step)}</small>${extra}`;
   };
-  $('cockpit-speed').innerHTML = tape(readings.speed,2,'速度','m/s');
+  $('cockpit-speed').innerHTML = tape(readings.speed,2,hudText(language,'speed'),'m/s');
   $('cockpit-altitude').innerHTML = heightGuide
-    ? `<span>現在高度 m</span><div class="height-tape-scale">${heightBandSvg(heightGuide)}<strong style="top:${Math.max(16,Math.min(84,heightGuide.scale.currentY))}%">${format(readings.altitude)}</strong></div>`
-    : tape(readings.altitude,5,'現在高度','m');
+    ? `<span>${hudText(language,'altitude')} m</span><div class="height-tape-scale">${heightBandSvg(heightGuide)}<strong style="top:${Math.max(16,Math.min(84,heightGuide.scale.currentY))}%">${format(readings.altitude)}</strong></div>`
+    : tape(readings.altitude,5,hudText(language,'altitude'),'m');
   $('cockpit-altitude').dataset.heightState=heightGuide?.inside?'inside':heightGuide?.urgent?'urgent':'outside';
   const vario=verticalSpeedIndicator(readings.verticalSpeed),center=50,tip=center+(vario.direction==='up'?-vario.length:vario.length);
   const bar=vario.length?`<path class="vario-bar" d="M8,${center}V${tip}"/><path d="M3,${tip+(vario.direction==='up'?6:-6)}L8,${tip}L13,${tip+(vario.direction==='up'?6:-6)}"/>`:'';
-  $('cockpit-vario').innerHTML=`<svg viewBox="0 0 16 100" preserveAspectRatio="none" aria-hidden="true"><path class="vario-axis" d="M8,3V97M1,50H15"/>${bar}</svg><span>${vario.speed>=0?'+':''}${format(vario.speed)}</span><small>m/s</small>`;
+  $('cockpit-vario').innerHTML=`<svg viewBox="0 0 16 100" preserveAspectRatio="none" aria-hidden="true"${language==='ja'?'':' style="height:calc(100% - 34px)"'}><path class="vario-axis" d="M8,3V97M1,50H15"/>${bar}</svg><span>${vario.speed>=0?'+':''}${format(vario.speed)}</span><small>${language==='ja'?'m/s':'V/S<br>m/s'}</small>`;
   $('cockpit-vario').dataset.direction=vario.direction;$('cockpit-vario').dataset.length=String(vario.length);
-  $('cockpit-vario').setAttribute('aria-label',`昇降速度 ${vario.direction==='up'?'上昇':vario.direction==='down'?'下降':'水平'} ${format(Math.abs(vario.speed))}m/s`);
+  $('cockpit-vario').setAttribute('aria-label',language==='ja'
+    ? `昇降速度 ${vario.direction==='up'?'上昇':vario.direction==='down'?'下降':'水平'} ${format(Math.abs(vario.speed))}m/s`
+    : `V/S ${vario.speed>=0?'+':'−'}${format(Math.abs(vario.speed))}m/s`);
   const heading = Math.round(readings.heading);
-  $('cockpit-heading').innerHTML = `<span>${(heading+350)%360} ┃ ${(heading+355)%360} ┃ <strong>${heading%360}°</strong> ┃ ${(heading+5)%360} ┃ ${(heading+10)%360}</span>`;
+  $('cockpit-heading').innerHTML = language==='ja'
+    ? `<span>${(heading+350)%360} ┃ ${(heading+355)%360} ┃ <strong>${heading%360}°</strong> ┃ ${(heading+5)%360} ┃ ${(heading+10)%360}</span>`
+    : `<span>HDG ${(heading+350)%360}│${(heading+355)%360}│<strong>${heading%360}°</strong>│${(heading+5)%360}│${(heading+10)%360}</span>`;
   const ground = getGroundProximity(state);
-  const warning = state.grounded ? '地面に接触・停止' : [
-    ['danger','low'].includes(ground.level) ? '地面注意' : '',
-    state.recoveryAssist > 0 ? '失速から復帰補助中' : '',
-    state.inputHeld&&ground.level==='clear'&&!state.recoveryAssist?'入力保持中・傾きを戻すと追従':'',
-  ].filter(Boolean).join(' / ') || '機首 ┼　進行方向 ⊙';
+  const warning = hudCockpitWarning(state,ground,language);
   $('cockpit-power').innerHTML = `<span>${warning}</span>`;
   const projection = cockpitProjection(state,w,h,settings);
   const horizon = horizonSegment(projection.horizon,w,h);
@@ -96,7 +99,7 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
     }
     const roll=Math.atan2(projection.horizon.a,-projection.horizon.b)*180/Math.PI;
     const separated=Math.hypot(p.x-nose.x,p.y-nose.y)>24;
-    flightPath = `<g class="flight-path${separated?' flight-path-separated':''}" data-flight-path="${inside?'visible':'edge'}" transform="translate(${x} ${y}) rotate(${roll})"><circle r="10"/><path d="M-21,0H-10M10,0H21M0,-10V-19"/>${inside?'':'<text x="14" y="-14">進行</text>'}</g>`;
+    flightPath = `<g class="flight-path${separated?' flight-path-separated':''}" data-flight-path="${inside?'visible':'edge'}" transform="translate(${x} ${y}) rotate(${roll})"><circle r="10"/><path d="M-21,0H-10M10,0H21M0,-10V-19"/>${inside?'':`<text x="14" y="-14">${hudText(language,'flightPath')}</text>`}</g>`;
   }
   $('cockpit-conformal').setAttribute('viewBox',`0 0 ${w} ${h}`);
   $('cockpit-conformal').innerHTML = `<defs><clipPath id="cockpit-clip"><path d="${clip}" clip-rule="evenodd"/></clipPath></defs><g clip-path="url(#cockpit-clip)">${horizon.length===2?`<path id="cockpit-horizon" d="${path(horizon)}"/>`:''}${ladder}<g data-boresight transform="translate(${nose.x} ${nose.y})"><path d="M-17,0H-6L0,5L6,0H17M0,-6V-2"/></g>${flightPath}</g>`;

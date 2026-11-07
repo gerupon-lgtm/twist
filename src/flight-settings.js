@@ -16,6 +16,12 @@ export const FLIGHT_SETTING_FIELDS = Object.freeze({
   cockpitFov: { label: '操縦席の上下の視野', min: 60, max: 100, step: .1, initial: 0, auto: true, unit: '°' },
   radarRange: { label: 'レーダーの半径', min: 20, max: 120, step: 10, initial: 60, unit: 'm' },
   targetHeightGuide: { label: '目標高度の目印', initial: true },
+  flightDirector: { label: '目標へ向かう輪', initial: true },
+  targetHeadingCue: { label: '方位目盛りの目標の印', initial: true },
+  edgeGuidance: { label: '画面の縁の目標案内', initial: true },
+  nextTargetNotice: { label: '次の目標の合図', initial: true },
+  audioGuidance: { label: '左右から聞こえる案内音', initial: true },
+  hudLanguage: { label: 'HUDの表記', initial: 'en', options: {en:'英語',ja:'日本語'}, unit:'' },
 });
 export const DEFAULT_FLIGHT_SETTINGS = Object.freeze(Object.fromEntries(
   Object.entries(FLIGHT_SETTING_FIELDS).map(([key, field]) => [key, field.initial]),
@@ -24,7 +30,7 @@ export const DEFAULT_FLIGHT_SETTINGS = Object.freeze(Object.fromEntries(
 export function normalizeFlightSettings(value) {
   const result = Object.fromEntries(Object.entries(FLIGHT_SETTING_FIELDS).map(([key, field]) => {
     const input = value?.[key];
-    return [key, typeof field.initial==='boolean' ? typeof input==='boolean'?input:field.initial
+    return [key, field.options ? typeof input==='string'&&Object.hasOwn(field.options,input)?input:field.initial : typeof field.initial==='boolean' ? typeof input==='boolean'?input:field.initial
       : field.auto && input === 0 ? 0 : Number.isFinite(input) ? Math.max(field.min, Math.min(field.max, input)) : field.initial];
   }));
   result.steerTiltDeadzone = Math.min(result.steerTiltDeadzone, result.maxSteerTilt - 1);

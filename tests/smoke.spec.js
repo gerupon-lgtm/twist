@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+// This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
+test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja"});});
 
 const setAngle = (page, axis, value) => page.locator(`#practice-${axis}`).evaluate((el, value) => { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); }, value);
 const speed = (page) => page.locator('#speed-value').textContent().then(Number);

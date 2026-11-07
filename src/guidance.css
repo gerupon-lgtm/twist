@@ -1,0 +1,45 @@
+/* Flight-only advisory layer. Existing controls keep every pointer event. */
+.guidance-panel{position:absolute;inset:0;pointer-events:none;z-index:3;color:#f2fbff;font-family:"Aptos","Yu Gothic UI","Meiryo",sans-serif;font-variant-numeric:tabular-nums}
+.guidance-panel *{pointer-events:none!important;box-sizing:border-box}
+.guidance-symbols{position:absolute;inset:0;width:100%;height:100%;overflow:hidden}
+.guidance-symbols path,.guidance-symbols circle{vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+.guidance-director{fill:none;stroke:#54e5ff;stroke-width:3;filter:drop-shadow(0 0 1px #042638) drop-shadow(0 1px 2px #042638)}
+.guidance-director[data-aligned=true]{stroke:#b4ff8a;stroke-width:4}
+.guidance-flight-path{fill:none;stroke:#fff;stroke-width:2.5;filter:drop-shadow(0 1px 2px #102a38)}
+.guidance-flight-path[data-clamped=true],.guidance-flight-path[data-moving=false]{stroke-dasharray:3 3}
+.guidance-flight-path text{stroke:#102a38;stroke-width:3;fill:#fff;paint-order:stroke;font-size:10px;stroke-dasharray:none}
+.guidance-target-point{fill:none;stroke:#ff8ccb;stroke-width:2.5;filter:drop-shadow(0 1px 2px #482139)}
+.guidance-panel[data-target=exit] .guidance-target-point{stroke:#fff0a0;filter:drop-shadow(0 1px 2px #493912)}
+.guidance-edge-arrow{fill:#ff8ccb;stroke:#3f1733;stroke-width:3;paint-order:stroke;filter:drop-shadow(0 1px 2px #fff8)}
+.guidance-panel[data-target=exit] .guidance-edge-arrow{fill:#ffe66a;stroke:#4a3810}
+.guidance-edge-label{position:absolute;height:44px;padding:5px 7px;background:#183346ed;border:1px solid #ff8ccb;border-radius:6px;color:#fff;line-height:16px;box-shadow:0 1px 5px #102a1855}
+.guidance-edge-label strong{display:block;font-size:12px;white-space:nowrap;line-height:15px}
+.guidance-edge-label span{display:block;font-size:9px;white-space:nowrap;letter-spacing:-.1px}
+.guidance-panel[data-target=exit] .guidance-edge-label{border-color:#ffe66a}
+.guidance-heading{position:absolute;height:28px;font-size:10px;line-height:26px;white-space:nowrap;color:#fff0a0;text-shadow:0 1px 2px #102a18}
+.guidance-heading-scale{position:absolute;inset:0;display:block;text-align:center;background:#183346d9;border:1px solid #b7d5df88;border-radius:3px;color:#eefbff;font:10px/26px Consolas,"Meiryo",monospace}
+.guidance-heading-pointer{position:absolute;top:-9px;line-height:17px;transform:translateX(-50%);font-size:13px;font-weight:700;text-shadow:-1px -1px #29351b,1px -1px #29351b,-1px 1px #29351b,1px 1px #29351b}
+.guidance-heading-pointer[data-side=left]{top:2px;transform:none;font-size:11px;background:#183346f2;border-radius:3px;padding:0 3px}
+.guidance-heading-pointer[data-side=right]{top:2px;transform:translateX(-100%);font-size:11px;background:#183346f2;border-radius:3px;padding:0 3px}
+.guidance-next-notice{position:absolute;height:62px;display:flex;flex-direction:column;justify-content:center;gap:3px;padding:7px 12px;border:1px solid #a4e7f5;border-radius:8px;background:#123548eb;color:#fff;text-align:center;box-shadow:0 3px 12px #102a1840}
+.guidance-next-notice small{font-size:11px;line-height:14px;color:#c9eff6}
+.guidance-next-notice strong{font-size:19px;line-height:25px;font-weight:700;white-space:nowrap;letter-spacing:.01em}
+.guidance-panel[data-target=exit] .guidance-next-notice{border-color:#ffe66a}
+.guidance-status{position:absolute;padding:4px 7px;color:#fff;background:#183346e8;border-radius:4px;text-align:center;font-size:12px;line-height:19px;text-shadow:0 1px 1px #102a18}
+.guidance-status span,.guidance-status small{display:block}.guidance-status small{font-size:10px;line-height:17px;color:#e1f0f4}
+.guidance-status span:empty,.guidance-status small:empty{display:none}
+/* CSS ownership avoids losing the legacy renderer's own hidden state. */
+.app[data-guidance-edge=on] #target-edge-marker,.app[data-guidance-edge=on] #cockpit-objective,.app[data-guidance-edge=on] #cockpit-objective-label{display:none!important}
+.app[data-guidance-director=on] .cockpit-conformal .flight-path{display:none}
+@media(max-height:500px){.guidance-next-notice strong{font-size:18px}.guidance-edge-label span{font-size:9px}}
+
+/* Keep the real velocity projection clear in every guided flight view. */
+.app[data-guidance-director="on"][data-phase="running"] .topbar{inset:calc(8px + env(safe-area-inset-top)) max(9px,env(safe-area-inset-right)) auto max(9px,env(safe-area-inset-left));height:34px;display:block;padding:0;background:none}
+.app[data-guidance-director="on"][data-phase="running"] .brand{position:absolute;left:0;top:0;font-size:18px;gap:2px;letter-spacing:-.8px}.app[data-guidance-director="on"][data-phase="running"] .brand svg{width:18px;height:18px}
+.app[data-guidance-director="on"][data-phase="running"] .mode-tag{display:none}.app[data-guidance-director="on"][data-phase="running"] .version{position:absolute;left:0;top:23px;font-size:7px}.app[data-guidance-director="on"][data-phase="running"] .version b{margin-left:1px}
+.app[data-guidance-director="on"][data-phase="running"] .feedback-metrics{position:absolute;right:0;top:0}.app[data-guidance-director="on"][data-phase="running"] .feedback-metrics summary{background:#f4f8f6c9}
+.app[data-guidance-director="on"][data-phase="running"] .navigation{top:calc(8px + env(safe-area-inset-top));left:calc(75px + max(9px,env(safe-area-inset-left)));right:calc(50px + max(9px,env(safe-area-inset-right)));width:auto;max-width:none;transform:none;min-height:34px;padding:4px 6px;gap:6px;border-radius:7px;background:#f4f8f6a3}
+.app[data-guidance-director="on"][data-phase="running"] .nav-caption{display:none}.app[data-guidance-director="on"][data-phase="running"] .nav-compass{width:22px;height:22px}.app[data-guidance-director="on"][data-phase="running"] .nav-compass svg{width:18px;height:18px}
+.app[data-guidance-director="on"][data-phase="running"] .nav-target{gap:5px;white-space:nowrap}.app[data-guidance-director="on"][data-phase="running"] .nav-target strong{font-size:11px}.app[data-guidance-director="on"][data-phase="running"] .nav-target span{font-size:9px}.app[data-guidance-director="on"][data-phase="running"] .nav-vertical{font-size:8px;max-width:42px}.app[data-guidance-director="on"][data-phase="running"] .collection{padding-left:5px;font-size:8px}.app[data-guidance-director="on"][data-phase="running"] .collection span:first-child{font-size:14px}
+
+@media(max-height:500px) and (min-width:600px){.app[data-guidance-director="on"][data-phase="running"] .navigation{left:calc(75px + max(9px,env(safe-area-inset-left)));right:auto;width:230px;max-width:230px}}

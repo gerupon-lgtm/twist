@@ -1,4 +1,6 @@
 import './style.css';
+import './guidance.css';
+import {updateGuidancePanel} from './guidance-panel.js';
 import { Quaternion, MathUtils } from 'three';
 import { CONTROL_LIMITS, orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, deviceTiltAngles, composeDevicePose, controlRates, advanceSpeed } from './controls.js';
 import { createStage } from './stage.js';
@@ -19,6 +21,7 @@ import { exitCenterVisible } from './exit-visibility.js';
 import { layoutCockpitObjective,updateCockpitObjective } from './cockpit-objective-panel.js';
 import { createFeedbackController } from './feedback/controller.js';
 import { createPwaController } from './pwa.js';
+import { normalizeHudLanguage, hudText, hudTargetLabel, hudHeightDelta, hudDirectionText, hudGroundWarning, hudStatusLabel, hudObjectiveText, hudCollectedNotice } from './hud-text.js';
 
 const $ = (id) => document.getElementById(id);
 const app = $('app');
@@ -39,7 +42,7 @@ const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dial
 let inputMode = null;
 let inputHeld=false,lastPauseReason='',exitNoticeUntil=0,activeFrameAt=0;
 const inputTransitions=[];
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:routeTiming.snapshot(), exitDiscovery:routeTiming.exitSnapshot(), ...pwa.report() }));
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:routeTiming.snapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), ...pwa.report() }));
 function resetRoute(){stage.reset();routeTiming.reset();exitNoticeUntil=0;}
 function setInputMode(next,reason) {
   if(inputMode!==next){inputTransitions.push({from:inputMode,to:next,reason,phase,at:new Date().toISOString()});if(inputTransitions.length>8)inputTransitions.shift();}
@@ -97,7 +100,7 @@ const modeNote = () => playMode === 'flight'
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
 const lightColor = () => visibility === 'assisted' ? 'ピンクの' : '金色の';
 const modeIntroduction = () => playMode === 'flight'
-  ? (flightDisplay === 'fixed' ? `自機の上向きを保ち、景色が回ります。${lightColor()}光を3つ集めて出口へ。` : `自機は画面中央。右へ曲がると機体も右へ傾きます。${lightColor()}光を3つ集めて出口へ。`)
+  ? `${flightPanel.getSettings().flightDirector ? '白い進行方向の印を輪へ近づけます。重なると輪が緑になります。' : flightDisplay === 'fixed' ? '自機の上向きを保ち、景色が回ります。' : '自機は画面中央。右へ曲がると機体も右へ傾きます。'}${lightColor()}光を3つ集めて出口へ。`
   : `自機はスマホと一緒に傾かず、最初の上向きを保ちます。${lightColor()}光を3つ集めて出口へ。`;
 
 function setThrottle(value) {
@@ -385,6 +388,7 @@ function run(mode,reason) {
   else craftQuaternion.identity();
   setPhase('running');
   activeFrameAt=performance.now();
+  routeTiming.advance(0,{...stage.getStatus(),targetVisible:targetCenterInViewport(stage.getStatus())});
   feedback.start({flightNumber:flightSession.snapshot().legs});
   $('pause-button').focus({ preventScroll: true });
   keepAwake();
@@ -639,15 +643,14 @@ function meter(axis, limit) {
 
 let lastHudAt = 0;
 let lastHudPhase = null;
-function updateGroundProximity(state) {
+function updateGroundProximity(state, language='en') {
   const proximity = getGroundProximity({ altitude: state.groundClearance, verticalSpeed: state.verticalSpeed, grounded: state.grounded });
   const flight = playMode === 'flight';
   const level = flight ? proximity.level : 'clear';
   $('ground-proximity').dataset.level = level;
   $('ground-height-meter').style.setProperty('--clearance-ratio', String(proximity.ratio));
   $('altitude-value').textContent = proximity.known ? proximity.clearance.toFixed(1) : '—';
-  const messages = { clear: '地面との間隔', low: '低空に注意', danger: '地面接近！', stopped: '地面に接触', unknown: '高さを確認できません' };
-  const message = messages[level];
+  const message = hudGroundWarning(level,language);
   if ($('ground-warning-text').textContent !== message) $('ground-warning-text').textContent = message;
   $('ground-warning-text').dataset.level = level;
   const edge = $('ground-edge-warning');
@@ -657,7 +660,7 @@ function updateGroundProximity(state) {
   app.dataset.groundClearance = proximity.known ? String(proximity.clearance) : '';
 }
 
-function updateEdgeMarker(state) {
+function updateEdgeMarker(state, language='en') {
   const marker = $('target-edge-marker');
   marker.dataset.target=state.collected===state.total?'exit':'light';
   if(playMode==='flight'&&cameraMode==='cockpit'&&visibility==='assisted'&&phase==='running'){
@@ -696,42 +699,68 @@ function updateEdgeMarker(state) {
   const placed = avoidRadarMarker(projected, { left:left+50,top:top+25,right:right-50,bottom:bottom-25 }, cockpitObstacles);
   marker.style.left = `${placed.x}px`;
   marker.style.top = `${placed.y}px`;
-  $('edge-arrow').style.transform = `rotate(${projected.rotation}deg)`;
-  $('edge-label').textContent = state.targetLabel;
+  $('edge-arrow').style.transform = `rotate(${language==='en'&&projected.behind?Math.atan2(state.targetLocal.x,-state.targetLocal.z)*180/Math.PI:projected.rotation}deg)`;
+  $('edge-label').textContent = hudTargetLabel(state,language);
   const vertical = Math.abs(state.elevation) > 0.13 ? (state.elevation > 0 ? '上' : '下') : '';
-  $('edge-detail').textContent = `${[projected.behind ? '後ろ' : '', vertical].filter(Boolean).join('・')} ${Math.round(state.distance)}m`.trim();
-  marker.setAttribute('aria-label', `${state.targetLabel} ${$('edge-detail').textContent}`);
+  $('edge-detail').textContent = language==='ja'
+    ? `${[projected.behind ? '後ろ' : '', vertical].filter(Boolean).join('・')} ${Math.round(state.distance)}m`.trim()
+    : `${Math.round(state.distance)}m ${hudHeightDelta(state.targetPosition.y-state.position.y,language)}`;
+  marker.setAttribute('aria-label', `${hudTargetLabel(state,language)} ${$('edge-detail').textContent}`);
 }
 
+function targetCenterInPlayArea(state){
+  return exitCenterVisible({target:state.targetLocal,verticalFov:state.fieldOfView.vertical,
+    near:state.cameraClipping.near,far:state.cameraClipping.far,width:innerWidth,height:innerHeight,
+    bounds:{left:0,right:innerWidth,top:document.querySelector('.navigation').getBoundingClientRect().bottom,bottom:$('bottom-panel').getBoundingClientRect().top}});
+}
+function targetCenterInViewport(state){
+  return exitCenterVisible({target:state.targetLocal,verticalFov:state.fieldOfView.vertical,
+    near:state.cameraClipping.near,far:state.cameraClipping.far,width:innerWidth,height:innerHeight,
+    bounds:{left:0,right:innerWidth,top:0,bottom:innerHeight}});
+}
 function updateHud(now, state) {
   if (now - lastHudAt < 80 && phase === lastHudPhase) return;
   lastHudAt = now;
   lastHudPhase = phase;
   feedback.updateDiagnostics();
   const settings = flightPanel.getSettings();
+  // Only the passive, running HUD changes language. Source state and record values stay Japanese.
+  const language=phase==='running'?normalizeHudLanguage(settings.hudLanguage):'ja';
+  $('speed-value').parentElement.firstChild.textContent=language==='ja'?'速さ ':'SPD ';
+  $('ground-clearance').textContent=hudText(language,playMode==='flight'?'groundClearance':'altitudeShort');
+  $('nose-value').parentElement.firstChild.textContent=`${hudText(language,'nose')} `;
+  $('bank-value').parentElement.firstChild.textContent=`${hudText(language,'bank')} `;
+  $('climb-value').parentElement.firstChild.textContent=`${hudText(language,'climbShort')} `;
+  document.querySelector('.throttle-heading label').textContent=hudText(language,'throttle');
+  if(inputMode)$('input-mode').textContent=language==='ja'
+    ? inputMode==='sensor'?'スマホの傾きで操作中':'画面操作・センサー未使用'
+    : inputMode==='sensor'?'TILT CTRL':'SCREEN CTRL';
+  $('play-mode-label').textContent=language==='ja'
+    ? `${playMode==='flight'?'飛行機':'探索'}・${visibility==='assisted'?'対策':'従来'}`
+    : `${playMode==='flight'?'FLIGHT':'EXPLORE'} · ${visibility==='assisted'?'ASSIST':'CLASSIC'}`;
+  document.querySelector('.navigation').setAttribute('aria-label',language==='ja'?'次の目的地':'NEXT TGT');
+  document.querySelector('.collection').setAttribute('aria-label',language==='ja'?'集めた光':'TGT COLLECTED');
   for (const axis of controls) meter(axis, playMode === 'flight'
     ? axis === 'pitch' ? settings.maxTilt : axis === 'steer' ? settings.maxSteerTilt : settings.maxSteerTwist
     : axis === 'pitch' ? CONTROL_LIMITS.throttleMaximum : axis === 'twist' ? CONTROL_LIMITS.twistMaximum : CONTROL_LIMITS.tiltMaximum);
   $('speed-value').textContent = state.speed.toFixed(1);
-  updateGroundProximity(state);
+  updateGroundProximity(state,language);
   $('nose-value').textContent = `${Math.round(MathUtils.radToDeg(state.pitch))}°`;
   $('bank-value').textContent = `${Math.round(MathUtils.radToDeg(state.bank || 0))}°`;
   $('climb-value').textContent = `${(state.verticalSpeed || 0) > 0 ? '+' : ''}${(state.verticalSpeed || 0).toFixed(1)}`;
-  $('view-assist-note').textContent = state.recoveryAssist > .05 ? '失速からの復帰補助中'
+  const assistLabel = state.recoveryAssist > .05 ? '失速からの復帰補助中'
     : state.viewAssistance > .05 ? '地面を見る補助中' : '中立で翼を戻す';
-  $('motion-state').textContent = phase !== 'running' || state.speed < 0.01 ? '停止中'
+  $('view-assist-note').textContent = hudStatusLabel(assistLabel,language);
+  const motionLabel = phase !== 'running' || state.speed < 0.01 ? '停止中'
     : playMode === 'flight' ? (state.verticalSpeed > 0.1 ? '上昇中' : state.verticalSpeed < -0.1 ? '下降中' : '巡航中')
     : rates.brake > 0 ? 'ブレーキ' : rates.acceleration > 0 ? '加速中' : '速度維持';
-  $('target-label').textContent = state.complete ? '到着' : state.targetLabel;
+  $('motion-state').textContent = hudStatusLabel(motionLabel,language);
+  $('target-label').textContent = state.complete ? hudText(language,'arrived') : hudTargetLabel(state,language);
   $('target-distance').textContent = `${Math.round(state.distance)} m`;
   $('collection-count').textContent = state.collected;
-  $('objective').textContent = state.collected < state.total ? '3つの光を集めて、出口へ' : '光がそろいました。出口へ';
+  $('objective').textContent = hudObjectiveText(state,language);
   $('nav-arrow').style.transform = `rotate(${state.bearing * 180 / Math.PI}deg)`;
-  const behind = Math.abs(state.bearing) > Math.PI / 2;
-  const directlyBehind = visibility === 'assisted' && Math.abs(state.bearing) >= 175 * Math.PI / 180;
-  const horizontal = behind ? (directlyBehind ? '後ろ' : state.bearing > 0 ? '右の後ろ' : '左の後ろ') : Math.abs(state.bearing) > 0.25 ? (state.bearing > 0 ? '右' : '左') : '正面';
-  const vertical = Math.abs(state.elevation) > 0.13 ? (state.elevation > 0 ? '上' : '下') : '';
-  $('target-direction').textContent = `${horizontal}${vertical ? `・${vertical}` : ''}`;
+  $('target-direction').textContent = hudDirectionText(state,language,{assisted:visibility==='assisted'});
   app.dataset.speed = state.speed.toFixed(3);
   app.dataset.position = JSON.stringify(state.position);
   app.dataset.craftQuaternion = JSON.stringify(state.craftQuaternion);
@@ -768,13 +797,15 @@ function updateHud(now, state) {
   app.dataset.inputHeld=String(inputHeld);
   app.dataset.segments=JSON.stringify(routeTiming.snapshot());
   app.dataset.exitDiscovery=JSON.stringify(routeTiming.exitSnapshot());
+  app.dataset.targetViews=JSON.stringify(routeTiming.targetViewsSnapshot());
   const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
   $('cockpit-exit-notice').hidden=!(cockpitActive&&visibility==='assisted'&&state.collected===state.total&&now<exitNoticeUntil);
-  const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive});
-  updateRadar(state, { phase, visibility, range: settings.radarRange });
+  $('cockpit-exit-notice').textContent=hudText(language,'exitOpen');
+  const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive,language});
+  updateRadar(state, { phase, visibility, range: settings.radarRange,language });
   const cockpitLayout = layoutCockpitHud(cockpitActive);
-  updateEdgeMarker(state);
-  updateCockpitHud({...state,inputHeld}, cockpitActive, cockpitLayout, settings, heightGuide);
+  updateEdgeMarker(state,language);
+  updateCockpitHud({...state,inputHeld}, cockpitActive, cockpitLayout, {...settings,hudLanguage:language}, heightGuide);
   layoutCockpitObjective(cockpitLayout);
 }
 
@@ -822,11 +853,8 @@ function frame(now) {
     const state = stage.getStatus();
     const activeSeconds=wasRunning?Math.max(0,(now-activeFrameAt)/1000):0;
     if(wasRunning){
-      const needsFirstView=state.collected===state.total&&routeTiming.exitSnapshot().firstVisibleSeconds===null;
-      const exitVisible=needsFirstView&&exitCenterVisible({target:state.targetLocal,verticalFov:state.fieldOfView.vertical,
-        near:state.cameraClipping.near,far:state.cameraClipping.far,width:innerWidth,height:innerHeight,
-        bounds:{left:0,right:innerWidth,top:document.querySelector('.navigation').getBoundingClientRect().bottom,bottom:$('bottom-panel').getBoundingClientRect().top}});
-      routeTiming.advance(activeSeconds,{...state,exitVisible});activeFrameAt=now;
+      const targetVisible=targetCenterInViewport(state);
+      routeTiming.advance(activeSeconds,{...state,targetVisible,exitVisible:state.collected===state.total&&targetCenterInPlayArea(state)});activeFrameAt=now;
     }
     if (wasFlying) flightSession.advance(activeSeconds, state);
     if (phase === 'running' && playMode === 'flight' && !state.grounded) {
@@ -834,11 +862,12 @@ function frame(now) {
         verticalSpeed: state.verticalSpeed, inputPitch: angles.pitch,
         deadzone: flightPanel.getSettings().deadzone };
     }
-    feedback.update(state,angles,inputMode,flightSteering,now);
+
     if (state.collected > previousCollected) {
       previousCollected = state.collected; feedback.event('collect');
-      if(state.collected===state.total&&visibility==='assisted'){exitNoticeUntil=now+3500;feedback.exitOpened();showToast('出口が開きました。黄色と白の門へ向かいましょう。');}
-      else showToast(state.collected===state.total?'3つの光がそろいました。出口へ向かいましょう。':`光を集めました。あと${state.total-state.collected}つ。`);
+      const language=normalizeHudLanguage(flightPanel.getSettings().hudLanguage);
+      if(state.collected===state.total&&visibility==='assisted'){exitNoticeUntil=now+3500;feedback.exitOpened();showToast(language==='ja'?'出口が開きました。黄色と白の門へ向かいましょう。':hudText(language,'exitOpen'));}
+      else showToast(hudCollectedNotice(state,language));
     }
     if (state.complete && phase === 'running') {
       halt();
@@ -863,7 +892,9 @@ function frame(now) {
       flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'grounded', flightSession.lastLegSnapshot()));
     }
     updateHud(now, state);
-    updateCockpitObjective(state,playMode==='flight'&&cameraMode==='cockpit'&&phase==='running');
+    updateCockpitObjective(state,playMode==='flight'&&cameraMode==='cockpit'&&phase==='running',{language:phase==='running'?flightPanel.getSettings().hudLanguage:'ja'});
+    const guidance=updateGuidancePanel(state,{phase,camera:cameraMode,settings:flightPanel.getSettings(),now,dt});
+    feedback.update(state,angles,inputMode,flightSteering,now,{enabled:phase==='running'&&playMode==='flight'&&flightPanel.getSettings().audioGuidance,bearingDeg:guidance?.bearingDeg});
   }
   feedback.frameTiming(performance.now()-frameStart);
   if (now > toastUntil) $('toast').hidden = true;

@@ -1,4 +1,6 @@
 import {test,expect} from '@playwright/test';
+// This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
+test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja", "flightDirector": false, "edgeGuidance": false, "targetHeadingCue": false, "nextTargetNotice": false});});
 const slider=(p,id,value)=>p.locator('#'+id).evaluate((el,v)=>{el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}));},value);
 async function launch(page,query=''){
  await page.clock.install();await page.goto('/?mode=flight&camera=cockpit'+query);await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));await page.locator('#practice-button').click();await page.clock.runFor(100);

@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+// This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
+test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja"});});
 
 const data = (page, key) => page.locator('#app').getAttribute(`data-${key}`).then(Number);
 const level = page => page.locator('#app').getAttribute('data-ground-level');

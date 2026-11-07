@@ -1,4 +1,6 @@
 import { test,expect } from '@playwright/test';
+// This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
+test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja", "flightDirector": false, "edgeGuidance": false});});
 import { readFile } from 'node:fs/promises';
 const baseline=JSON.parse(await readFile('tests/fixtures/ui-v0120.json','utf8'));
 const sizes=[{width:390,height:844},{width:360,height:640},{width:844,height:390}];
@@ -34,7 +36,7 @@ for(const size of sizes)test(`compact cockpit keeps scenery, HUD and touch contr
  await page.screenshot({path:`test-results/v0121-cockpit-${size.width}.png`});
 });
 test('overlay and chase keep all six previously published panel layouts',async({page})=>{
- await page.addInitScript(()=>localStorage.setItem('twist.flight-settings.v1',JSON.stringify({targetHeightGuide:false})));
+ await page.addInitScript(()=>localStorage.setItem('twist.flight-settings.v1',JSON.stringify({targetHeightGuide:false,hudLanguage:'ja',flightDirector:false,edgeGuidance:false,targetHeadingCue:false,nextTargetNotice:false})));
  for(const sample of baseline){
   await page.setViewportSize({width:sample.width,height:sample.height});await launch(page,sample.camera);
   for(const [selector,wanted]of Object.entries(sample.rects)){

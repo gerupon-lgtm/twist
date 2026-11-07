@@ -1,5 +1,6 @@
 import { projectRadarTarget, placeRadar, rectanglesOverlap } from './radar.js';
 import { viewportInsets } from './viewport-insets.js';
+import { hudText, hudTargetLabel, hudHeightDelta, normalizeHudLanguage } from './hud-text.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
@@ -8,11 +9,14 @@ const svg = (name, attributes) => {
   for (const [key,value] of Object.entries(attributes)) node.setAttribute(key, value);
   return node;
 };
-export function updateRadar(state, { visibility, phase, range }) {
+export function updateRadar(state, { visibility, phase, range, language='en' }) {
   const panel = $('radar');
   const cockpit=document.getElementById('app').dataset.camera==='cockpit';
   panel.hidden = visibility !== 'assisted' || phase !== 'running' || state.complete;
   if (panel.hidden) return;
+  const ja=normalizeHudLanguage(language)==='ja';
+  panel.setAttribute('aria-label',ja?'進行方向が上のレーダー。▲は上、▼は下':'RADAR TRK UP. ▲ + ALT, ▼ − ALT');
+  panel.querySelector('.radar-heading').textContent=hudText(language,'radarTrack');
   const rects = ['bottom-panel','toast','practice-panel'].map($)
     .filter(el => !el.hidden && el.getClientRects().length&&!(cockpit&&el.id==='toast')).map(el => el.getBoundingClientRect());
   rects.push(document.querySelector('.navigation').getBoundingClientRect(), document.querySelector('.topbar').getBoundingClientRect(),
@@ -34,11 +38,13 @@ export function updateRadar(state, { visibility, phase, range }) {
     const mark = target.kind === 'exit' ? svg('path', { d: `M${x},${y-7}l7,7 -7,7 -7,-7Z` })
       : svg('circle', { cx: x, cy: y, r: target.next ? 4.5 : 2.5 });
     const sign = point.elevation === 'above' ? '▲' : point.elevation === 'below' ? '▼' : '＝';
-    const caption = target.kind === 'exit' ? `出口${sign}` : `${target.number}${sign}${target.next ? Math.round(Math.abs(point.height))+'m' : ''}`;
+    const caption = target.kind === 'exit' ? `${hudText(language,'exit')}${sign}` : `${target.number}${sign}${target.next ? Math.round(Math.abs(point.height))+'m' : ''}`;
     const text = svg('text', { x: Math.max(-40,Math.min(40,x)), y: Math.max(-29,Math.min(32,y + (y < -20 ? 12 : -8))),
       'text-anchor': x > 15 ? 'end' : x < -15 ? 'start' : 'middle' });
     text.textContent = caption;
-    const title = svg('title', {}); title.textContent = `${target.label}・${point.elevation === 'level' ? '同じ高さ' : (point.height > 0 ? '上' : '下')+Math.round(Math.abs(point.height))+'m'}・水平距離${Math.round(point.distance)}m`;
+    const title = svg('title', {}); title.textContent = ja
+      ? `${target.label}・${point.elevation === 'level' ? '同じ高さ' : (point.height > 0 ? '上' : '下')+Math.round(Math.abs(point.height))+'m'}・水平距離${Math.round(point.distance)}m`
+      : `${hudTargetLabel(target,language)} ${hudHeightDelta(point.height,language,{digits:0})} ${Math.round(point.distance)}m`;
     group.append(title, mark, text); layer.append(group);
   }
 }

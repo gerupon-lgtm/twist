@@ -1,4 +1,5 @@
 import {projectCockpitObjective,placeObjectiveLabel} from './cockpit-objective.js';
+import { hudTargetLabel, hudHeightDelta, normalizeHudLanguage } from './hud-text.js';
 const $=id=>document.getElementById(id);
 let geometry=null,drawnShape='';
 export function layoutCockpitObjective(layout) {
@@ -11,7 +12,7 @@ export function layoutCockpitObjective(layout) {
     .map($).filter(el=>!el.hidden&&el.getClientRects().length).map(el=>el.getBoundingClientRect());
   geometry={w,h,area,bounds,obstacles};
 }
-export function updateCockpitObjective(state,active) {
+export function updateCockpitObjective(state,active,{language='en'}={}) {
   const svg=$('cockpit-objective'),label=$('cockpit-objective-label');
   if(!active||!geometry||state.visibility!=='assisted'||state.complete){svg.setAttribute('hidden','');label.hidden=true;return;}
   const {w,h,area,bounds,obstacles}=geometry;
@@ -25,10 +26,11 @@ export function updateCockpitObjective(state,active) {
     :exit?'<path d="M-14,-6V-14H-6M6,-14H14V-6M14,6V14H6M-6,14H-14V6M-7,9V-8H7V9"/>'
       :'<path d="M0,-14L14,0 0,14 -14,0Z"/><path class="objective-center" d="M-3,0H3M0,-3V3"/>';
   if(drawnShape!==shape){svg.innerHTML=`<g>${shape}</g>`;drawnShape=shape;}
-  svg.firstElementChild.setAttribute('transform',`translate(${mark.x} ${mark.y}) rotate(${mark.kind==='edge'?mark.rotation:0})`);
+  svg.firstElementChild.setAttribute('transform',`translate(${mark.x} ${mark.y}) rotate(${mark.kind==='edge'?(normalizeHudLanguage(language)==='en'&&mark.behind?Math.atan2(state.targetLocal.x,-state.targetLocal.z)*180/Math.PI:mark.rotation):0})`);
   const delta=state.targetPosition.y-state.position.y;
-  const height=Math.abs(delta)<.05?'高さ同じ':`${delta>0?'▲上に':'▼下に'}${Math.abs(delta).toFixed(1)}m`;
-  const name=`${state.targetLabel}${mark.behind?'・後ろ':mark.occluded?'・表示の奥':mark.kind==='edge'?'・表示域外':''}`;
+  const height=hudHeightDelta(delta,language);
+  const suffix=normalizeHudLanguage(language)==='ja'?(mark.behind?'・後ろ':mark.occluded?'・表示の奥':mark.kind==='edge'?'・表示域外':''):'';
+  const name=`${hudTargetLabel(state,language)}${suffix}`;
   const detail=`${Math.round(state.distance)}m　${height}`;
   const text=`${name} ${detail}`;svg.setAttribute('aria-label',text);
   const placement=placeObjectiveLabel(mark,{bounds:area,obstacles});

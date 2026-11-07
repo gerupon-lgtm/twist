@@ -40,7 +40,7 @@ test('bank is the default and both display choices fit the opening phone layouts
  for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
   await page.setViewportSize(size);await page.goto('/?mode=flight');
   await expect(page.locator('#app')).toHaveAttribute('data-display','bank');
-  await expect(page.locator('#intro-version')).toContainText('v0.1.24');await expect(page.locator('#intro-version')).toBeInViewport();
+  await expect(page.locator('#intro-version')).toContainText('v0.1.25');await expect(page.locator('#intro-version')).toBeInViewport();
   for(const id of ['display-bank','display-fixed','start-button'])await expect(page.locator('#'+id)).toBeInViewport();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:`test-results/v0114-intro-${size.width}.png`});
@@ -98,6 +98,8 @@ test('display switch keeps physical state and returns to the retained bank view'
 });
 
 for(const steering of ['tilt','twist'])test(`fixed ${steering} navigation matches the rotated 3D camera, including off-screen goals`,async({page})=>{
+ // Compare the retained Japanese marker while the new edge overlay is switched off.
+ await page.addInitScript(()=>localStorage.setItem('twist.flight-settings.v1',JSON.stringify({hudLanguage:'ja',edgeGuidance:false})));
  await launch(page,'&display=fixed&steer='+steering);
  await slider(page,steering==='tilt'?'practice-steer':'practice-twist',25);
  if(steering==='tilt') await slider(page,'practice-twist',70);
@@ -161,7 +163,7 @@ test('fixed copies result/display and marks unused rate settings; smoothing save
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.copied=text;}},configurable:true}));
  await launch(page,'&display=fixed&pitch=rate');await page.locator('#pause-button').click();await page.locator('#flight-adjustments>summary').click();
  await slider(page,'setting-displayTimeConstant',0);await page.locator('#settings-copy').click();let report=await page.evaluate(()=>JSON.parse(window.copied));
- expect(report.display).toBe('fixed');expect(report.result).toBeUndefined();expect(report.inactiveSettings).toEqual(['maxPitch','timeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov']);
+ expect(report.display).toBe('fixed');expect(report.result).toBeUndefined();expect(report.inactiveSettings).toEqual(['timeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov']);
  await page.reload();await page.clock.runFor(100);await page.locator('#practice-button').click();await page.clock.runFor(100);
  await slider(page,'practice-twist',30);await page.clock.runFor(100);expect(await data(page,'display-roll')).toBeCloseTo(rad(30),6);
  await slider(page,'throttle-input',0);await slider(page,'practice-pitch',-25);

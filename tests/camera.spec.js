@@ -1,4 +1,6 @@
 import { test,expect } from '@playwright/test';
+// This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
+test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja", "flightDirector": false, "edgeGuidance": false, "targetHeadingCue": false, "nextTargetNotice": false});});
 import { Quaternion,Vector3,Euler } from 'three';
 const rad=d=>d*Math.PI/180;
 const attr=(p,k)=>p.locator('#app').getAttribute('data-'+k);
