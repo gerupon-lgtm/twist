@@ -22,4 +22,12 @@
 - 最後に表示の低速/垂直/下降境界を連続化。単体テスト89件と、最終版の地面6件（19.5秒、終了コード0）が成功。上向き下降の接地直前と、360×640/844×390の接近画面を目視した。
 - 最終ビルド成功。JS `index-oALbZJlN.js`、CSS `index-Ck8BSCuf.css`。CSSは変更なし、HTMLとJSは版/内容に応じて更新する。
 
-公開版の結果は更新処理と公開画面の確認後に追記する。スマホ実機での分かりやすさ、視点補助の追従感、酔いやすさ、周囲の見失いやすさは未確認として検証範囲に残す。
+## 公開版
+
+- アプリコミット `98e4ee8da20dc4402292d49064604398cdcad7c3`。[GitHub Pages公開処理](https://github.com/gerupon-lgtm/twist/actions/runs/42316211722) は全工程成功。CIの89件の単体テストとビルドも成功。
+- [スマホ用URL](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&v=0.1.10)。HTTP200/HTML型・画面v0.1.10・JS `index-oALbZJlN.js` / CSS `index-Ck8BSCuf.css` が最終ビルドと一致。実行エラー0、HTTP読込エラー0。
+- 公開版で本体基準・旋回方式比較・出力保持・上昇減速/下降加速・無効センサー停止・タッチ・探索・目標表示・見え方比較を確認。
+- 公開版の低空警告→接触0m→手動再出発に成功。上向きの機首と左右傾斜を保ったまま下降する操作でも、視点は地面を向き、2m未満で飛行を続け、0mで接触停止。接地直前の画像を目視し、地面と自機の真下の印が見えることを確認。
+- `node_modules/.cache/twist-public-check-v0110.mjs`、`test-results/public-v0110-result.json`、`test-results/public-v0110-nose-up-low.png` 等に結果を保存（Git管理外）。次回Playwright実行で結果フォルダーは初期化される。
+
+スマホ実機での分かりやすさ、視点補助の追従感、酔いやすさ、周囲の見失いやすさは未確認として検証範囲に残す。PCの疑似操作を実機確認済みとは扱わない。
