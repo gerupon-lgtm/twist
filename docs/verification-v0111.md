@@ -24,6 +24,12 @@
 - 同じ4条件で再比較し、上向き操作を混ぜる条件の視点変化は最大約39.1度/秒から約29.3度/秒へ低下。20度/40度の機首中立旋回でも機体は旋回側に表示され、物理的な高度/速度の数値は変更前と一致。
 - 右旋回の機体表示と、接地後の直前情報を画像で目視。最終ビルド成功、JS `index-CTqoFcSI.js` / CSS `index-Ck8BSCuf.css`。CSSは変更なし、JS/HTMLは内容と版でキャッシュを更新する。
 
-公開処理と公開URLの結果は完了後に追記する。
+## 公開版
+
+- アプリコミット `79977eb22865571b7bc7e11872abaddc75b062f0`。[GitHub Pages更新](https://github.com/gerupon-lgtm/twist/actions/runs/42318538950) 成功。CIの91件の単体テストとビルドも通過。
+- [スマホ用URL](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&v=0.1.11) のHTTP200/HTML型、画面v0.1.11、JS `index-CTqoFcSI.js` / CSS `index-Ck8BSCuf.css` が最終ビルドと一致。実行/HTTP読込エラー0。
+- 公開疑似センサーで右/左の旋回と同じ方向へ機体が傾くことをassertし、両方の画像を目視。本体基準、出力保持、速度と高度、停止と手動再開、探索、目標マーカー、見え方比較も成功。
+- 接地直前の前倒し12度を停止画面へ記録することと、上向きの機首を保持した下降時には前後中立を記録することを確認。地面を見る補助、2m未満の飛行、0m接触停止と再出発を継続確認。
+- スクリプト `node_modules/.cache/twist-public-check-v0111.mjs`、結果 `test-results/public-v0111-result.json`、右/左旋回画像等はGit管理外。次のPlaywright実行で結果フォルダーは初期化される。
 
 スマホ実機の急落原因、旋回表示の直感性、視点の追従感は未確認。PC試験を実機確認済みと扱わない。
