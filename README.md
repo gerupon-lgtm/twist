@@ -2,15 +2,37 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.15 / 2026-11-07**
+**操作検証 v0.1.16 / 2026-11-07**
 
-公開先URL（機首はangleが標準。機体表示の標準は未決定で、両方を残します）:
+公開先URL（機首angle、左右端を倒す旋回。視点の未指定は従来表示、機体表示はbank/fixedを残します）:
 
-- [機体が傾く表示・bank](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&v=0.1.15)
-- [自機固定表示・fixed](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&v=0.1.15)
-- [機首が回り続けるrate（比較）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&v=0.1.15)
+- [従来視点・overlay](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.16)
+- [追尾3D視点・chase](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.16)
+- [操縦席視点・cockpit](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.16)
+- [追尾3D・自機固定fixed](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.16)
+- [機首が回り続けるrate（比較）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.16)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.16の視点と機体
+
+開始・一時停止画面の「視点」で、同じ位置・向きのまま表示だけを切り替えます。操縦・飛ぶ力・接触判定は共通です。
+
+- **従来**：世界の表示はv0.1.15と同じです。自機だけ新しい機体の上面図に変わります。
+- **追尾3D**：世界の中に置いた立体機を、約25m後ろ・9m上の位置から追います。上下・左右の向きを初期0.15秒遅らせ、旋回中は側面も見えます。調整の「追尾カメラの遅れ」は0〜0.5秒、0で即時。低空では見る位置が地面の下に入らないよう補います。bankは機体が傾き、fixedは機体の上向きを保って景色が傾きます。
+- **操縦席**：自機を描かず、速度・地面までの高さ・昇降速度・方位・出力を緑色で表示します。地面を見る補助は使いません。水平線・5度ごとの機首角度の線・実際の進行方向の印は、景色と同じ画角・回転で描きます。機首の印と進行方向の印が離れれば、機首と移動の向きが違います。画面外の進行方向は内側の縁で「進行」と表示します。速度・高度・方位・出力・警告・ボタン・レーダーは回しません。
+
+新視点では、有限のステージの先にも水平な地面の背景を描き、水平線とHUDの基準を一致させます。これは表示だけで、移動範囲は変わりません。機体は双発・双尾翼・長い機首のオリジナル模型を基本形状から生成し、両表示で共用。外部模型や実在機の名称・標章は使いません。出力を上げると2つの噴射が明るく長くなり、0で消えます。
+
+コピーに`camera`を追加し、追尾以外の`chaseTimeConstant`は未使用にします。操縦席では下の入力角度表示を省き、注意・復帰補助をHUD内にまとめます。設定は端末内に保存します。
+
+資料にはv0.1.15のfixed/assistedで合計約418秒・2回飛行・接地1回・クリア、最後の1回約164秒・接地0・復帰補助約1.7秒という本人1人分の報告があります。方式の優劣を決める比較試験とは扱いません。**v0.1.16のスマホ実機での見やすさ・酔いやすさ・操作感は未確認**です。[指示資料](docs/instruction-v0116.md) と [検証記録](docs/verification-v0116.md) を参照してください。
+
+### 旋回を少ない動きで最大にする追加調整
+
+画面が見えづらくなるほどひねらないと最大旋回にならない、という追加資料の報告を受け、機首と旋回の最大入力角度を分けました。公開前のため同じv0.1.16に含めます。「旋回が最大になるひねり」は初期15度（5〜30度）、「旋回が最大になる回し」は初期20度（8〜40度）。機首は初期25度のまま、翼の最大角度と旋回の強さの計算も維持します。
+
+中立範囲は機首と旋回で別にし、ひねる3度・回す5度の既存値を保つため、保存値を`steerTiltDeadzone`と`steerTwistDeadzone`に分けました（各0〜8度、最大入力角度より1度以上小さく補正）。選んだ方式の項目だけを調整画面に表示します。`steerCurve`は1〜2、初期1の直線。大きくすると中立付近の反応を弱め、最大近くで強くします。最大の翼角は変えません。旧保存値を保ちながら新項目を初期値で補い、未選択方式の設定はコピーの`inactiveSettings`に入れます。[追加指示](docs/instruction-steer-angle.md)。実機の操作感は未確認です。
 
 ## v0.1.15のレーダー・光・記録
 

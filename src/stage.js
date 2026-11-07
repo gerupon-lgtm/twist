@@ -3,6 +3,8 @@ import { FLIGHT_MODEL, stepFlightVelocity } from './flight-physics.js';
 import { computeFieldOfView, normalizeVisibility } from './visibility.js';
 import { computeFlightView, advanceFlightView } from './flight-view.js';
 import { advanceDisplayRoll, flightDisplayPose, withoutViewRoll } from './flight-display.js';
+import { advanceChaseAngles, bodyViewAngles, chaseView, normalizeCameraMode } from './flight-camera.js';
+import { createAircraft } from './aircraft.js';
 
 const START = new THREE.Vector3(0, 7, 26);
 const BEACONS = [
@@ -27,7 +29,8 @@ const flightYawForBank = (angle, speed) => speed > 0
   : 0;
 
 /** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */
-export function createStage(canvas, { visibility = 'assisted', display = 'bank' } = {}) {
+export function createStage(canvas, { visibility = 'assisted', display = 'bank', cameraMode = 'overlay' } = {}) {
+  cameraMode = normalizeCameraMode(cameraMode);
   display = display === 'fixed' ? 'fixed' : 'bank';
   visibility = normalizeVisibility(visibility);
   let renderer;
@@ -158,6 +161,12 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
   outerGround.rotation.x = -Math.PI / 2;
   outerGround.position.y = -0.08;
   world.add(outerGround);
+  // New cameras have a true level horizon beyond the finite stage mesh.
+  // Center this background hemisphere on the eye; its equator is world Y=0.
+  const horizonBackdrop = new THREE.Mesh(new THREE.SphereGeometry(220,64,16,0,Math.PI*2,Math.PI/2,Math.PI/2),
+    new THREE.MeshBasicMaterial({ color: 0x9a502f, side: THREE.BackSide, fog: false, depthWrite: false }));
+  horizonBackdrop.renderOrder = -10;
+  world.add(horizonBackdrop);
   const outerGridPoints = [];
   for (let offset = -160; offset <= 160; offset += 8) {
     outerGridPoints.push(offset, -0.045, -160, offset, -0.045, 160);
@@ -430,6 +439,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
   craftLight.position.set(-40, 70, 100);
   craftScene.add(craftLight);
   const craft = new THREE.Group();
+  const exploreCraft = new THREE.Group();
+  craft.add(exploreCraft);
   const hullShape = new THREE.Shape();
   hullShape.moveTo(0, 24);
   hullShape.lineTo(8, -3);
@@ -448,16 +459,22 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
   });
   const hull = new THREE.Mesh(hullGeometry,
     new THREE.MeshStandardMaterial({ color: 0xf9fcf8, roughness: 0.52, metalness: 0.12 }));
-  craft.add(hull);
+  exploreCraft.add(hull);
   const edges = new THREE.LineSegments(new THREE.EdgesGeometry(hullGeometry, 25),
     new THREE.LineBasicMaterial({ color: 0x46798b, transparent: true, opacity: 0.6 }));
-  craft.add(edges);
+  exploreCraft.add(edges);
   const cockpit = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12),
     new THREE.MeshStandardMaterial({ color: 0x378ca7, roughness: 0.3, metalness: 0.2 }));
   cockpit.position.set(0, 2.5, 5.3);
   cockpit.scale.set(4, 9, 3);
-  craft.add(cockpit);
-  box(craft, 0, -17, 5.5, 3, 7, 1, guide);
+  exploreCraft.add(cockpit);
+  box(exploreCraft, 0, -17, 5.5, 3, 7, 1, guide);
+  const overlayJet = createAircraft();
+  overlayJet.group.rotation.x = Math.PI / 2;
+  overlayJet.group.scale.setScalar(13);
+  craft.add(overlayJet.group);
+  const worldJet = createAircraft();
+  world.add(worldJet.group);
   craftScene.add(craft);
 
   const position = START.clone();
@@ -505,6 +522,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
   let viewPitch = 0;
   let displayedFlightView = null;
   let displayedFixedFlightView = null;
+  let chaseAngles = null, chaseTimeConstant = .15;
   let phoneRoll = 0, displayScreenOffset = 0, displayRoll = 0;
   const displayCameraInverse = new THREE.Quaternion();
 
@@ -534,16 +552,34 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
       camera.quaternion.copy(pose.camera);
       craftCamera.quaternion.copy(pose.camera);
       craft.quaternion.copy(pose.craft);
+      if (cameraMode === 'chase') {
+        chaseAngles = advanceChaseAngles(chaseAngles, bodyViewAngles(baseOrientation), dt, chaseTimeConstant);
+        view = chaseView(chaseAngles, position.y, targetView.assistance);
+        if (display === 'fixed') view = withoutViewRoll(view);
+      } else if (cameraMode === 'cockpit') {
+        view = { orientation: orientation.clone(), offset: new THREE.Vector3(0,.3,-.8).applyQuaternion(orientation),
+          assistance: 0, pitch: bodyViewAngles(baseOrientation).pitch };
+      }
       viewQuaternion.copy(view.orientation).invert().premultiply(pose.worldBank);
+      // In the cockpit, the physical bank is already part of the eye orientation.
+      if (cameraMode === 'cockpit') viewQuaternion.copy(view.orientation).invert();
       viewPosition.copy(position).add(view.offset);
       viewAssistance = view.assistance;
       viewPitch = view.pitch;
+      worldJet.group.position.copy(position);
+      worldJet.group.quaternion.copy(orientation);
+      if (cameraMode === 'chase' && display === 'fixed') {
+        const relativePose = view.orientation.clone().invert().multiply(baseOrientation);
+        const upright = withoutViewRoll({ orientation: relativePose }).orientation;
+        worldJet.group.quaternion.copy(view.orientation).multiply(pose.worldBank.clone().invert()).multiply(upright);
+      }
     } else {
       camera.quaternion.identity();
       craftCamera.quaternion.identity();
       displayRoll = 0;
       displayedFlightView = null;
       displayedFixedFlightView = null;
+      chaseAngles = null;
       viewQuaternion.copy(orientation).invert();
       viewPosition.copy(position);
       viewAssistance = 0;
@@ -553,6 +589,13 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
     displayCameraInverse.copy(camera.quaternion).invert();
     world.quaternion.copy(viewQuaternion);
     world.position.copy(viewPosition).negate().applyQuaternion(viewQuaternion);
+    horizonBackdrop.position.copy(viewPosition);
+    horizonBackdrop.visible = mode === 'flight' && cameraMode !== 'overlay';
+    exploreCraft.visible = mode !== 'flight';
+    overlayJet.group.visible = mode === 'flight';
+    craft.visible = mode !== 'flight' || cameraMode === 'overlay';
+    worldJet.group.visible = mode === 'flight' && cameraMode === 'chase';
+    overlayJet.setPower(throttle); worldJet.setPower(throttle);
     // This group is a child of world, so it receives the same inverse pose as
     // the floor. Its local location remains the craft's true ground position.
     const overIsland = position.x ** 2 + ((position.z + 24) / 1.1) ** 2 < 83.5 ** 2;
@@ -707,6 +750,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
       mode = nextMode;
     }
     if (mode === 'flight') {
+      if (Number.isFinite(input.chaseTimeConstant)) chaseTimeConstant = THREE.MathUtils.clamp(input.chaseTimeConstant, 0, .5);
       if (Number.isFinite(input.displayTwist)) phoneRoll = advanceDisplayRoll(phoneRoll,
         THREE.MathUtils.degToRad(input.displayTwist), elapsed, input.displayTimeConstant);
       if (Number.isFinite(input.displayScreenOffset)) displayScreenOffset =
@@ -845,6 +889,12 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
       viewPitch,
       viewPosition: { x: viewPosition.x, y: viewPosition.y, z: viewPosition.z },
       display,
+      cameraMode: mode === 'flight' ? cameraMode : 'overlay',
+      craftVisible: craft.visible || worldJet.group.visible,
+      worldCraftQuaternion: worldJet.group.quaternion.toArray(),
+      worldCraftScreenQuaternion: displayCameraInverse.clone().multiply(viewQuaternion).multiply(worldJet.group.quaternion).toArray(),
+      aircraft: worldJet.diagnostics(),
+      chaseAngles: chaseAngles ? { ...chaseAngles } : null,
       displayRoll,
       cameraQuaternion: { x: camera.quaternion.x, y: camera.quaternion.y, z: camera.quaternion.z, w: camera.quaternion.w },
       worldQuaternion: { x: world.quaternion.x, y: world.quaternion.y, z: world.quaternion.z, w: world.quaternion.w },
@@ -895,6 +945,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
     contactVelocity.set(0, 0, 0);
     displayedFlightView = null;
     displayedFixedFlightView = null;
+    chaseAngles = null;
     phoneRoll = 0; displayScreenOffset = 0;
     collected = 0;
     complete = false;
@@ -923,5 +974,6 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
 
   updateProjection();
   reset();
-  return { resize, update, getStatus, reset, launchFlight, setVisibility, setDisplay, resetDisplayRotation, dispose };
+  function setCameraMode(value) { cameraMode = normalizeCameraMode(value); chaseAngles = null; syncWorld(); render(); }
+  return { resize, update, getStatus, reset, launchFlight, setVisibility, setDisplay, setCameraMode, resetDisplayRotation, dispose };
 }

@@ -7,8 +7,8 @@ import {
 } from '../src/controls.js';
 
 const rad = MathUtils.degToRad;
-// Keep previous flight cases explicit about the optional side-tilt steering.
-const tiltFlightRates = (angles, sensitivity = 1) => flightRates(angles, sensitivity, 'tilt');
+// Historical response cases retain their explicit pre-v0.1.16 input angles; new defaults are tested below.
+const tiltFlightRates = (angles, sensitivity = 1) => flightRates(angles, sensitivity, 'tilt', {maxSteerTilt:25,maxSteerTwist:32});
 const axisRotation = (x, y, z, degrees) => new Quaternion().setFromAxisAngle(
   new Vector3(x, y, z).normalize(), rad(degrees),
 );
@@ -672,7 +672,7 @@ test('device input reports finite invalid neutral for missing, edge-on and back-
   assert.equal(deviceTiltAngles(identity, composeDevicePose({ twist: 180 })).valid, true);
 });
 
-const turnFlightRates = (angles, sensitivity = 1) => flightRates(angles, sensitivity, 'twist');
+const turnFlightRates = (angles, sensitivity = 1) => flightRates(angles, sensitivity, 'twist', {maxSteerTilt:25,maxSteerTwist:32});
 
 test('default flight steering lowers the hardware side and ignores in-plane rotation', () => {
   for (const steer of [-25, -14, 0, 14, 25]) {
@@ -704,7 +704,7 @@ test('flight twist and tilt steering are exclusive even when the other input com
   for (const sign of [-1, 1]) {
     const angles = { pitch: 14, steer: -sign * 25, twist: sign * 32 };
     const twist = turnFlightRates(angles);
-    const explicitTwist = flightRates(angles, 1, 'twist');
+    const explicitTwist = flightRates(angles, 1, 'twist', {maxSteerTwist:32});
     const tilt = flightRates(angles, 1, 'tilt');
     near(twist.bankAngle, sign * rad(40));
     near(tilt.bankAngle, -sign * rad(40));
@@ -814,7 +814,7 @@ test('settings normalize unknown, corrupt, and out-of-range input without imposs
     near(normalizeFlightSettings({[key]:field.max+100})[key],field.max);
   }
   assert.ok(normalizeFlightSettings({deadzone:100,maxTilt:-1}).deadzone < normalizeFlightSettings({deadzone:100,maxTilt:-1}).maxTilt);
-  const commands=flightCommands({pitch:10,steer:10},{settings:{deadzone:0,maxTilt:10,maxBank:20},dt:.05});
+  const commands=flightCommands({pitch:10,steer:10},{settings:{deadzone:0,maxTilt:10,maxSteerTilt:10,steerTiltDeadzone:0,maxBank:20},dt:.05});
   near(commands.bankAngle,20*Math.PI/180);
 });
 
@@ -868,11 +868,11 @@ test('flight record counts weak active assistance even below the HUD label thres
 test('comparison reports identify outcome, display and rate-only inactive settings',()=>{
   const mid=flightReport({version:'0.1.14',pitch:'rate',steer:'twist',display:'fixed'});
   assert.equal('result' in mid,false);assert.equal(mid.display,'fixed');
-  assert.deepEqual(mid.inactiveSettings,['maxPitch','timeConstant']);
+  assert.deepEqual(mid.inactiveSettings,['maxPitch','timeConstant','chaseTimeConstant','maxSteerTilt','steerTiltDeadzone']);
   for(const result of ['clear','grounded']) {
     const report=flightReport({version:'0.1.14',pitch:'angle',steer:'tilt',display:'bank',result});
     assert.equal(report.result,result);assert.equal(JSON.parse(copyableFlightReport(report)).display,'bank');
-    assert.deepEqual(report.inactiveSettings,['displayTimeConstant']);
+    assert.deepEqual(report.inactiveSettings,['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone']);
   }
 });
 
@@ -886,4 +886,30 @@ test('last leg separates crash/retry/clear while pauses keep the same leg and to
  const report=flightReport({version:'0.1.15',pitch:'angle',steer:'tilt',stats:session.snapshot(),lastLeg:session.lastLegSnapshot(),result:'clear'});
  session.advance(1,{recoveryAssist:0,grounded:false});assert.equal(report.lastLeg.elapsedSeconds,3);
  session.reset();assert.equal(session.snapshot().legs,0);
+});
+
+test('steering maxima are independent of pitch and curve one retains a linear demand',()=>{
+ for(const sign of [-1,1]){
+  const input={pitch:sign*15,steer:sign*15,twist:sign*20};
+  near(flightCommands(input,{settings:{maxSteerTilt:15},pitchMode:'rate'}).bankAngle,sign*rad(40));
+  near(flightPitchTarget(sign*15),sign*rad(15)*(15-3)/(25-3));
+  near(flightRates({twist:sign*12},1,'twist',{maxSteerTwist:12}).bankAngle,sign*rad(40));
+ }
+ for(const steering of ['tilt','twist']){
+  const deadzone=steering==='tilt'?3:5,maximum=steering==='tilt'?15:20,key=steering==='tilt'?'steer':'twist';
+  for(const amount of [0,.1,.5,1]){
+   const input={[key]:deadzone+(maximum-deadzone)*amount};
+   near(flightRates(input,1,steering,{steerCurve:1}).bankAngle,rad(40)*amount);
+   near(flightRates(input,1,steering,{steerCurve:2}).bankAngle,rad(40)*amount**2);
+  }
+ }
+ const old=loadFlightSettings({getItem:()=>JSON.stringify({deadzone:2,maxTilt:27,maxPitch:19})});
+ near(old.maxTilt,27);near(old.maxSteerTilt,15);near(old.maxSteerTwist,20);near(old.steerCurve,1);near(old.steerTiltDeadzone,3);near(old.steerTwistDeadzone,5);
+ for(const steering of ['tilt','twist']){
+  const r=flightReport({pitch:'angle',steer:steering});
+  assert.ok(r.inactiveSettings.includes(steering==='tilt'?'maxSteerTwist':'maxSteerTilt'));
+  assert.ok(!r.inactiveSettings.includes(steering==='tilt'?'maxSteerTilt':'maxSteerTwist'));
+ }
+ const limited=normalizeFlightSettings({maxSteerTilt:5,steerTiltDeadzone:8,maxSteerTwist:8,steerTwistDeadzone:8});
+ assert.ok(limited.steerTiltDeadzone<limited.maxSteerTilt&&limited.steerTwistDeadzone<limited.maxSteerTwist);
 });

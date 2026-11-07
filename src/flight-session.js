@@ -26,11 +26,13 @@ export function createFlightSession() {
   };
 }
 
-export function flightReport({ version, pitch, steer, display = 'bank', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted' }) {
+export function flightReport({ version, pitch, steer, display = 'bank', camera = 'overlay', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted' }) {
   const inactiveSettings = [...(pitch === 'rate' ? ['maxPitch', 'timeConstant'] : []),
-    ...(display !== 'fixed' ? ['displayTimeConstant'] : []), ...(view !== 'assisted' ? ['radarRange'] : [])];
-  if (mode === 'explore') for (const key of ['deadzone','maxTilt','maxPitch','timeConstant','maxBank','displayTimeConstant']) if (!inactiveSettings.includes(key)) inactiveSettings.push(key);
-  return { version, mode, view, pitch, steer, display: display === 'fixed' ? 'fixed' : 'bank',
+    ...(display !== 'fixed' ? ['displayTimeConstant'] : []), ...(view !== 'assisted' ? ['radarRange'] : []),
+    ...(camera !== 'chase' || mode !== 'flight' ? ['chaseTimeConstant'] : [])];
+  inactiveSettings.push(...(steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone']));
+  if (mode === 'explore') for (const key of ['deadzone','maxTilt','maxPitch','timeConstant','maxBank','displayTimeConstant','maxSteerTilt','maxSteerTwist','steerTiltDeadzone','steerTwistDeadzone','steerCurve']) if (!inactiveSettings.includes(key)) inactiveSettings.push(key);
+  return { version, mode, view, pitch, steer, camera: mode === 'flight' && ['chase','cockpit'].includes(camera) ? camera : 'overlay', display: display === 'fixed' ? 'fixed' : 'bank',
     ...(['clear', 'grounded'].includes(result) ? { result } : {}),
     settings: normalizeFlightSettings(settings), inactiveSettings,
     ...(stats ? { stats: { ...stats } } : {}), ...(lastLeg ? { lastLeg: { ...lastLeg } } : {}) };

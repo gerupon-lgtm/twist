@@ -41,18 +41,18 @@ export function updateRadar(state, { visibility, phase, range }) {
 }
 
 /** Keep a 100×50 edge marker away from the radar while retaining its arrow. */
-export function avoidRadarMarker(point, bounds) {
+export function avoidRadarMarker(point, bounds, extraObstacles = []) {
   const radar = $('radar');
-  if (radar.hidden) return point;
-  const obstacle = radar.getBoundingClientRect();
+  const obstacles = [...(radar.hidden ? [] : [radar.getBoundingClientRect()]), ...extraObstacles];
   const box = p => ({ left:p.x-50,right:p.x+50,top:p.y-25,bottom:p.y+25 });
-  if (!rectanglesOverlap(box(point), obstacle, 6)) return point;
-  const candidates = [
+  if (!obstacles.some(obstacle => rectanglesOverlap(box(point), obstacle, 6))) return point;
+  const candidates = [...obstacles.flatMap(obstacle => [
     {x:obstacle.right+56,y:point.y},{x:obstacle.left-56,y:point.y},
     {x:point.x,y:obstacle.bottom+31},{x:point.x,y:obstacle.top-31},
+  ]),
     {x:bounds.left,y:bounds.top},{x:bounds.right,y:bounds.top},{x:bounds.left,y:bounds.bottom},{x:bounds.right,y:bounds.bottom},
   ].map(p=>({x:Math.max(bounds.left,Math.min(bounds.right,p.x)),y:Math.max(bounds.top,Math.min(bounds.bottom,p.y))}));
   candidates.sort((a,b)=>Math.hypot(a.x-point.x,a.y-point.y)-Math.hypot(b.x-point.x,b.y-point.y));
-  return candidates.find(p=>!rectanglesOverlap(box(p),obstacle,6)
+  return candidates.find(p=>!obstacles.some(obstacle=>rectanglesOverlap(box(p),obstacle,6))
     && !(p.x>innerWidth/2-100 && p.x<innerWidth/2+100 && p.y>innerHeight/2-75 && p.y<innerHeight/2+75)) || point;
 }

@@ -15,7 +15,7 @@ async function clipboard(page) {
 test('opening version and pitch choice are visible on three phone layouts',async({page})=>{
   for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
     await page.setViewportSize(size); await page.goto('/?mode=flight');
-    await expect(page.locator('#intro-version')).toContainText('v0.1.15');
+    await expect(page.locator('#intro-version')).toContainText('v0.1.16');
     await expect(page.locator('#intro-version')).toBeInViewport();
     await expect(page.locator('#pitch-angle')).toBeInViewport();
     await expect(page.locator('#start-button')).toBeInViewport();
@@ -73,11 +73,11 @@ test('rate remains selectable and retains its pitch, switch keeps position and d
 test('tuning persists all flight fields, affects pitch and bank, copies and resets',async({page})=>{
   await clipboard(page); await launch(page);
   await page.locator('#pause-button').click(); await page.locator('#flight-adjustments > summary').click();
-  const values={deadzone:2,maxTilt:10,maxPitch:25,timeConstant:.5,maxBank:20,displayTimeConstant:.05,radarRange:60};
+  const values={deadzone:2,maxTilt:10,maxPitch:25,timeConstant:.5,maxBank:20,displayTimeConstant:.05,chaseTimeConstant:.15,radarRange:60,maxSteerTilt:10,maxSteerTwist:20,steerTiltDeadzone:2,steerTwistDeadzone:5,steerCurve:1};
   for(const [key,value] of Object.entries(values)) await slider(page,`setting-${key}`,value);
   await page.locator('#settings-copy').click();
   const copied=await page.evaluate(()=>JSON.parse(window.copied));
-  expect(copied).toEqual({version:'0.1.15',pitch:'angle',steer:'tilt',display:'bank',mode:'flight',view:'assisted',settings:values,inactiveSettings:['displayTimeConstant']});
+  expect(copied).toEqual({version:'0.1.16',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',settings:values,inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone']});
   await page.reload(); await page.clock.runFor(100); await page.locator('#practice-button').click(); await page.clock.runFor(100);
   await slider(page,'practice-pitch',10); await slider(page,'practice-steer',10); await page.clock.runFor(3200);
   expect(await data(page,'flight-pitch')).toBeCloseTo(25*Math.PI/180,2);

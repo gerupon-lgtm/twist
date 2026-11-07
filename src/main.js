@@ -9,6 +9,8 @@ import { APP_VERSION } from './version.js';
 import { flightCommands } from './flight-input.js';
 import { createFlightPanel } from './flight-panel.js';
 import { createFlightSession } from './flight-session.js';
+import { normalizeCameraMode } from './flight-camera.js';
+import { updateCockpitHud } from './cockpit-hud.js';
 
 const $ = (id) => document.getElementById(id);
 const app = $('app');
@@ -21,8 +23,9 @@ let visibility = normalizeVisibility(new URLSearchParams(location.search).get('v
 let flightSteering = new URLSearchParams(location.search).get('steer') === 'twist' ? 'twist' : 'tilt';
 let pitchMode = new URLSearchParams(location.search).get('pitch') === 'rate' ? 'rate' : 'angle';
 let flightDisplay = new URLSearchParams(location.search).get('display') === 'fixed' ? 'fixed' : 'bank';
+let cameraMode = normalizeCameraMode(new URLSearchParams(location.search).get('camera'));
 const flightSession = createFlightSession();
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, mode: playMode, view: visibility }));
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility }));
 let inputMode = null;
 let reference = null;
 let craftReference = null;
@@ -63,6 +66,7 @@ function setPhase(next) {
   for (const mode of ['explore', 'flight']) $(`mode-${mode}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   $('throttle-input').disabled = next !== 'running' || playMode !== 'flight';
   for (const display of ['bank', 'fixed']) $(`display-${display}`).disabled = ['waiting', 'ready'].includes(next);
+  for (const value of ['overlay','chase','cockpit']) $(`camera-${value}`).disabled = ['waiting','ready'].includes(next);
   for (const view of ['assisted', 'classic']) $(`view-${view}`).disabled = ['waiting', 'ready'].includes(next);
   for (const pitch of ['angle', 'rate']) $(`pitch-${pitch}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   for (const steering of ['twist', 'tilt']) $(`steering-${steering}`).disabled = ['waiting', 'ready', 'running'].includes(next);
@@ -87,6 +91,9 @@ function applyVisibilityUI() {
   if (phase === 'intro') $('dialog-description').textContent = modeIntroduction();
   app.dataset.visibility = visibility;
   app.dataset.display = flightDisplay;
+  app.dataset.camera = playMode === 'flight' ? cameraMode : 'overlay';
+  for (const value of ['overlay','chase','cockpit']) $(`camera-${value}`).setAttribute('aria-pressed',String(cameraMode === value));
+  $('camera-note').textContent = { overlay:'今までの景色と上向きの自機。',chase:'立体機を後ろから少し遅れて追います。',cockpit:'操縦席から見る。地面の近さは高度と警告で確認。' }[cameraMode];
   $('display-bank').setAttribute('aria-pressed', String(flightDisplay === 'bank'));
   $('display-fixed').setAttribute('aria-pressed', String(flightDisplay === 'fixed'));
   $('display-note').textContent = flightDisplay === 'fixed' ? '面内回転を打ち消す。地平線で翼の傾きを表示。' : '機体を旋回側へ傾ける、今までの表示。';
@@ -94,7 +101,7 @@ function applyVisibilityUI() {
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? 'レーダー、ピンクの光と白い輪、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&pitch=${pitchMode}&display=${flightDisplay}&v=${APP_VERSION}`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&pitch=${pitchMode}&display=${flightDisplay}&camera=${cameraMode}&v=${APP_VERSION}`;
 }
 
 function selectVisibility(next) {
@@ -127,6 +134,17 @@ function selectDisplay(next) {
 $('display-bank').addEventListener('click', () => selectDisplay('bank'));
 $('display-fixed').addEventListener('click', () => selectDisplay('fixed'));
 
+function selectCamera(next) {
+  if (!stage || ['waiting','ready'].includes(phase) || next === cameraMode) return;
+  cameraMode = normalizeCameraMode(next);
+  stage.setCameraMode(cameraMode);
+  applyVisibilityUI(); flightPanel.setPhase(phase,playMode);
+  const url = new URL(location.href);
+  url.searchParams.set('camera',cameraMode); url.searchParams.set('v',APP_VERSION);
+  history.replaceState(null,'',url);
+}
+for (const value of ['overlay','chase','cockpit']) $(`camera-${value}`).addEventListener('click',()=>selectCamera(value));
+
 function applyModeUI() {
   const flight = playMode === 'flight';
   const twistSteering = flightSteering === 'twist';
@@ -145,6 +163,7 @@ function applyModeUI() {
   app.dataset.pitchMode = pitchMode;
   $('flight-pitch-picker').hidden = !flight;
   $('flight-display-picker').hidden = !flight;
+  $('flight-camera-picker').hidden = !flight;
   $('basic-controls').open = !flight;
   $('pitch-angle').setAttribute('aria-pressed', String(pitchMode === 'angle'));
   $('pitch-rate').setAttribute('aria-pressed', String(pitchMode === 'rate'));
@@ -198,6 +217,7 @@ function selectSteering(next) {
   if (!stage || next === flightSteering || !['twist', 'tilt'].includes(next) || ['waiting', 'ready', 'running'].includes(phase)) return;
   flightSteering = next;
   applyModeUI();
+  flightPanel.setPhase(phase,playMode);
   const url = new URL(location.href);
   url.searchParams.set('steer', flightSteering);
   url.searchParams.set('pitch', pitchMode);
@@ -615,7 +635,9 @@ function updateEdgeMarker(state) {
   app.dataset.edgeStatus = projected.visible ? 'shown' : projected.inView ? 'onscreen' : 'hidden';
   app.dataset.edgeBehind = String(projected.behind);
   if (!projected.visible) return;
-  const placed = avoidRadarMarker(projected, { left:left+50,top:top+25,right:right-50,bottom:bottom-25 });
+  const cockpitObstacles = cameraMode === 'cockpit' && playMode === 'flight'
+    ? ['cockpit-speed','cockpit-altitude','cockpit-heading','cockpit-power'].map(id=>$(id).getBoundingClientRect()) : [];
+  const placed = avoidRadarMarker(projected, { left:left+50,top:top+25,right:right-50,bottom:bottom-25 }, cockpitObstacles);
   marker.style.left = `${placed.x}px`;
   marker.style.top = `${placed.y}px`;
   $('edge-arrow').style.transform = `rotate(${projected.rotation}deg)`;
@@ -629,7 +651,10 @@ function updateHud(now, state) {
   if (now - lastHudAt < 80 && phase === lastHudPhase) return;
   lastHudAt = now;
   lastHudPhase = phase;
-  for (const axis of controls) meter(axis, playMode === 'explore' && axis === 'pitch' ? CONTROL_LIMITS.throttleMaximum : axis === 'twist' ? CONTROL_LIMITS.twistMaximum : CONTROL_LIMITS.tiltMaximum);
+  const settings = flightPanel.getSettings();
+  for (const axis of controls) meter(axis, playMode === 'flight'
+    ? axis === 'pitch' ? settings.maxTilt : axis === 'steer' ? settings.maxSteerTilt : settings.maxSteerTwist
+    : axis === 'pitch' ? CONTROL_LIMITS.throttleMaximum : axis === 'twist' ? CONTROL_LIMITS.twistMaximum : CONTROL_LIMITS.tiltMaximum);
   $('speed-value').textContent = state.speed.toFixed(1);
   updateGroundProximity(state);
   $('nose-value').textContent = `${Math.round(MathUtils.radToDeg(state.pitch))}°`;
@@ -673,9 +698,17 @@ function updateHud(now, state) {
   app.dataset.horizontalFov = String(state.fieldOfView?.horizontal || 0);
   app.dataset.landmarkCount = String(state.landmarks?.length || 0);
   app.dataset.beaconAppearance = JSON.stringify(state.beaconAppearance);
+  app.dataset.aircraft = JSON.stringify(state.aircraft);
+  app.dataset.craftVisible = String(state.craftVisible);
+  app.dataset.orientation = JSON.stringify(state.orientation);
+  app.dataset.velocity = JSON.stringify(state.velocity);
+  app.dataset.viewPosition = JSON.stringify(state.viewPosition);
+  app.dataset.verticalFov = String(state.fieldOfView.vertical);
   app.dataset.navigationTargets = JSON.stringify(state.navigationTargets);
   updateRadar(state, { phase, visibility, range: flightPanel.getSettings().radarRange });
+  updateCockpitHud(state, playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running');
   updateEdgeMarker(state);
+  updateCockpitHud(state, playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running');
 }
 
 let previousFrame = performance.now();
@@ -715,7 +748,8 @@ function frame(now) {
       stage.update(dt, { ...rates, mode: playMode, speed, throttle, craftQuaternion,
         ...(playMode === 'flight' ? { displayTwist: angles.twist,
           displayScreenOffset: inputMode === 'sensor' ? screenAngle() - referenceScreenAngle : 0,
-          displayTimeConstant: flightPanel.getSettings().displayTimeConstant } : {}) });
+          displayTimeConstant: flightPanel.getSettings().displayTimeConstant,
+          chaseTimeConstant: flightPanel.getSettings().chaseTimeConstant } : {}) });
     }
     const state = stage.getStatus();
     if (wasFlying) flightSession.advance(dt, state);
@@ -753,7 +787,7 @@ function frame(now) {
 
 applyModeUI();
 try {
-  stage = createStage(canvas, { visibility, display: flightDisplay });
+  stage = createStage(canvas, { visibility, display: flightDisplay, cameraMode });
   stage.update(0, { mode: playMode, speed: 0, craftQuaternion });
   resize();
   requestAnimationFrame(frame);

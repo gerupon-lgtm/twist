@@ -6,16 +6,16 @@
     <meta name="theme-color" content="#dcebf1" />
     <meta name="description" content="自分はそのまま、世界を動かす。スマホの動きで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.15" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.16" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
       <div id="ground-edge-warning" class="ground-edge-warning" data-level="clear" aria-hidden="true" hidden></div>
       <header class="topbar">
-        <a class="brand" id="home-link" href="./?v=0.1.15" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <a class="brand" id="home-link" href="./?v=0.1.16" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
         <span class="mode-tag" id="play-mode-label">探索モード</span>
-        <span class="version">操作検証 <b>v0.1.15</b></span>
+        <span class="version">操作検証 <b>v0.1.16</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
@@ -34,6 +34,13 @@
         <svg viewBox="-50 -50 100 100" aria-hidden="true"><circle class="radar-disc" r="47"/><circle class="radar-range-boundary" r="36"/><circle class="radar-grid" r="18"/><path class="radar-grid" d="M0,-43V43M-43,0H43"/><text class="radar-heading" x="0" y="-39" text-anchor="middle">進行方向</text><g id="radar-targets"></g><path class="radar-self" d="M0,-5L4,4 0,2 -4,4Z"/><text class="radar-range" id="radar-range" x="0" y="43" text-anchor="middle">60m</text></svg>
       </section>
       <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+      <section id="cockpit-hud" class="cockpit-hud" aria-label="操縦席の飛行表示" hidden>
+        <svg id="cockpit-conformal" class="cockpit-conformal" aria-hidden="true"></svg>
+        <div id="cockpit-speed" class="cockpit-tape"></div>
+        <div id="cockpit-altitude" class="cockpit-tape"></div>
+        <div id="cockpit-heading" class="cockpit-heading"></div>
+        <div id="cockpit-power" class="cockpit-power" role="status"></div>
+      </section>
 
       <section class="bottom-panel" aria-label="操作の状態" id="bottom-panel">
         <div class="input-line"><span class="mode" id="input-mode">まだ開始していません</span><span class="motion-state" id="motion-state">停止中</span></div>
@@ -64,7 +71,7 @@
         <section class="intro-card" id="intro-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-description">
           <span class="card-symbol" aria-hidden="true">↝</span>
           <p class="card-kicker" id="dialog-kicker">スマホの動きで操作検証</p>
-          <p class="intro-version" id="intro-version">twist <b>v0.1.15</b><span>操作検証版</span></p>
+          <p class="intro-version" id="intro-version">twist <b>v0.1.16</b><span>操作検証版</span></p>
           <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
           <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。ピンクの光を3つ集めて出口へ。</p>
           <div class="mode-picker" role="group" aria-label="遊び方"><button id="mode-explore" type="button" aria-pressed="true">探索</button><button id="mode-flight" type="button" aria-pressed="false">飛行機</button><small>切替はステージを最初から</small></div>
@@ -72,6 +79,7 @@
           <div class="steering-picker" id="flight-steering-picker" role="group" aria-label="飛行機の旋回操作" hidden><span>旋回</span><button id="steering-tilt" type="button" aria-pressed="true">ひねる（標準）</button><button id="steering-twist" type="button" aria-pressed="false">回す（比較）</button><small id="steering-note">水平に持ち、左右の端を上げ下げして旋回</small></div>
           <div class="steering-picker" id="flight-pitch-picker" role="group" aria-label="機首の上下操作" hidden><span>機首</span><button id="pitch-angle" type="button" aria-pressed="true">傾き＝角度（標準）</button><button id="pitch-rate" type="button" aria-pressed="false">回り続ける（比較）</button><small id="pitch-note">中立へ戻すと、機首も水平へ</small></div>
           <div class="steering-picker" id="flight-display-picker" role="group" aria-label="自機の表示" hidden><span>機体表示</span><button id="display-bank" type="button" aria-pressed="true">機体が傾く</button><button id="display-fixed" type="button" aria-pressed="false">自機を固定</button><small id="display-note">機体を旋回側へ傾ける、今までの表示。</small></div>
+          <div class="steering-picker camera-picker" id="flight-camera-picker" role="group" aria-label="飛行機の視点" hidden><span>視点</span><button id="camera-overlay" type="button" aria-pressed="true">従来視点</button><button id="camera-chase" type="button" aria-pressed="false">追尾3D</button><button id="camera-cockpit" type="button" aria-pressed="false">操縦席</button><small id="camera-note">今までの景色と上向きの自機。</small></div>
           <details class="basic-controls" id="basic-controls" open><summary>基本操作</summary>
           <div class="control-guide" id="control-guide">
             <div><span class="phone-glyph pitch-glyph" aria-hidden="true">↕</span><p><b id="guide-pitch-title">自機の先端側へ倒す</b><span id="guide-pitch-text">先端側で加速、逆側でブレーキ</span></p></div>
@@ -114,9 +122,9 @@
             <p id="result-copy-status" role="status"></p><textarea id="result-copy-text" aria-label="コピーする飛行記録" readonly hidden></textarea>
           </section>
           <details class="flight-adjustments" id="flight-adjustments" hidden>
-            <summary>調整</summary><p id="adjustment-scope-note">飛行機の操作だけを調整します。前後の「角度」と「回り続ける」、左右の「ひねる」で中立範囲・最大傾きを共用します。</p>
+            <summary>調整</summary><p id="adjustment-scope-note">機首と旋回の入力角度を別々に調整します。</p>
             <div id="flight-settings-fields"></div>
-            <small id="flight-settings-help">追いつく時間の目安が小さいほど、機首が速く反応します。「回り続ける」では機首の最大角度と時間は使いません。翼の最大角度は両方の旋回方式に使います。固定表示のならしは表示だけに使い、0秒で即時・大きくすると滑らかになります。</small>
+            <small id="flight-settings-help">追いつく時間の目安が小さいほど、機首が速く反応します。「回り続ける」では機首の最大角度と時間は使いません。翼の最大角度は両方の旋回方式に使います。旋回の中立範囲は最大入力角度より1度以上小さく自動補正します。カーブ1は直線、2に近いほど中立付近を細かく操作できます。固定表示のならしは表示だけに使い、0秒で即時・大きくすると滑らかになります。</small>
             <div class="settings-actions"><button id="settings-reset" type="button">初期値に戻す</button><button id="settings-copy" type="button">設定をコピー</button></div>
             <p id="settings-status" role="status">値はこの端末のブラウザー内だけに保存します。</p>
             <p id="settings-copy-status" role="status"></p><textarea id="settings-copy-text" aria-label="コピーする設定" readonly hidden></textarea>

@@ -91,3 +91,20 @@
  .app[data-visibility="assisted"] .toast{top:calc(190px + env(safe-area-inset-top))}
 }
 .radar-range-boundary{fill:none;stroke:#8eabba;stroke-width:.7;stroke-dasharray:2 2}
+/* v0.1.16: visual camera choices, conformal flight marks and stationary tapes. */
+.camera-picker{grid-template-columns:auto repeat(3,minmax(0,1fr))}.camera-picker button{padding-left:5px;padding-right:5px}
+.cockpit-hud{position:absolute;inset:0;pointer-events:none;color:#b4ff8a;z-index:1;font:11px Consolas,"Meiryo",monospace;text-shadow:-1px -1px #112b1c,1px -1px #112b1c,-1px 1px #112b1c,1px 1px #112b1c}
+.cockpit-conformal{position:absolute;inset:0;width:100%;height:100%;overflow:hidden}.cockpit-conformal path,.cockpit-conformal circle{fill:none;stroke:#a7ff80;stroke-width:2;paint-order:stroke;filter:drop-shadow(0 1px 1px #102a18)}.cockpit-conformal text{fill:#b4ff8a;font:11px Consolas,monospace;paint-order:stroke;stroke:#102a18;stroke-width:2px;stroke-linejoin:round}
+.cockpit-tape,.cockpit-heading,.cockpit-power{position:absolute;display:flex;align-items:center;justify-content:space-between;text-align:center;gap:3px;background:#102a182c;border:1px solid #b4ff8a88;border-radius:3px;padding:4px;box-sizing:border-box}
+.cockpit-tape{flex-direction:column;border-top:0;border-bottom:0}.cockpit-tape strong{font-size:17px;border-block:1px solid #b4ff8a;line-height:1.5;width:100%}.cockpit-tape small{font-size:10px}.cockpit-tape>span{font-size:9px;white-space:nowrap}.cockpit-heading{font-size:10px;justify-content:center;white-space:nowrap}.cockpit-heading strong{font-size:13px}.cockpit-power{flex-direction:column;font-size:12px;justify-content:center}.cockpit-power span{font-size:10px}
+.app[data-camera="cockpit"] .center-mark,.app[data-camera="cockpit"] .input-line,.app[data-camera="cockpit"] .meters,.app[data-camera="cockpit"] .flight-line,.app[data-camera="cockpit"] .flight-attitude{display:none}
+.app[data-camera="cockpit"] .toast{opacity:0}.app[data-camera="cockpit"] .flight-throttle{padding-top:0}.app[data-camera="cockpit"] .flight-throttle>small{display:none}.app[data-camera="cockpit"] .toolbar{margin-top:3px}
+@media(max-height:740px) and (max-width:599px){.app[data-play-mode="flight"] .intro-card h1{font-size:21px;margin-bottom:8px}.app[data-play-mode="flight"] .intro-card .dialog-description{font-size:11px;line-height:1.6}.app[data-play-mode="flight"] .intro-card .prototype-note{display:none}.app[data-play-mode="flight"] .steering-picker{margin-top:7px}.app[data-play-mode="flight"] .dialog-note{margin:8px 0}}
+@media(max-height:500px) and (min-width:600px){
+ .app[data-play-mode="flight"] .intro-card #flight-camera-picker{grid-column:1/-1;grid-row:6;max-width:480px;justify-self:center;width:100%}
+ .app[data-play-mode="flight"] .intro-card .motion-explanation{grid-row:7}.app[data-play-mode="flight"] .intro-card .primary-button{grid-row:7}
+ .app[data-play-mode="flight"] .intro-card .dialog-note{grid-row:8}.app[data-play-mode="flight"] .intro-card .secondary-button{grid-row:8}
+ .app[data-play-mode="flight"] .intro-card .text-button{grid-row:9}.app[data-play-mode="flight"] .intro-card .prototype-note{grid-row:10}
+ .app[data-play-mode="flight"] .intro-card .flight-result{grid-row:11}.app[data-play-mode="flight"] .intro-card .flight-adjustments{grid-row:12}
+ .app[data-play-mode="flight"] .veil:has(#motion-explanation[open]) .intro-card .motion-explanation{grid-row:11}.app[data-play-mode="flight"] .veil:has(#motion-explanation[open]) .intro-card .flight-result{grid-row:12}.app[data-play-mode="flight"] .veil:has(#motion-explanation[open]) .intro-card .flight-adjustments{grid-row:13}
+}

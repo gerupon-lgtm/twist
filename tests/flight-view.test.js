@@ -177,3 +177,63 @@ test('fixed roll removal preserves forward direction and inverted rate pitch bey
   assert.ok(a.distanceTo(b)<1e-10);
  }
 });
+
+import { advanceChaseAngles, chaseView } from '../src/flight-camera.js';
+import { cockpitReadings, cockpitProjection, horizonSegment } from '../src/cockpit-projection.js';
+import { createAircraft } from '../src/aircraft.js';
+import { flightReport } from '../src/flight-session.js';
+
+test('chase lag is immediate at zero and converges monotonically by the short angular path',()=>{
+ const goal={heading:1,pitch:.5};
+ assert.deepEqual(advanceChaseAngles({heading:0,pitch:0},goal,0,0),goal);
+ let current={heading:0,pitch:0};
+ for(let i=0;i<100;i++) {const next=advanceChaseAngles(current,goal,.02,.15);for(const k of ['heading','pitch'])assert.ok(next[k]>=current[k]&&next[k]<=goal[k]);current=next;}
+ assert.ok(Math.abs(current.heading-1)<.00001);
+ const short=advanceChaseAngles({heading:179*Math.PI/180,pitch:0},{heading:-179*Math.PI/180,pitch:0},.05,.15);
+ assert.ok(Math.abs(short.heading)>179*Math.PI/180);
+ const view=chaseView({heading:.3,pitch:1},0,1); assert.ok(view.offset.y>=1.2);
+ const center=view.offset.clone().negate().applyQuaternion(view.orientation.clone().invert());
+ assert.ok(Math.abs(center.x)<1e-10&&Math.abs(center.y)<1e-10&&center.z<0);
+});
+
+test('cockpit readings use physical speed, ground clearance, heading and full pitch',()=>{
+ assert.deepEqual(cockpitReadings({speed:12.3,groundClearance:7.2,heading:-Math.PI/2,controlPitch:2*Math.PI/3,verticalSpeed:-2,throttle:.53}),
+ {speed:12.3,altitude:7.2,heading:270,pitch:119.99999999999999,verticalSpeed:-2,power:53});
+});
+
+test('cockpit horizon and five-degree ladder use the rendered perspective and scene rotation',()=>{
+ const width=390,height=844,fov=90;
+ for(const pitch of [0,Math.PI/12,-Math.PI/6])for(const roll of [0,.6,Math.PI/2]) {
+  const eye=pose(pitch), phone=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-roll);
+  const state={fieldOfView:{vertical:fov},cameraQuaternion:phone,worldQuaternion:eye.clone().invert(),orientation:eye,heading:0,controlPitch:pitch,velocity:{x:0,y:0,z:-6}};
+  const projection=cockpitProjection(state,width,height);
+  // Any horizontal world ray lies on the HUD horizon after the same camera transform.
+  for(const az of [-.6,0,.6]){const p=cockpitProjection(state,width,height).q;const direction=new Vector3(Math.sin(az),0,-Math.cos(az)).applyQuaternion(p);if(direction.z>=0)continue;
+   const x=width/2+projection.f*direction.x/-direction.z,y=height/2-projection.f*direction.y/-direction.z;
+   assert.ok(Math.abs(projection.horizon.a*(x-width/2)+projection.horizon.b*(y-height/2)+projection.horizon.c)<1e-8);
+  }
+  assert.ok([0,2].includes(horizonSegment(projection.horizon,width,height).length));
+  assert.ok(projection.lines.some(l=>l.degrees===5)&&projection.lines.some(l=>l.degrees===-5));
+  if(!roll){const segment=horizonSegment(projection.horizon,width,height);assert.ok(Math.abs(segment[0].y-(height/2+projection.f*Math.tan(pitch)))<1e-8);}
+ }
+ const state={fieldOfView:{vertical:90},cameraQuaternion:new Quaternion(),worldQuaternion:new Quaternion(),orientation:new Quaternion(),heading:0,velocity:{x:0,y:-3,z:-6}};
+ const p=cockpitProjection(state,390,844);assert.ok(p.flightPath.y>p.nose.y+100);
+ const up5=p.lines.find(l=>l.degrees===5&&l.side===1).points[0];
+ assert.ok(Math.abs(up5.y-(422-422*Math.tan(5*Math.PI/180)/Math.cos(2*Math.PI/180)))<1e-8);
+});
+
+test('shared jet has two engines with power-dependent exhaust and no light at zero',()=>{
+ const jet=createAircraft();
+ const values=[0,.3,1].map(p=>{jet.setPower(p);return jet.diagnostics();});
+ assert.equal(values[0].engines,2);assert.equal(values[0].exhaustVisible,false);assert.equal(values[0].exhaustLength,0);
+ assert.ok(values[2].exhaustLength>values[1].exhaustLength&&values[2].exhaustOpacity>values[1].exhaustOpacity);
+ jet.setPower(0);assert.equal(jet.diagnostics().exhaustVisible,false);
+});
+
+test('reports identify the camera and mark camera lag unused in other views and exploration',()=>{
+ for(const camera of ['overlay','chase','cockpit'])for(const mode of ['flight','explore']) {
+  const report=flightReport({version:'0.1.16',pitch:'angle',steer:'tilt',camera,mode});
+  assert.equal(report.camera,mode==='flight'?camera:'overlay');
+  assert.equal(report.inactiveSettings.includes('chaseTimeConstant'),mode!=='flight'||camera!=='chase');
+ }
+});

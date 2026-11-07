@@ -1,0 +1,23 @@
+import {test,expect} from '@playwright/test';
+const slider=(p,id,value)=>p.locator('#'+id).evaluate((el,v)=>{el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}));},value);
+const numeric=(p,k)=>p.locator('#app').getAttribute('data-'+k).then(Number);
+for(const steer of ['tilt','twist'])test(`${steer} small-angle steering is independent, editable, saved, reset and copied`,async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.copied=text;}},configurable:true}));
+ await page.clock.install({time:new Date('2026-11-07T09:00:00Z')});await page.goto('/?mode=flight&steer='+steer);
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));await page.locator('#practice-button').click();await page.clock.runFor(100);
+ await slider(page,steer==='tilt'?'practice-steer':'practice-twist',steer==='tilt'?15:20);await page.clock.runFor(1800);
+ expect(await numeric(page,'bank')).toBeCloseTo(40*Math.PI/180,2);expect(await numeric(page,'pitch-target')).toBe(0);
+ await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();
+ const active=steer==='tilt'?'maxSteerTilt':'maxSteerTwist',inactive=steer==='tilt'?'maxSteerTwist':'maxSteerTilt',neutral=steer==='tilt'?'steerTiltDeadzone':'steerTwistDeadzone';
+ await expect(page.locator('label[data-setting-key="'+inactive+'"]')).toBeHidden();await expect(page.locator('#setting-'+active)).toBeVisible();
+ await slider(page,'setting-'+active,10);await slider(page,'setting-'+neutral,2);await slider(page,'setting-steerCurve',1.5);
+ await page.locator('#settings-copy').click();let copied=await page.evaluate(()=>JSON.parse(window.copied));
+ expect(copied.settings).toMatchObject({[active]:10,[neutral]:2,steerCurve:1.5,maxTilt:25,maxPitch:15});expect(copied.inactiveSettings).toContain(inactive);expect(copied.inactiveSettings).not.toContain(active);
+ await page.screenshot({path:'test-results/v0116-steering-'+steer+'.png'});
+ await page.reload();await page.clock.runFor(100);await page.locator('#practice-button').click();await page.clock.runFor(100);await slider(page,'practice-pitch',15);await slider(page,steer==='tilt'?'practice-steer':'practice-twist',10);await page.clock.runFor(1400);
+ expect(await numeric(page,'pitch-target')).toBeCloseTo((15-3)/(25-3)*15*Math.PI/180,8);expect(await numeric(page,'bank')).toBeCloseTo(40*Math.PI/180,2);
+ await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();
+ await expect(page.locator('#setting-'+active)).toHaveValue('10');await expect(page.locator('#setting-steerCurve')).toHaveValue('1.5');await page.locator('#settings-reset').click();
+ await expect(page.locator('#setting-'+active)).toHaveValue(steer==='tilt'?'15':'20');await expect(page.locator('#setting-'+neutral)).toHaveValue(steer==='tilt'?'3':'5');await expect(page.locator('#setting-steerCurve')).toHaveValue('1');
+ await page.locator('#settings-copy').click();copied=await page.evaluate(()=>JSON.parse(window.copied));expect(copied.settings[active]).toBe(steer==='tilt'?15:20);
+});

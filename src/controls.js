@@ -1,4 +1,5 @@
 import { Euler, MathUtils, Quaternion, Vector3 } from 'three';
+import { normalizeFlightSettings } from './flight-settings.js';
 
 export const CONTROL_LIMITS = Object.freeze({
   tiltDeadzone: 3,
@@ -176,16 +177,18 @@ export function controlRates(angles, sensitivity = 1) {
 
 /** Phone-top pitch plus either twist or side tilt; engine output stays independent. */
 export function flightRates(angles, sensitivity = 1, steering = 'tilt', settings) {
+  const config = normalizeFlightSettings(settings);
   const gain = Number.isFinite(sensitivity) ? Math.max(0, sensitivity) : 1;
-  const deadzone = settings?.deadzone ?? CONTROL_LIMITS.tiltDeadzone;
-  const maximum = settings?.maxTilt ?? CONTROL_LIMITS.tiltMaximum;
+  const deadzone = config.deadzone;
+  const maximum = config.maxTilt;
   const bankDemand = steering === 'twist'
-    ? angleDemand(foldedTwist(angles?.twist), gain, CONTROL_LIMITS.twistDeadzone, CONTROL_LIMITS.twistMaximum)
-    : angleDemand(angles?.steer, gain, deadzone, maximum);
+    ? angleDemand(foldedTwist(angles?.twist), gain, config.steerTwistDeadzone, config.maxSteerTwist)
+    : angleDemand(angles?.steer, gain, config.steerTiltDeadzone, config.maxSteerTilt);
+  const curvedBank = Math.sign(bankDemand) * Math.abs(bankDemand) ** config.steerCurve;
   return {
     pitchRate: angleDemand(angles?.pitch, gain,
       deadzone, maximum) * CONTROL_LIMITS.pitchRate,
-    bankAngle: bankDemand * (settings ? settings.maxBank * Math.PI / 180 : CONTROL_LIMITS.flightBankAngle),
+    bankAngle: curvedBank * config.maxBank * Math.PI / 180,
     acceleration: 0,
     brake: 0,
   };

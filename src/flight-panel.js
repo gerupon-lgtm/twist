@@ -1,5 +1,5 @@
 import { APP_VERSION } from './version.js';
-import { FLIGHT_SETTING_FIELDS, DEFAULT_FLIGHT_SETTINGS, loadFlightSettings, saveFlightSettings } from './flight-settings.js';
+import { FLIGHT_SETTING_FIELDS, DEFAULT_FLIGHT_SETTINGS, normalizeFlightSettings, loadFlightSettings, saveFlightSettings } from './flight-settings.js';
 import { flightReport, copyableFlightReport } from './flight-session.js';
 
 const $ = id => document.getElementById(id);
@@ -22,7 +22,7 @@ export function createFlightPanel(getModes) {
     Object.assign(input, { type: 'range', id: label.htmlFor, min: field.min, max: field.max, step: field.step });
     label.append(caption, value, input); $('flight-settings-fields').append(label);
     input.addEventListener('input', () => {
-      settings = { ...settings, [key]: Number(input.value) };
+      settings = normalizeFlightSettings({ ...settings, [key]: Number(input.value) });
       persist();
     });
   }
@@ -75,16 +75,19 @@ export function createFlightPanel(getModes) {
       $('result-contacts').textContent = `${stats.groundContacts}回`;
       $('result-recovery').textContent = `${stats.recoverySeconds.toFixed(1)}秒`;
       $('result-outcome').textContent = report.result === 'clear' ? 'クリア' : '墜落';
-      $('result-modes').textContent = `pitch=${report.pitch} / steer=${report.steer} / display=${report.display}`;
+      $('result-modes').textContent = `pitch=${report.pitch} / steer=${report.steer} / display=${report.display} / camera=${report.camera}`;
       $('result-settings').textContent = describeSettings(report);
     },
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = phase !== 'paused';
-      for (const label of $('flight-settings-fields').children) label.hidden = mode !== 'flight' && label.dataset.settingKey !== 'radarRange';
+      const inactiveSteering = getModes().steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone'];
+      for (const label of $('flight-settings-fields').children) label.hidden = (mode !== 'flight' && label.dataset.settingKey !== 'radarRange')
+        || inactiveSteering.includes(label.dataset.settingKey);
+      $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       $('flight-settings-help').hidden = mode !== 'flight';
       $('settings-reset').textContent = mode === 'flight' ? '初期値に戻す' : 'レーダーを初期値へ';
       $('adjustment-scope-note').textContent = mode === 'flight'
-        ? 'レーダーと飛行機の操作を調整します。前後・左右のひねりで中立範囲と最大傾きを共用します。'
+        ? '機首と旋回の入力角度を別々に調整します。選んだ旋回方式の項目だけ表示します。'
         : 'レーダーの表示範囲を調整します。探索の操縦には影響しません。';
       if (phase !== 'paused') $('flight-adjustments').open = false;
       if (phase === 'running' || mode !== 'flight') this.showResult(null);
