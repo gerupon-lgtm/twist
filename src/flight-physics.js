@@ -9,6 +9,9 @@ export const FLIGHT_MODEL = Object.freeze({
   maxLift: 9,
   stallStart: 20 * Math.PI / 180,
   stallEnd: 70 * Math.PI / 180,
+  recoveryThrust: 5.4,
+  recoveryTurnRate: 2.5,
+  maxRecoveryAcceleration: 12,
   maxTimeStep: 0.05,
   integrationStep: 1 / 120,
 });
@@ -18,6 +21,10 @@ const finite = (value) => Number.isFinite(value) ? value : 0;
 const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 const cleanVector = (v) => ({ x: finite(v?.x), y: finite(v?.y), z: finite(v?.z) });
 const EPSILON = 1e-10;
+const smooth = (value, low, high) => {
+  const t = clamp((value - low) / (high - low), 0, 1);
+  return t * t * (3 - 2 * t);
+};
 
 function normalized(v) {
   const scale = Math.max(Math.abs(v.x), Math.abs(v.y), Math.abs(v.z));
@@ -74,13 +81,33 @@ function forces(velocity, forward, up, throttle) {
       -FLIGHT_MODEL.maxLift, FLIGHT_MODEL.maxLift) * stallFactor
     : 0;
   const drag = FLIGHT_MODEL.cruiseDrag * speedRatioSquared;
-  const thrust = FLIGHT_MODEL.maxThrust * throttle;
+  // Powered recovery is available only after the nose/wings return upright
+  // and near level. Cruise keeps its original thrust/drag balance.
+  const recoveryPosture = (1 - smooth(Math.abs(forward.y), Math.sin(Math.PI / 12), Math.sin(Math.PI / 4)))
+    * smooth(up.y, .3, .8);
+  const lowForwardSpeed = 1 - smooth(dot(velocity, forward), 1, 4.5);
+  const stalled = smooth(angleOfAttack, FLIGHT_MODEL.stallStart, FLIGHT_MODEL.stallEnd);
+  const recoveryAssist = throttle * recoveryPosture * Math.max(lowForwardSpeed, stalled);
+  const thrust = throttle * (FLIGHT_MODEL.maxThrust + FLIGHT_MODEL.recoveryThrust * recoveryPosture * lowForwardSpeed);
+  const alongForward = dot(forward, direction);
+  const redirect = { x: forward.x - direction.x * alongForward,
+    y: forward.y - direction.y * alongForward, z: forward.z - direction.z * alongForward };
+  const redirectLength = Math.hypot(redirect.x, redirect.y, redirect.z);
+  const recoveryDirection = redirectLength > EPSILON ? normalized(redirect) : null;
+  const recoveryAcceleration = recoveryDirection ? Math.min(FLIGHT_MODEL.maxRecoveryAcceleration,
+    speed * FLIGHT_MODEL.recoveryTurnRate * throttle * recoveryPosture * stalled)
+    * Math.min(1, redirectLength / .1) : 0;
+  // This correction is perpendicular to velocity: it redirects existing
+  // momentum continuously, rather than replacing velocity or adding lift at rest.
   return {
-    x: forward.x * thrust - direction.x * drag + (liftDirection?.x ?? 0) * lift,
-    y: forward.y * thrust - direction.y * drag + (liftDirection?.y ?? 0) * lift - FLIGHT_MODEL.gravity,
-    z: forward.z * thrust - direction.z * drag + (liftDirection?.z ?? 0) * lift,
+    x: forward.x * thrust - direction.x * drag + (liftDirection?.x ?? 0) * lift + (recoveryDirection?.x ?? 0) * recoveryAcceleration,
+    y: forward.y * thrust - direction.y * drag + (liftDirection?.y ?? 0) * lift - FLIGHT_MODEL.gravity + (recoveryDirection?.y ?? 0) * recoveryAcceleration,
+    z: forward.z * thrust - direction.z * drag + (liftDirection?.z ?? 0) * lift + (recoveryDirection?.z ?? 0) * recoveryAcceleration,
     angleOfAttack,
     lift,
+    thrust,
+    recoveryAssist,
+    recoveryAcceleration,
   };
 }
 
@@ -114,5 +141,8 @@ export function stepFlightVelocity(velocity, dt, input) {
     angleOfAttack: final.angleOfAttack,
     lift: final.lift,
     throttle,
+    engineThrust: final.thrust,
+    recoveryAssist: final.recoveryAssist,
+    recoveryAcceleration: final.recoveryAcceleration,
   };
 }

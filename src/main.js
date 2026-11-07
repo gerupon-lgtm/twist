@@ -57,7 +57,7 @@ function setPhase(next) {
 }
 
 const modeNote = () => playMode === 'flight'
-  ? 'スマホ本体を基準に操縦します。出力50%で出発。上昇で減速、下降で加速し、低出力では降下しやすくなります。'
+  ? '本体基準で操縦。出力50%で出発。上昇で減速、下降で加速。失速時は機首0°付近・翼水平へ戻し、出力を上げて復帰。'
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
 const modeIntroduction = () => playMode === 'flight'
   ? '自機は画面中央。右へ曲がると機体も右へ傾きます。金色の光を3つ集めて出口へ。'
@@ -76,7 +76,7 @@ function applyVisibilityUI() {
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? '視野を広く。色と形の目印と、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.11`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.12`;
 }
 
 function selectVisibility(next) {
@@ -87,7 +87,7 @@ function selectVisibility(next) {
   const url = new URL(location.href);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.11');
+  url.searchParams.set('v', '0.1.12');
   history.replaceState(null, '', url);
 }
 $('view-assisted').addEventListener('click', () => selectVisibility('assisted'));
@@ -151,7 +151,7 @@ function selectSteering(next) {
   applyModeUI();
   const url = new URL(location.href);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.11');
+  url.searchParams.set('v', '0.1.12');
   history.replaceState(null, '', url);
 }
 $('steering-twist').addEventListener('click', () => selectSteering('twist'));
@@ -173,7 +173,7 @@ function selectMode(next) {
   url.searchParams.set('mode', playMode);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.11');
+  url.searchParams.set('v', '0.1.12');
   history.replaceState(null, '', url);
   if (resume) {
     setPhase('paused');
@@ -554,7 +554,8 @@ function updateHud(now, state) {
   $('nose-value').textContent = `${Math.round(MathUtils.radToDeg(state.pitch))}°`;
   $('bank-value').textContent = `${Math.round(MathUtils.radToDeg(state.bank || 0))}°`;
   $('climb-value').textContent = `${(state.verticalSpeed || 0) > 0 ? '+' : ''}${(state.verticalSpeed || 0).toFixed(1)}`;
-  $('view-assist-note').textContent = state.viewAssistance > .05 ? '地面を見る補助中' : '中立で翼を戻す';
+  $('view-assist-note').textContent = state.recoveryAssist > .05 ? '失速からの復帰補助中'
+    : state.viewAssistance > .05 ? '地面を見る補助中' : '中立で翼を戻す';
   $('motion-state').textContent = phase !== 'running' || state.speed < 0.01 ? '停止中'
     : playMode === 'flight' ? (state.verticalSpeed > 0.1 ? '上昇中' : state.verticalSpeed < -0.1 ? '下降中' : '巡航中')
     : rates.brake > 0 ? 'ブレーキ' : rates.acceleration > 0 ? '加速中' : '速度維持';
@@ -577,6 +578,7 @@ function updateHud(now, state) {
   app.dataset.yawRate = String(state.yawRate || 0);
   app.dataset.verticalSpeed = String(state.verticalSpeed || 0);
   app.dataset.throttle = String(state.throttle || 0);
+  app.dataset.recoveryAssist = String(state.recoveryAssist || 0);
   app.dataset.grounded = String(Boolean(state.grounded));
   app.dataset.viewPitch = String(state.viewPitch || 0);
   app.dataset.viewAssistance = String(state.viewAssistance || 0);

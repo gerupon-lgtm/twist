@@ -261,3 +261,65 @@ test('physical flight reaches all aerial targets and the exit without moving the
   expect(result.grounded).toBe(false);
   expect(result.fixed).toBe(true);
 });
+
+for (const percent of [50, 100]) test(`restoring level pitch and ${percent}-percent power recovers a real climb-stall before contact`, async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-07T00:00:00Z') });
+  await page.goto('/?mode=flight&steer=tilt');
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  await page.locator('#practice-button').click();
+  await page.clock.runFor(100);
+  await angle(page, 'pitch', 25);
+  await page.clock.runFor(1500);
+  await angle(page, 'pitch', 0);
+  await output(page, 0);
+  for (let i = 0; i < 120 && await data(page, 'vertical-speed') > -2; i++) await page.clock.runFor(50);
+  expect(await data(page, 'flight-pitch')).toBeGreaterThan(.8);
+  expect(await data(page, 'vertical-speed')).toBeLessThan(-2);
+  const before = JSON.parse(await page.locator('#app').getAttribute('data-position'));
+  await output(page, percent);
+  await angle(page, 'pitch', -25);
+  let assisted = false, minimumHeight = Infinity;
+  for (let i = 0; i < 100 && await data(page, 'flight-pitch') > .025; i++) {
+    await page.clock.runFor(50);
+    assisted ||= await data(page, 'recovery-assist') > .05;
+    minimumHeight = Math.min(minimumHeight, await data(page, 'ground-clearance'));
+    await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
+  }
+  await angle(page, 'pitch', 0);
+  let recovered = false;
+  for (let i = 0; i < 180; i++) {
+    await page.clock.runFor(50);
+    assisted ||= await data(page, 'recovery-assist') > .05;
+    minimumHeight = Math.min(minimumHeight, await data(page, 'ground-clearance'));
+    await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
+    if (await data(page, 'vertical-speed') > -.1 && await speed(page) > 4.5) { recovered = true; break; }
+  }
+  expect(recovered).toBe(true);
+  expect(assisted).toBe(true);
+  expect(minimumHeight).toBeGreaterThan(0);
+  await expect(page.locator('#throttle-value')).toHaveText(`${percent}%`);
+  await expect(page.locator('#app')).toHaveAttribute('data-grounded', 'false');
+  const after = JSON.parse(await page.locator('#app').getAttribute('data-position'));
+  expect(Math.hypot(after.x-before.x, after.z-before.z)).toBeGreaterThan(2);
+  await page.screenshot({ path: `test-results/v0112-recovered-${percent}.png` });
+});
+
+test('zero airspeed in midair still accepts pitch, bank and engine input', async ({ page }) => {
+  await page.goto('/?mode=flight');
+  const result = await page.evaluate(async () => {
+    const { createStage } = await import('/src/stage.js');
+    const stage = createStage(document.createElement('canvas'));
+    stage.update(0, { mode: 'flight' });
+    const before = stage.getStatus();
+    stage.update(.05, { mode: 'flight', pitchRate: .4, bankAngle: .3, throttle: .5 });
+    const after = stage.getStatus();
+    stage.dispose(); return { before, after };
+  });
+  expect(result.before.speed).toBe(0);
+  expect(result.after.speed).toBeGreaterThan(.1);
+  expect(result.after.pitch).toBeGreaterThan(.01);
+  expect(result.after.bank).toBeGreaterThan(0);
+  expect(result.after.velocity.z).toBeLessThan(0);
+  expect(result.after.recoveryAssist).toBeGreaterThan(0);
+  expect(result.after.grounded).toBe(false);
+});

@@ -18,7 +18,7 @@ const length = (v) => Math.hypot(v.x, v.y, v.z);
 const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 const finiteResult = (result) => {
   assert.ok(Object.values(result.velocity).every(Number.isFinite));
-  for (const key of ['speed', 'verticalSpeed', 'angleOfAttack', 'lift', 'throttle']) {
+  for (const key of ['speed', 'verticalSpeed', 'angleOfAttack', 'lift', 'throttle', 'engineThrust', 'recoveryAssist', 'recoveryAcceleration']) {
     assert.ok(Number.isFinite(result[key]), `${key} must remain finite`);
   }
   near(result.speed, length(result.velocity));
@@ -168,4 +168,79 @@ test('invalid state, directions, and output stay finite without mutating caller 
   assert.deepEqual(velocity, { x: 1, y: 2, z: -4 });
   near(stepFlightVelocity(velocity, 0, { ...pose(), throttle: -1 }).throttle, 0);
   near(stepFlightVelocity(velocity, 0, { ...pose(), throttle: 2 }).throttle, 1);
+});
+
+test('powered level recovery regains forward flight after zero airspeed and vertical stalls within game-scale altitude', () => {
+  for (const down of [0, 3, 6]) for (const throttle of [.5, 1]) {
+    let velocity = { x: 0, y: -down, z: 0 }, height = 0, minimum = 0;
+    for (let i = 0; i < 360; i++) {
+      const next = stepFlightVelocity(velocity, 1 / 60, { ...pose(), throttle });
+      height += (velocity.y + next.velocity.y) / 120;
+      minimum = Math.min(minimum, height);
+      velocity = next.velocity;
+    }
+    assert.ok(-velocity.z > 4.5, `down=${down}, power=${throttle}: forward ${-velocity.z}`);
+    assert.ok(velocity.y > -.15, `down=${down}, power=${throttle}: descent ${velocity.y}`);
+    assert.ok(minimum > -6.5, `down=${down}, power=${throttle}: height loss ${-minimum}`);
+  }
+});
+
+test('momentum remains continuous when the nose changes and a powered zero-speed aircraft accelerates', () => {
+  const initial = { x: 1, y: 2, z: -3 };
+  for (const pitch of [-30, 0, 30, 80]) {
+    const next = stepFlightVelocity(initial, .01, { ...pose(pitch), throttle: 1 });
+    assert.ok(next.velocity.x > .9);
+    assert.ok(next.velocity.z < -2.8);
+    assert.ok(Math.abs(next.velocity.y - initial.y) < .25);
+  }
+  const powered = stepFlightVelocity({ x: 0, y: 0, z: 0 }, .05, { ...pose(), throttle: .5 });
+  assert.ok(powered.velocity.z < 0);
+  assert.ok(powered.velocity.y < 0, 'zero airspeed still has no static wing support');
+});
+
+test('recovery requires power and restored posture, and cannot hold a stationary aircraft in the air', () => {
+  const falling = { x: 0, y: -6, z: 0 };
+  for (const input of [{ ...pose(), throttle: 0 }, { ...pose(80), throttle: 1 },
+    { forward: { x: 0, y: 0, z: -1 }, up: { x: 0, y: -1, z: 0 }, throttle: 1 }]) {
+    const result = stepFlightVelocity(falling, .01, input);
+    near(result.recoveryAssist, 0);
+    near(result.recoveryAcceleration, 0);
+  }
+  const stationary = stepFlightVelocity({ x: 0, y: 0, z: 0 }, 0, { ...pose(), throttle: 1 });
+  near(stationary.lift, 0);
+  near(stationary.recoveryAcceleration, 0);
+  const vertical = stepFlightVelocity({ x: 0, y: 0, z: 0 }, .05, { ...pose(90), throttle: 1 });
+  assert.ok(vertical.velocity.y < 0);
+});
+
+test('recovery redirects momentum without adding energy beyond engine work', () => {
+  const input = { ...pose(), throttle: .5 };
+  const dt = 1 / 240;
+  let velocity = { x: 0, y: -3, z: 0 }, altitude = 0, work = 0;
+  const power = v => stepFlightVelocity(v, 0, input).engineThrust * dot(v, input.forward)
+    - FLIGHT_MODEL.cruiseDrag * (length(v) / FLIGHT_MODEL.cruiseSpeed) ** 2 * length(v);
+  for (let i = 0; i < 720; i++) {
+    const next = stepFlightVelocity(velocity, dt, input);
+    work += (power(velocity) + power(next.velocity)) * .5 * dt;
+    altitude += (velocity.y + next.velocity.y) * .5 * dt;
+    velocity = next.velocity;
+  }
+  near(.5 * length(velocity) ** 2 + FLIGHT_MODEL.gravity * altitude - 4.5, work, .01);
+});
+
+test('recovery force is bounded and smoothly fades at speed and posture boundaries', () => {
+  for (const speed of [1, 4.5]) {
+    const a = stepFlightVelocity({ x: 0, y: -3, z: -speed + 1e-5 }, 0, { ...pose(), throttle: 1 });
+    const b = stepFlightVelocity({ x: 0, y: -3, z: -speed - 1e-5 }, 0, { ...pose(), throttle: 1 });
+    near(a.engineThrust, b.engineThrust, .001);
+  }
+  for (const pitch of [15, 45]) {
+    const a = stepFlightVelocity({ x: 0, y: -3, z: -1 }, 0, { ...pose(pitch - 1e-5), throttle: 1 });
+    const b = stepFlightVelocity({ x: 0, y: -3, z: -1 }, 0, { ...pose(pitch + 1e-5), throttle: 1 });
+    near(a.engineThrust, b.engineThrust, .001);
+    near(a.recoveryAcceleration, b.recoveryAcceleration, .001);
+  }
+  const result = stepFlightVelocity({ x: 0, y: -18, z: -1 }, .05, { ...pose(), throttle: 1 });
+  assert.ok(result.recoveryAcceleration <= FLIGHT_MODEL.maxRecoveryAcceleration);
+  assert.ok(result.recoveryAssist >= 0 && result.recoveryAssist <= 1);
 });

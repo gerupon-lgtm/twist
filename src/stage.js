@@ -478,6 +478,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   let yawRate = 0;
   let speed = 0;
   let throttle = 0;
+  let recoveryAssist = 0;
   let grounded = false;
   let collected = 0;
   let complete = false;
@@ -531,6 +532,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
     velocity.set(0, 0, 0);
     speed = 0;
     throttle = 0;
+    recoveryAssist = 0;
     yawRate = 0;
   }
 
@@ -708,6 +710,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
         const next = stepFlightVelocity(velocity, step, { forward, up, throttle: targetThrottle });
         velocity.set(next.velocity.x, next.velocity.y, next.velocity.z);
         throttle = next.throttle;
+        recoveryAssist = next.recoveryAssist;
         position.addScaledVector(previousVelocity, step / 2).addScaledVector(velocity, step / 2);
         if (position.y <= 0 && velocity.y < 0) {
           // Stop at the intersection with the actual ground reference plane.
@@ -768,6 +771,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
       viewPosition: { x: viewPosition.x, y: viewPosition.y, z: viewPosition.z },
       speed,
       throttle,
+      recoveryAssist,
       verticalSpeed: velocity.y,
       velocity: { x: velocity.x, y: velocity.y, z: velocity.z },
       grounded,
