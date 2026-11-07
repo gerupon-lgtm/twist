@@ -1,6 +1,6 @@
 # v0.1.27 検証記録
 
-2026-11-08：単体377件、ブラウザー262件（既存243＋新規19）、公開用ビルド・通常/ABの処理負荷測定が成功。**公開確認はPENDING**です。PCと実機の確認は分けます。
+2026-11-08：単体377件、ブラウザー262件（既存243＋新規19）、公開用ビルド・通常/ABの処理負荷測定が成功。公開確認も成功しました。PCと実機の確認は分けます。
 
 ## 対象と維持する前提
 
@@ -76,11 +76,19 @@ ABの点火音・連続音と強めの振動を追加します。警告・取得
 
 元データは`.cache/performance-v0126.json`、`performance-v0127.json`、`performance-diagnostic-v0127.json`、`performance-ab-v0127.json`。各実時間試験も成功し、通常の262件には重ねて加算しない。
 
-## 公開と保存版（PENDING）
+## 公開と保存版（完了）
 
-現在版27の公開コミット・Pages実行：**PENDING**。全63ファイル（現在版21＋保存版25/26各21）の状態・MIME・長さ・SHA-256、実画面の版と配信module、実SW、開始・停止・保存・再読込、旧URL転送、公開版での実燃料取得→AB、両保存版の専用SWと操作を確認して完了とする。
+公開アプリのコミット：`311c1fb45d20e7bd1ffb1ee6bfe6446e36a0ad2f`。Pages実行：[42410047949](https://github.com/gerupon-lgtm/twist/actions/runs/42410047949)。確認：2026-11-08 05:19 JST。
 
-保存版25は前回公開でも確認済み。26は公開配信の21ファイルをそのままローカル保存して一致を確認したが、専用URLは今回初めて公開する。保存版の設定領域は同じブラウザーで共有する。Pixel 9aの受入は以下に残す。
+- GitHub側のnpm ci・npm test・ビルド・配信・後処理が全て成功。上記ローカル件数とは別の確認。
+- 公開63ファイル（現在版21＋保存版25/26各21）の状態・MIME・長さ・SHA-256が全て最終distと一致。旧版は元の公開時の21ファイルとも比較しており、内容を変えていない。
+- 現在版の11確認が全成功：実画面の版27と配信module、実SWの制御・scope・空のCacheStorage、日本語開始画面、開始後の英語HUD、公開サイトでの光取得→燃料獲得→実ドラッグAB→加速/視野/流線→100%解除、日本語の停止/設定・言語保存・再開・再読込、旧GitHub URLのクエリーを保つ転送。
+- 保存版25と26は、各21ファイル一致に加え、実画面の版・配信module・各版専用SW・実開始→英語HUD→停止→再読込の4確認が全て成功。
+- 最終の実行・console・HTTP・request失敗は現在版と両保存版とも0。初回の現在版確認は旧単位m/sの期待値をkm/hへ訂正して再確認。保存版26で1回のMIDI読込が試験の再読込/終了により中断されたため、読込完了を待って操作する手順へ直し、失敗を除外せず再確認して0になった。
+- 証拠は`.cache/v0127-public-verification.json`、`archives-v0127-verification.json`、成功ログ`v0127-public-check-final.log`、`v0127-archives-check-final.log`。最初の結果も`v0127-public-first.json`、`archives-v0127-first.json`へ保存。
+- [保存版25・案内/英語HUD](https://twist.sikumilab.com/versions/0.1.25/?mode=flight&camera=cockpit&v=0.1.25)、[保存版26・旋回/3コース](https://twist.sikumilab.com/versions/0.1.26/?mode=flight&course=easy&camera=cockpit&v=0.1.26)、[最新版27・速度/AB](https://twist.sikumilab.com/?mode=flight&course=easy&camera=cockpit&v=0.1.27)。保存版の設定領域は同じブラウザーで共有する。
+
+3版の順次実装・検証・公開を完了。Pixel 9aの受入は以下に未確認として残します。
 
 ## Pixel 9aで必ず確認すること（全て未確認）
 

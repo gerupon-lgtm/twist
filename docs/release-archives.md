@@ -1,17 +1,17 @@
 # 版ごとの比較URLと保存状況
 
-最新版の配信先は[twist.sikumilab.com](https://twist.sikumilab.com/)です。同じURLの更新で前の版が置き換わるため、公開確認できた配信ファイルを`public/versions/<版>/`へバイトを変えずに保存します。2026-11-08時点で、v0.1.26の公開と保存版v25のURL確認は完了しています。
+最新版の配信先は[twist.sikumilab.com](https://twist.sikumilab.com/)です。同じURLの更新で前の版が置き換わるため、公開確認できた配信ファイルを`public/versions/<版>/`へバイトを変えずに保存します。2026-11-08時点で、3版の順次公開と、保存版25/26の専用URLの確認は完了しています。
 
 ## 現在の状態
 
 | 版 | アプリのコミット | 元の公開確認 | ローカルの保存 | 版別URLの公開確認 |
 |---|---|---|---|---|
 | 0.1.25 | `a60f83b` | Pages `42399710935`成功、全21ファイルの状態・MIME・長さ・SHA-256一致 | `public/versions/0.1.25/`へ全21ファイルを同じSHA-256で保存済み | 21ファイル一致・専用SW/画面/操作/再読込の4確認成功 |
-| 0.1.26 | `35ad94f` | Pages `42405201458`成功、全42ファイル一致 | 全21ファイルを公開時と同じSHA-256で保存済み | **PENDING** |
+| 0.1.26 | `35ad94f` | Pages `42405201458`成功、全42ファイル一致 | 全21ファイルを公開時と同じSHA-256で保存済み | 21ファイル一致・専用SW/画面/操作/再読込の4確認成功 |
 
 v0.1.25の元の公開結果は[検証記録](verification-v0125.md)にあります。保存済みのファイルが同じであることと、公開先の版別URLで動くことは別に確認します。
 
-公開確認済みの[保存版v0.1.25](https://twist.sikumilab.com/versions/0.1.25/?mode=flight&camera=cockpit&v=0.1.25)で比較できます。v0.1.26も保存済みで、v27に含めて専用URLを確認します。
+公開確認済みの[保存版v0.1.25](https://twist.sikumilab.com/versions/0.1.25/?mode=flight&camera=cockpit&v=0.1.25)で比較できます。[保存版v0.1.26](https://twist.sikumilab.com/versions/0.1.26/?mode=flight&course=easy&camera=cockpit&v=0.1.26)もv27の配信上で確認済みです。[最新版v0.1.27](https://twist.sikumilab.com/?mode=flight&course=easy&camera=cockpit&v=0.1.27)と比較できます。
 
 ## 比較するときの前提
 
@@ -32,3 +32,9 @@ v0.1.25の元の公開結果は[検証記録](verification-v0125.md)にありま
 v0.1.26の公開では、最新版21ファイルと保存版v0.1.25の21ファイル、計42ファイルの公開一致と、保存版のブラウザー確認が成功しました（2026-11-08）。
 
 準備した確認用スクリプトは`.cache/v0126-public-verify.mjs`と`.cache/verify-release-archives.mjs`です。前者は現在版と保存版の配信全体、後者は`public/versions/`の各版の実画面と専用workerを確認します。旧版の成功記録を上書きしない名前で出力します。実行結果は`.cache/v0126-public-verification.json`と`archives-v0126-verification.json`に保存しました。
+
+## v0.1.27での最終確認
+
+アプリ`311c1fb`・Pages実行`42410047949`成功。最新版21＋保存版25/26各21、全63ファイルの状態・MIME・長さ・SHA-256が一致。現在版は実ABを含む11確認、保存版は各4確認が全成功。実行/HTTP/通信失敗は最終0。
+
+`.cache/v0127-public-verification.json`と`archives-v0127-verification.json`へ記録。版25/26の公開時レポートは読み取り比較に使い、上書きしない。Pixel 9aの実機確認は各版のverificationを参照する。
