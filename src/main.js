@@ -41,6 +41,7 @@ let lastOrientationAt = 0;
 let lastMotionAt = 0;
 let sensorListening = false;
 let permissionAttempt = 0;
+let platformStartAttempt = 0;
 let waitingTimer = null;
 let pendingCalibration = false;
 let wakeLock = null;
@@ -352,7 +353,7 @@ async function keepAwake() {
 }
 
 function run(mode) {
-  if (!pwa.begin()) return;
+  if (document.hidden || !pwa.begin()) return;
   lastFlightSnapshot = null;
   if (playMode === 'flight') flightSession.start();
   inputMode = mode;
@@ -515,9 +516,9 @@ $('start-button').addEventListener('click', async () => {
   if (!stage || !pwa.canResume()) return;
   feedback.unlock();
   if (['ready','paused','complete'].includes(phase)) {
-    const attempt = permissionAttempt;
+    const attempt = permissionAttempt, startAttempt = ++platformStartAttempt;
     await pwa.enter();
-    if (attempt !== permissionAttempt || !pwa.canResume()) return;
+    if (attempt !== permissionAttempt || startAttempt !== platformStartAttempt || document.hidden || !pwa.canResume()) return;
   }
   if (stage.getStatus().grounded) { resetStage({ preserveSession: true }); if (inputMode === 'sensor') calibrate(); return; }
   if (phase === 'complete') { resetStage(); return; }
@@ -529,9 +530,9 @@ $('practice-button').addEventListener('click', async () => {
   if (!stage || !pwa.canResume()) return;
   feedback.unlock();
   if (inputMode !== 'practice') {
-    const attempt = permissionAttempt;
+    const attempt = permissionAttempt, startAttempt = ++platformStartAttempt;
     await pwa.enter();
-    if (attempt !== permissionAttempt || !pwa.canResume()) return;
+    if (attempt !== permissionAttempt || startAttempt !== platformStartAttempt || document.hidden || !pwa.canResume()) return;
   }
   if (phase === 'complete' || stage.getStatus().grounded) {
     pwa.clearOrientation();
@@ -587,9 +588,17 @@ function resetStage({ preserveSession = false } = {}) {
 }
 $('reset-button').addEventListener('click', () => resetStage());
 
-document.addEventListener('visibilitychange', () => { if (document.hidden) { feedback.stop(); pause('画面が隠れたため停止しました。持ち方を合わせて再開してください。'); } });
-window.addEventListener('blur', () => { feedback.stop(); heldKeys.clear(); if (phase === 'running' || pendingCalibration) pause('画面から離れたため停止しました。'); });
-window.addEventListener('pagehide',()=>feedback.stop());
+function leavePage(message, { blur = false } = {}) {
+  // Fullscreen/lock may still be awaiting an OS response even in intro or paused.
+  platformStartAttempt++;
+  pwa.cancelEntry();
+  feedback.stop(); heldKeys.clear();
+  // A permission prompt can blur the window while waiting. Preserve that original flow.
+  if (!blur || phase === 'running' || pendingCalibration) pause(message);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) leavePage('画面が隠れたため停止しました。持ち方を合わせて再開してください。'); });
+window.addEventListener('blur', () => leavePage('画面から離れたため停止しました。', { blur: true }));
+window.addEventListener('pagehide',() => leavePage('画面から離れたため停止しました。'));
 const screenChanged = () => { refreshOrientations(); resize(); pwa.orientationChanged(); };
 screen.orientation?.addEventListener('change', screenChanged);
 window.addEventListener('orientationchange', screenChanged);

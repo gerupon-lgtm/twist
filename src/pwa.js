@@ -108,6 +108,7 @@ export function createPwaController({ getPhase, pause, showDialog }) {
   document.addEventListener('visibilitychange',() => { if (!document.hidden) void checkVersion(); });
   return {
     render, enter, release, orientationChanged, canResume,
+    cancelEntry() { generation++; },
     begin() { if (!canResume()) return false; guard.begin(currentOrientation()); return true; },
     clearOrientation() { guard.clear(); },
     report: () => ({launch, fullscreen:fullscreen()}),

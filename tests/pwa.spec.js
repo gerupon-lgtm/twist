@@ -147,3 +147,38 @@ test('installed iPhone suppresses only install advice and records installed, whi
   await page.locator('#flight-adjustments > summary').click();await page.locator('#settings-copy').click();
   const report=await page.evaluate(()=>JSON.parse(window.copied));expect(report.launch).toBe('installed');expect(report.fullscreen).toBe(false);
 });
+
+for(const phase of ['intro','paused']) for(const leave of ['hidden','blur']) for(const outcome of ['resolve','reject']) test(`leaving ${phase} during pending fullscreen cancels a late start (${leave}, ${outcome})`,async({page})=>{
+  await device(page,android,{androidApis:true});await page.goto('/?mode=flight');
+  if(phase==='paused') {
+    await page.locator('#practice-button').click();await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
+    await page.locator('#pause-button').click();await page.locator('#release-screen-button').click();
+  }
+  await page.evaluate(()=>{
+    window.waitingFullscreen=false;
+    Element.prototype.requestFullscreen=()=>new Promise((resolve,reject)=>{window.waitingFullscreen=true;window.finishFullscreen=outcome=>outcome==='resolve'?resolve():reject(Error('cancelled'));});
+  });
+  await page.locator(phase==='intro'?'#practice-button':'#start-button').click();
+  await expect.poll(()=>page.evaluate(()=>window.waitingFullscreen)).toBe(true);
+  await page.evaluate(({leave,outcome})=>{
+    if(leave==='hidden') {Object.defineProperty(document,'hidden',{value:true,configurable:true});document.dispatchEvent(new Event('visibilitychange'));}
+    else window.dispatchEvent(new Event('blur'));
+    window.finishFullscreen(outcome);
+  },{leave,outcome});
+  await page.waitForTimeout(200);
+  await expect(page.locator('#app')).toHaveAttribute('data-phase',phase);
+  await expect(page.locator('#throttle-value')).toHaveText('0%');await expect(page.locator('#speed-value')).toHaveText('0.0');
+  expect(await page.locator('#feedback-diagnostics').getAttribute('data-music').then(s=>JSON.parse(s||'{}').playing||false)).toBe(false);
+});
+
+test('the sensor permission prompt may blur without cancelling the existing permission flow',async({page})=>{
+  await device(page,iphone);await page.goto('/?mode=flight');
+  await page.evaluate(()=>{
+    const permission=new Promise(resolve=>window.allowSensors=resolve);
+    DeviceOrientationEvent.requestPermission=()=>permission;DeviceMotionEvent.requestPermission=()=>permission;
+  });
+  await page.locator('#start-button').click();await expect(page.locator('#app')).toHaveAttribute('data-phase','waiting');
+  await page.evaluate(()=>{window.dispatchEvent(new Event('blur'));window.allowSensors('granted');});
+  await page.evaluate(()=>{window.poseTimer=setInterval(()=>window.dispatchEvent(Object.assign(new Event('deviceorientation'),{alpha:0,beta:0,gamma:0})),50);});
+  await expect(page.locator('#app')).toHaveAttribute('data-phase','ready');
+});
