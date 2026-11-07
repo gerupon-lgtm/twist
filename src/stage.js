@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { FLIGHT_MODEL, stepFlightVelocity } from './flight-physics.js';
 import { computeFieldOfView } from './visibility.js';
 import { computeFlightView, advanceFlightView } from './flight-view.js';
+import { advanceDisplayRoll, flightDisplayPose, withoutViewRoll } from './flight-display.js';
 
 const START = new THREE.Vector3(0, 7, 26);
 const BEACONS = [
@@ -26,7 +27,8 @@ const flightYawForBank = (angle, speed) => speed > 0
   : 0;
 
 /** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */
-export function createStage(canvas, { visibility = 'assisted' } = {}) {
+export function createStage(canvas, { visibility = 'assisted', display = 'bank' } = {}) {
+  display = display === 'fixed' ? 'fixed' : 'bank';
   visibility = visibility === 'classic' ? 'classic' : 'assisted';
   let renderer;
   try {
@@ -489,6 +491,9 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   let viewAssistance = 0;
   let viewPitch = 0;
   let displayedFlightView = null;
+  let displayedFixedFlightView = null;
+  let phoneRoll = 0, displayScreenOffset = 0, displayRoll = 0;
+  const displayCameraInverse = new THREE.Quaternion();
 
   function syncWorld(dt = 0) {
     orientation.copy(baseOrientation);
@@ -503,19 +508,36 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
       const targetView = computeFlightView({ orientation, altitude: position.y,
         velocity: grounded ? contactVelocity : velocity, bank });
       if (!displayedFlightView || dt > 0) displayedFlightView = advanceFlightView(displayedFlightView, targetView, dt);
-      const view = displayedFlightView;
-      viewQuaternion.copy(view.orientation).invert();
+      let view = displayedFlightView;
+      if (display === 'fixed') {
+        const fixedTarget = withoutViewRoll(computeFlightView({ orientation: baseOrientation,
+          altitude: position.y, velocity: grounded ? contactVelocity : velocity, bank: 0 }));
+        if (!displayedFixedFlightView || dt > 0) displayedFixedFlightView = withoutViewRoll(
+          advanceFlightView(displayedFixedFlightView, fixedTarget, dt));
+        view = displayedFixedFlightView;
+      }
+      const pose = flightDisplayPose({ display, bank, phoneRoll, screenOffset: displayScreenOffset });
+      displayRoll = pose.roll;
+      camera.quaternion.copy(pose.camera);
+      craftCamera.quaternion.copy(pose.camera);
+      craft.quaternion.copy(pose.craft);
+      viewQuaternion.copy(view.orientation).invert().premultiply(pose.worldBank);
       viewPosition.copy(position).add(view.offset);
       viewAssistance = view.assistance;
       viewPitch = view.pitch;
     } else {
+      camera.quaternion.identity();
+      craftCamera.quaternion.identity();
+      displayRoll = 0;
       displayedFlightView = null;
+      displayedFixedFlightView = null;
       viewQuaternion.copy(orientation).invert();
       viewPosition.copy(position);
       viewAssistance = 0;
       forward.set(0, 0, -1).applyQuaternion(orientation);
       viewPitch = Math.atan2(forward.y, Math.hypot(forward.x, forward.z));
     }
+    displayCameraInverse.copy(camera.quaternion).invert();
     world.quaternion.copy(viewQuaternion);
     world.position.copy(viewPosition).negate().applyQuaternion(viewQuaternion);
     // This group is a child of world, so it receives the same inverse pose as
@@ -614,6 +636,19 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
     directionLandmarks.visible = visibility === 'assisted';
   }
 
+  function setDisplay(profile) {
+    if (disposed) return;
+    const next = profile === 'fixed' ? 'fixed' : 'bank';
+    if (display !== next) displayedFixedFlightView = null;
+    display = next;
+    syncWorld(); render();
+  }
+
+  function resetDisplayRotation() {
+    phoneRoll = 0; displayScreenOffset = 0;
+    syncWorld(); render();
+  }
+
   function setVisibility(profile) {
     if (disposed) return;
     visibility = profile === 'classic' ? 'classic' : 'assisted';
@@ -644,6 +679,12 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
       stopMotion();
       grounded = false;
       mode = nextMode;
+    }
+    if (mode === 'flight') {
+      if (Number.isFinite(input.displayTwist)) phoneRoll = advanceDisplayRoll(phoneRoll,
+        THREE.MathUtils.degToRad(input.displayTwist), elapsed, input.displayTimeConstant);
+      if (Number.isFinite(input.displayScreenOffset)) displayScreenOffset =
+        THREE.MathUtils.degToRad(input.displayScreenOffset);
     }
     const pitchRate = finite(input.pitchRate);
     const exploreYawRate = finite(input.yawRate);
@@ -754,7 +795,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   function getStatus() {
     const target = collected < BEACONS.length ? BEACONS[collected] : EXIT;
     relative.subVectors(target, position);
-    localRelative.subVectors(target, viewPosition).applyQuaternion(viewQuaternion);
+    localRelative.subVectors(target, viewPosition).applyQuaternion(viewQuaternion).applyQuaternion(displayCameraInverse);
     forward.set(0, 0, -1).applyQuaternion(orientation);
     return {
       collected,
@@ -769,6 +810,14 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
       viewAssistance,
       viewPitch,
       viewPosition: { x: viewPosition.x, y: viewPosition.y, z: viewPosition.z },
+      display,
+      displayRoll,
+      cameraQuaternion: { x: camera.quaternion.x, y: camera.quaternion.y, z: camera.quaternion.z, w: camera.quaternion.w },
+      worldQuaternion: { x: world.quaternion.x, y: world.quaternion.y, z: world.quaternion.z, w: world.quaternion.w },
+      craftScreenQuaternion: (() => {
+        const q = craftCamera.quaternion.clone().invert().multiply(craft.quaternion);
+        return { x: q.x, y: q.y, z: q.z, w: q.w };
+      })(),
       speed,
       throttle,
       recoveryAssist,
@@ -811,6 +860,8 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
     grounded = false;
     contactVelocity.set(0, 0, 0);
     displayedFlightView = null;
+    displayedFixedFlightView = null;
+    phoneRoll = 0; displayScreenOffset = 0;
     collected = 0;
     complete = false;
     refreshTargets();
@@ -837,5 +888,5 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
 
   updateProjection();
   reset();
-  return { resize, update, getStatus, reset, launchFlight, setVisibility, dispose };
+  return { resize, update, getStatus, reset, launchFlight, setVisibility, setDisplay, resetDisplayRotation, dispose };
 }

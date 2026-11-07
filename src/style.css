@@ -58,3 +58,23 @@
   .veil:has(#motion-explanation[open]) .intro-card .flight-result{grid-row:11}
   .veil:has(#motion-explanation[open]) .intro-card .flight-adjustments{grid-row:12}
 }
+/* v0.1.14: display selection and compact opening instructions. */
+.basic-controls{margin:5px 0;text-align:left}.basic-controls>summary{padding:4px 0;min-height:24px;font-size:11px;color:#486d7a;cursor:pointer}.app[data-play-mode="explore"] .basic-controls{display:contents}.app[data-play-mode="explore"] .basic-controls>summary{display:none}.flight-result .result-outcome{display:inline-block;margin:0 0 12px;font-size:14px;font-weight:650;color:var(--teal)}
+@media(max-height:500px) and (min-width:600px){
+ .app[data-play-mode="flight"] .intro-card h1{grid-column:1;grid-row:2}
+ .app[data-play-mode="flight"] .intro-card .dialog-description{grid-column:1;grid-row:3}
+ .app[data-play-mode="flight"] .intro-card .mode-picker{grid-column:2;grid-row:2;margin-top:0;align-self:start}
+ .app[data-play-mode="flight"] .intro-card .basic-controls{grid-column:2;grid-row:3}
+ .app[data-play-mode="flight"] .intro-card .view-picker{grid-column:1;grid-row:4}
+ .app[data-play-mode="flight"] .intro-card #flight-steering-picker{grid-column:2;grid-row:4}
+ .app[data-play-mode="flight"] .intro-card #flight-pitch-picker{grid-column:1;grid-row:5}
+ .app[data-play-mode="flight"] .intro-card #flight-display-picker{grid-column:2;grid-row:5}
+ .app[data-play-mode="flight"] .intro-card .motion-explanation{grid-column:1;grid-row:6}
+ .app[data-play-mode="flight"] .intro-card .primary-button{grid-column:2;grid-row:6}
+ .app[data-play-mode="flight"] .intro-card .dialog-note{grid-column:1;grid-row:7}
+ .app[data-play-mode="flight"] .intro-card .secondary-button{grid-column:2;grid-row:7}
+ .app[data-play-mode="flight"] .intro-card .text-button{grid-column:1;grid-row:8}
+ .app[data-play-mode="flight"] .intro-card .prototype-note{grid-column:1/-1;grid-row:9}
+ .app[data-play-mode="flight"] .intro-card .basic-controls .control-guide{display:flex;grid-column:auto;grid-row:auto}
+ .veil:has(#motion-explanation[open]) .intro-card .motion-explanation{grid-column:1/-1;grid-row:10}
+}

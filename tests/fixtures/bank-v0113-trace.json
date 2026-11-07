@@ -1,0 +1,526 @@
+{
+  "sourceCommit": "bf520dc",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "dt": 0.016666666666666666,
+  "samples": [
+    {
+      "input": {
+        "pitchRate": 0.1,
+        "bankAngle": 0.4,
+        "throttle": 0.5
+      },
+      "frames": 30,
+      "state": {
+        "collected": 0,
+        "total": 3,
+        "complete": false,
+        "targetLabel": "光 1",
+        "distance": 23.195337849085767,
+        "bearing": -0.08630089360010951,
+        "elevation": 0.19988866363103758,
+        "altitude": 7.015855421663431,
+        "groundClearance": 7.015855421663431,
+        "viewAssistance": 0.7989691548762605,
+        "viewPitch": -0.159422491936821,
+        "viewPosition": {
+          "x": -0.22599266208910934,
+          "y": 8.4539999004407,
+          "z": 27.787190698959428
+        },
+        "speed": 5.992268683607809,
+        "throttle": 0.5,
+        "recoveryAssist": 0,
+        "verticalSpeed": 0.08280546923887978,
+        "velocity": {
+          "x": 0.3689654530825343,
+          "y": 0.08280546923887978,
+          "z": -5.980325386234648
+        },
+        "grounded": false,
+        "mode": "flight",
+        "bank": 0.34586588670535506,
+        "yawRate": 0.18017528048487827,
+        "position": {
+          "x": 0.06920788593652814,
+          "y": 7.015855421663431,
+          "z": 23.002473548236924
+        },
+        "heading": 0.05826066406583536,
+        "pitch": 0.04999999999999999,
+        "controlPitch": 0.04999999999999999,
+        "orientation": {
+          "x": 0.029624343448660936,
+          "y": -0.02438327546986925,
+          "z": -0.1712283118442677,
+          "w": 0.984483986347954
+        },
+        "craftQuaternion": {
+          "x": 0,
+          "y": 0,
+          "z": -0.1720722815472629,
+          "w": 0.9850843263006064
+        },
+        "craftScreen": {
+          "x": 195,
+          "y": 422
+        },
+        "cameraPosition": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "targetPosition": {
+          "x": 0,
+          "y": 10,
+          "z": 0
+        },
+        "visibility": "assisted",
+        "fieldOfView": {
+          "vertical": 83.7461398474023,
+          "horizontal": 45
+        },
+        "targetLocal": {
+          "x": -2.3511023914536424,
+          "y": 5.526145665601629,
+          "z": -27.175415131308412
+        },
+        "landmarks": [
+          {
+            "id": "north",
+            "label": "北の三角塔",
+            "color": "#2c81b7",
+            "shape": "triangle",
+            "position": {
+              "x": 0,
+              "y": 16,
+              "z": -98
+            }
+          },
+          {
+            "id": "east",
+            "label": "東の四角塔",
+            "color": "#bf6559",
+            "shape": "square",
+            "position": {
+              "x": 74,
+              "y": 16,
+              "z": -24
+            }
+          },
+          {
+            "id": "south",
+            "label": "南のひし形",
+            "color": "#8b6bb3",
+            "shape": "diamond",
+            "position": {
+              "x": 0,
+              "y": 16,
+              "z": 54
+            }
+          },
+          {
+            "id": "west",
+            "label": "西のアーチ",
+            "color": "#478f73",
+            "shape": "arch",
+            "position": {
+              "x": -74,
+              "y": 16,
+              "z": -24
+            }
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "pitchRate": -0.15,
+        "bankAngle": -0.5,
+        "throttle": 0.7
+      },
+      "frames": 30,
+      "state": {
+        "collected": 0,
+        "total": 3,
+        "complete": false,
+        "targetLabel": "光 1",
+        "distance": 20.191653538351925,
+        "bearing": -0.06409814749382735,
+        "elevation": 0.22224765374164668,
+        "altitude": 7.067961562449957,
+        "groundClearance": 7.067961562449957,
+        "viewAssistance": 0.7897415891704318,
+        "viewPitch": -0.16180974173035656,
+        "viewPosition": {
+          "x": 0.10043710188595795,
+          "y": 8.489496422956734,
+          "z": 24.712046282679026
+        },
+        "speed": 6.136459781057605,
+        "throttle": 0.7,
+        "recoveryAssist": 0,
+        "verticalSpeed": 0.046572588554714994,
+        "velocity": {
+          "x": 0.19706588068981942,
+          "y": 0.046572588554714994,
+          "z": -6.133117859392628
+        },
+        "grounded": false,
+        "mode": "flight",
+        "bank": -0.3855245006425421,
+        "yawRate": -0.198404028338181,
+        "position": {
+          "x": 0.25261175281086373,
+          "y": 7.067961562449957,
+          "z": 19.976040911950264
+        },
+        "heading": 0.02423954033921184,
+        "pitch": -0.025000000000000012,
+        "controlPitch": -0.025000000000000015,
+        "orientation": {
+          "x": -0.014588819450454586,
+          "y": -0.0094996814717839,
+          "z": 0.1913929940393281,
+          "w": 0.9813590801697605
+        },
+        "craftQuaternion": {
+          "x": 0,
+          "y": 0,
+          "z": 0.1915707125422229,
+          "w": 0.9814788138803939
+        },
+        "craftScreen": {
+          "x": 195,
+          "y": 422
+        },
+        "cameraPosition": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "targetPosition": {
+          "x": 0,
+          "y": 10,
+          "z": 0
+        },
+        "visibility": "assisted",
+        "fieldOfView": {
+          "vertical": 83.7461398474023,
+          "horizontal": 45
+        },
+        "targetLocal": {
+          "x": -1.546873727700568,
+          "y": 5.4573032832110275,
+          "z": -24.099833250264822
+        },
+        "landmarks": [
+          {
+            "id": "north",
+            "label": "北の三角塔",
+            "color": "#2c81b7",
+            "shape": "triangle",
+            "position": {
+              "x": 0,
+              "y": 16,
+              "z": -98
+            }
+          },
+          {
+            "id": "east",
+            "label": "東の四角塔",
+            "color": "#bf6559",
+            "shape": "square",
+            "position": {
+              "x": 74,
+              "y": 16,
+              "z": -24
+            }
+          },
+          {
+            "id": "south",
+            "label": "南のひし形",
+            "color": "#8b6bb3",
+            "shape": "diamond",
+            "position": {
+              "x": 0,
+              "y": 16,
+              "z": 54
+            }
+          },
+          {
+            "id": "west",
+            "label": "西のアーチ",
+            "color": "#478f73",
+            "shape": "arch",
+            "position": {
+              "x": -74,
+              "y": 16,
+              "z": -24
+            }
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "pitchRate": 0.04,
+        "bankAngle": 0,
+        "throttle": 1
+      },
+      "frames": 30,
+      "state": {
+        "collected": 0,
+        "total": 3,
+        "complete": false,
+        "targetLabel": "光 1",
+        "distance": 17.06139046360342,
+        "bearing": 0.008329853915166122,
+        "elevation": 0.2356824028543186,
+        "altitude": 7.078032476536579,
+        "groundClearance": 7.078032476536579,
+        "viewAssistance": 0.7879422743185788,
+        "viewPitch": -0.16608662829105753,
+        "viewPosition": {
+          "x": 0.3121759380811453,
+          "y": 8.496328570310022,
+          "z": 21.53460944658858
+        },
+        "speed": 6.5291727536060185,
+        "throttle": 1,
+        "recoveryAssist": 0,
+        "verticalSpeed": 0.05760566767252381,
+        "velocity": {
+          "x": -0.057318537013380966,
+          "y": 0.05760566767252381,
+          "z": -6.528667016994958
+        },
+        "grounded": false,
+        "mode": "flight",
+        "bank": -0.05217506748911216,
+        "yawRate": -0.023994983153783855,
+        "position": {
+          "x": 0.27067102647399083,
+          "y": 7.078032476536579,
+          "z": 16.807137993685608
+        },
+        "heading": -0.016459800413297764,
+        "pitch": -0.005000000000000021,
+        "controlPitch": -0.005000000000000021,
+        "orientation": {
+          "x": -0.002284391757435691,
+          "y": 0.008292190477111393,
+          "z": 0.02610417744489162,
+          "w": 0.9996222251687461
+        },
+        "craftQuaternion": {
+          "x": 0,
+          "y": 0,
+          "z": 0.026084574825785065,
+          "w": 0.9996597395895055
+        },
+        "craftScreen": {
+          "x": 195,
+          "y": 422
+        },
+        "cameraPosition": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "targetPosition": {
+          "x": 0,
+          "y": 10,
+          "z": 0
+        },
+        "visibility": "assisted",
+        "fieldOfView": {
+          "vertical": 83.7461398474023,
+          "horizontal": 45
+        },
+        "targetLocal": {
+          "x": 0.17486217663353498,
+          "y": 5.041243620381497,
+          "z": -20.99174055625285
+        },
+        "landmarks": [
+          {
+            "id": "north",
+            "label": "北の三角塔",
+            "color": "#2c81b7",
+            "shape": "triangle",
+            "position": {
+              "x": 0,
+              "y": 16,
+              "z": -98
+            }
+          },
+          {
+            "id": "east",
+            "label": "東の四角塔",
+            "color": "#bf6559",
+            "shape": "square",
+            "position": {
+              "x": 74,
+              "y": 16,
+              "z": -24
+            }
+          },
+          {
+            "id": "south",
+            "label": "南のひし形",
+            "color": "#8b6bb3",
+            "shape": "diamond",
+            "position": {
+              "x": 0,
+              "y": 16,
+              "z": 54
+            }
+          },
+          {
+            "id": "west",
+            "label": "西のアーチ",
+            "color": "#478f73",
+            "shape": "arch",
+            "position": {
+              "x": -74,
+              "y": 16,
+              "z": -24
+            }
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "pitchRate": -0.1,
+        "bankAngle": 0.3,
+        "throttle": 0
+      },
+      "frames": 30,
+      "state": {
+        "collected": 0,
+        "total": 3,
+        "complete": false,
+        "targetLabel": "光 1",
+        "distance": 13.980667465539392,
+        "bearing": -0.07263795295951841,
+        "elevation": 0.24470620708838098,
+        "altitude": 7.092010832797473,
+        "groundClearance": 7.092010832797473,
+        "viewAssistance": 0.7854364840180188,
+        "viewPitch": -0.1731930977057835,
+        "viewPosition": {
+          "x": 0.17087751083000197,
+          "y": 8.505796504029906,
+          "z": 18.383539470658196
+        },
+        "speed": 6.030945302450128,
+        "throttle": 0,
+        "recoveryAssist": 0,
+        "verticalSpeed": -0.07668792684710578,
+        "velocity": {
+          "x": 0.1349083945016844,
+          "y": -0.07668792684710578,
+          "z": -6.0289484927401835
+        },
+        "grounded": false,
+        "mode": "flight",
+        "bank": 0.2523382874924876,
+        "yawRate": 0.12825559353340643,
+        "position": {
+          "x": 0.27630430937993083,
+          "y": 7.092010832797473,
+          "z": 13.672099974548258
+        },
+        "heading": 0.01979448215660151,
+        "pitch": -0.05499999999999999,
+        "controlPitch": -0.05500000000000001,
+        "orientation": {
+          "x": -0.026031709419293007,
+          "y": -0.013274545309051946,
+          "z": -0.12605090290326326,
+          "w": 0.9915933170553439
+        },
+        "craftQuaternion": {
+          "x": 0,
+          "y": 0,
+          "z": -0.12583466960987885,
+          "w": 0.9920512264617047
+        },
+        "craftScreen": {
+          "x": 195,
+          "y": 422
+        },
+        "cameraPosition": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "targetPosition": {
+          "x": 0,
+          "y": 10,
+          "z": 0
+        },
+        "visibility": "assisted",
+        "fieldOfView": {
+          "vertical": 83.7461398474023,
+          "horizontal": 45
+        },
+        "targetLocal": {
+          "x": -1.2987462791017046,
+          "y": 4.468683142747492,
+          "z": -17.848263101841827
+        },
+        "landmarks": [
+          {
+            "id": "north",
+            "label": "北の三角塔",
+            "color": "#2c81b7",
+            "shape": "triangle",
+            "position": {
+              "x": 0,
+              "y": 16,
+              "z": -98
+            }
+          },
+          {
+            "id": "east",
+            "label": "東の四角塔",
+            "color": "#bf6559",
+            "shape": "square",
+            "position": {
+              "x": 74,
+              "y": 16,
+              "z": -24
+            }
+          },
+          {
+            "id": "south",
+            "label": "南のひし形",
+            "color": "#8b6bb3",
+            "shape": "diamond",
+            "position": {
+              "x": 0,
+              "y": 16,
+              "z": 54
+            }
+          },
+          {
+            "id": "west",
+            "label": "西のアーチ",
+            "color": "#478f73",
+            "shape": "arch",
+            "position": {
+              "x": -74,
+              "y": 16,
+              "z": -24
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -19,8 +19,9 @@ let visibility = new URLSearchParams(location.search).get('view') === 'classic' 
 // URL names stay compatible: tilt = ひねる (raise/lower phone sides), twist = 回す (in-plane turn).
 let flightSteering = new URLSearchParams(location.search).get('steer') === 'twist' ? 'twist' : 'tilt';
 let pitchMode = new URLSearchParams(location.search).get('pitch') === 'rate' ? 'rate' : 'angle';
+let flightDisplay = new URLSearchParams(location.search).get('display') === 'fixed' ? 'fixed' : 'bank';
 const flightSession = createFlightSession();
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering }));
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay }));
 let inputMode = null;
 let reference = null;
 let craftReference = null;
@@ -60,6 +61,7 @@ function setPhase(next) {
   $('veil').hidden = next === 'running';
   for (const mode of ['explore', 'flight']) $(`mode-${mode}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   $('throttle-input').disabled = next !== 'running' || playMode !== 'flight';
+  for (const display of ['bank', 'fixed']) $(`display-${display}`).disabled = ['waiting', 'ready'].includes(next);
   for (const view of ['assisted', 'classic']) $(`view-${view}`).disabled = ['waiting', 'ready'].includes(next);
   for (const pitch of ['angle', 'rate']) $(`pitch-${pitch}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   for (const steering of ['twist', 'tilt']) $(`steering-${steering}`).disabled = ['waiting', 'ready', 'running'].includes(next);
@@ -69,7 +71,7 @@ const modeNote = () => playMode === 'flight'
   ? (pitchMode === 'angle' ? '中立で機首も水平へ戻ります。上昇で減速、下降で加速。出力50%で出発します。' : '中立でも機首の角度は残ります。逆へ倒して水平へ戻し、出力を上げて失速から復帰。')
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
 const modeIntroduction = () => playMode === 'flight'
-  ? '自機は画面中央。右へ曲がると機体も右へ傾きます。金色の光を3つ集めて出口へ。'
+  ? (flightDisplay === 'fixed' ? '自機の上向きを保ち、景色が回ります。金色の光を3つ集めて出口へ。' : '自機は画面中央。右へ曲がると機体も右へ傾きます。金色の光を3つ集めて出口へ。')
   : '自機はスマホと一緒に傾かず、最初の上向きを保ちます。金色の光を3つ集めて出口へ。';
 
 function setThrottle(value) {
@@ -81,11 +83,15 @@ function setThrottle(value) {
 function applyVisibilityUI() {
   const assisted = visibility === 'assisted';
   app.dataset.visibility = visibility;
+  app.dataset.display = flightDisplay;
+  $('display-bank').setAttribute('aria-pressed', String(flightDisplay === 'bank'));
+  $('display-fixed').setAttribute('aria-pressed', String(flightDisplay === 'fixed'));
+  $('display-note').textContent = flightDisplay === 'fixed' ? '面内回転を打ち消す。地平線で翼の傾きを表示。' : '機体を旋回側へ傾ける、今までの表示。';
   $('play-mode-label').textContent = `${playMode === 'flight' ? '飛行機' : '探索'}・${assisted ? '対策' : '従来'}`;
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? '視野を広く。色と形の目印と、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&pitch=${pitchMode}&v=${APP_VERSION}`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&pitch=${pitchMode}&display=${flightDisplay}&v=${APP_VERSION}`;
 }
 
 function selectVisibility(next) {
@@ -97,11 +103,26 @@ function selectVisibility(next) {
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
   url.searchParams.set('pitch', pitchMode);
+  url.searchParams.set('display', flightDisplay);
   url.searchParams.set('v', APP_VERSION);
   history.replaceState(null, '', url);
 }
 $('view-assisted').addEventListener('click', () => selectVisibility('assisted'));
 $('view-classic').addEventListener('click', () => selectVisibility('classic'));
+
+function selectDisplay(next) {
+  if (!stage || next === flightDisplay || !['bank', 'fixed'].includes(next) || ['waiting', 'ready'].includes(phase)) return;
+  flightDisplay = next;
+  stage.setDisplay(next);
+  applyVisibilityUI();
+  if (phase === 'intro') $('dialog-description').textContent = modeIntroduction();
+  const url = new URL(location.href);
+  url.searchParams.set('display', flightDisplay);
+  url.searchParams.set('v', APP_VERSION);
+  history.replaceState(null, '', url);
+}
+$('display-bank').addEventListener('click', () => selectDisplay('bank'));
+$('display-fixed').addEventListener('click', () => selectDisplay('fixed'));
 
 function applyModeUI() {
   const flight = playMode === 'flight';
@@ -116,6 +137,8 @@ function applyModeUI() {
   app.dataset.flightSteering = flightSteering;
   app.dataset.pitchMode = pitchMode;
   $('flight-pitch-picker').hidden = !flight;
+  $('flight-display-picker').hidden = !flight;
+  $('basic-controls').open = !flight;
   $('pitch-angle').setAttribute('aria-pressed', String(pitchMode === 'angle'));
   $('pitch-rate').setAttribute('aria-pressed', String(pitchMode === 'rate'));
   $('pitch-note').textContent = pitchMode === 'angle' ? '中立へ戻すと、機首も水平へ' : '中立でも機首角度を保つ。逆へ倒して戻す';
@@ -171,6 +194,7 @@ function selectSteering(next) {
   const url = new URL(location.href);
   url.searchParams.set('steer', flightSteering);
   url.searchParams.set('pitch', pitchMode);
+  url.searchParams.set('display', flightDisplay);
   url.searchParams.set('v', APP_VERSION);
   history.replaceState(null, '', url);
 }
@@ -183,6 +207,7 @@ function selectPitch(next) {
   applyModeUI();
   const url = new URL(location.href);
   url.searchParams.set('pitch', pitchMode);
+  url.searchParams.set('display', flightDisplay);
   url.searchParams.set('v', APP_VERSION);
   history.replaceState(null, '', url);
 }
@@ -209,6 +234,7 @@ function selectMode(next) {
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
   url.searchParams.set('pitch', pitchMode);
+  url.searchParams.set('display', flightDisplay);
   url.searchParams.set('v', APP_VERSION);
   history.replaceState(null, '', url);
   if (resume) {
@@ -230,6 +256,7 @@ function dialog({ title, description, note = '', action = '再開する', guide 
   $('dialog-note').textContent = note;
   $('dialog-note').hidden = !note;
   $('control-guide').hidden = !guide;
+  $('basic-controls').hidden = !guide;
   $('start-button').textContent = action;
   $('start-button').disabled = false;
   $('error-message').textContent = error;
@@ -297,7 +324,7 @@ function run(mode) {
   $('input-mode').textContent = mode === 'sensor' ? 'スマホの傾きで操作中' : '画面操作・センサー未使用';
   zeroPractice();
   speed = 0;
-  if (playMode === 'flight') { setThrottle(0.5); stage.launchFlight(); }
+  if (playMode === 'flight') { stage.resetDisplayRotation(); setThrottle(0.5); stage.launchFlight(); }
   if (mode === 'sensor' && craftReference && latestQuaternion) craftQuaternion.copy(compensationQuaternion(craftReference, latestQuaternion));
   else craftQuaternion.identity();
   setPhase('running');
@@ -465,6 +492,8 @@ $('help-button').addEventListener('click', () => {
   if (phase !== 'running') return;
   pause(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、${pitchMode === 'angle' ? '機首も水平へ戻ります。' : '機首は今の角度を保ちます。'}画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
   $('control-guide').hidden = false;
+  $('basic-controls').hidden = false;
+  $('basic-controls').open = true;
   $('motion-explanation').open = playMode === 'flight';
 });
 $('practice-neutral').addEventListener('click', zeroPractice);
@@ -614,6 +643,11 @@ function updateHud(now, state) {
   app.dataset.speed = state.speed.toFixed(3);
   app.dataset.position = JSON.stringify(state.position);
   app.dataset.craftQuaternion = JSON.stringify(state.craftQuaternion);
+  app.dataset.craftScreenQuaternion = JSON.stringify(state.craftScreenQuaternion);
+  app.dataset.cameraQuaternion = JSON.stringify(state.cameraQuaternion);
+  app.dataset.worldQuaternion = JSON.stringify(state.worldQuaternion);
+  app.dataset.displayRoll = String(state.displayRoll || 0);
+  app.dataset.targetLocal = JSON.stringify(state.targetLocal);
   app.dataset.bank = String(state.bank || 0);
   app.dataset.flightPitch = String(state.pitch);
   app.dataset.heading = String(state.heading);
@@ -665,7 +699,10 @@ function frame(now) {
     const wasFlying = phase === 'running' && playMode === 'flight';
     if (phase === 'running') {
       if (playMode === 'explore') speed = advanceSpeed(speed, dt, rates);
-      stage.update(dt, { ...rates, mode: playMode, speed, throttle, craftQuaternion });
+      stage.update(dt, { ...rates, mode: playMode, speed, throttle, craftQuaternion,
+        ...(playMode === 'flight' ? { displayTwist: angles.twist,
+          displayScreenOffset: inputMode === 'sensor' ? screenAngle() - referenceScreenAngle : 0,
+          displayTimeConstant: flightPanel.getSettings().displayTimeConstant } : {}) });
     }
     const state = stage.getStatus();
     if (wasFlying) flightSession.advance(dt, state);
@@ -679,7 +716,7 @@ function frame(now) {
       halt();
       setPhase('complete');
       dialog({ title: '出口に到着しました', description: playMode === 'flight' ? '3つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？' : '3つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？', note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
-      if (playMode === 'flight') flightPanel.showResult(flightPanel.report(flightSession.snapshot()));
+      if (playMode === 'flight') flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'clear'));
     }
     if (state.grounded && phase === 'running') {
       let description = '地面まで0mで接触しました。';
@@ -693,7 +730,7 @@ function frame(now) {
       }
       pause('地面に接触して停止しました。最初から飛び直せます。');
       dialog({ title: '地面に接触して停止', description, note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
-      flightPanel.showResult(flightPanel.report(flightSession.snapshot()));
+      flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'grounded'));
     }
     updateHud(now, state);
   }
@@ -703,7 +740,7 @@ function frame(now) {
 
 applyModeUI();
 try {
-  stage = createStage(canvas, { visibility });
+  stage = createStage(canvas, { visibility, display: flightDisplay });
   stage.update(0, { mode: playMode, speed: 0, craftQuaternion });
   resize();
   requestAnimationFrame(frame);

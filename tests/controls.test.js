@@ -864,3 +864,14 @@ test('flight record counts weak active assistance even below the HUD label thres
   session.advance(.02,{recoveryAssist:0,grounded:false});
   near(session.snapshot().recoverySeconds,.02);
 });
+
+test('comparison reports identify outcome, display and rate-only inactive settings',()=>{
+  const mid=flightReport({version:'0.1.14',pitch:'rate',steer:'twist',display:'fixed'});
+  assert.equal('result' in mid,false);assert.equal(mid.display,'fixed');
+  assert.deepEqual(mid.inactiveSettings,['maxPitch','timeConstant']);
+  for(const result of ['clear','grounded']) {
+    const report=flightReport({version:'0.1.14',pitch:'angle',steer:'tilt',display:'bank',result});
+    assert.equal(report.result,result);assert.equal(JSON.parse(copyableFlightReport(report)).display,'bank');
+    assert.deepEqual(report.inactiveSettings,['displayTimeConstant']);
+  }
+});

@@ -3,8 +3,8 @@ import { FLIGHT_SETTING_FIELDS, DEFAULT_FLIGHT_SETTINGS, loadFlightSettings, sav
 import { flightReport, copyableFlightReport } from './flight-session.js';
 
 const $ = id => document.getElementById(id);
-const describeSettings = settings => Object.entries(FLIGHT_SETTING_FIELDS)
-  .map(([key, field]) => `${field.label} ${settings[key]}${field.unit}`).join(' / ');
+const describeSettings = report => Object.entries(FLIGHT_SETTING_FIELDS)
+  .map(([key, field]) => `${field.label} ${report.settings[key]}${field.unit}${report.inactiveSettings.includes(key) ? '（未使用）' : ''}`).join(' / ');
 
 export function createFlightPanel(getModes) {
   let storage;
@@ -48,12 +48,12 @@ export function createFlightPanel(getModes) {
     }
   }
   $('settings-reset').addEventListener('click', () => { settings = { ...DEFAULT_FLIGHT_SETTINGS }; persist(); });
-  $('settings-copy').addEventListener('click', () => copy(flightReport({ version: APP_VERSION, ...getModes(), settings }), 'settings'));
+  $('settings-copy').addEventListener('click', () => copy(flightReport({ version: APP_VERSION, ...getModes(), settings, result: result?.result }), 'settings'));
   $('result-copy').addEventListener('click', () => { if (result) copy(result, 'result'); });
   refresh();
   return {
     getSettings: () => settings,
-    report: stats => flightReport({ version: APP_VERSION, ...getModes(), settings, stats }),
+    report: (stats, outcome) => flightReport({ version: APP_VERSION, ...getModes(), settings, stats, result: outcome }),
     showResult(report) {
       result = report;
       $('flight-result').hidden = !report;
@@ -63,8 +63,9 @@ export function createFlightPanel(getModes) {
       $('result-elapsed').textContent = `${stats.elapsedSeconds.toFixed(1)}秒`;
       $('result-contacts').textContent = `${stats.groundContacts}回`;
       $('result-recovery').textContent = `${stats.recoverySeconds.toFixed(1)}秒`;
-      $('result-modes').textContent = `pitch=${report.pitch} / steer=${report.steer}`;
-      $('result-settings').textContent = describeSettings(report.settings);
+      $('result-outcome').textContent = report.result === 'clear' ? 'クリア' : '墜落';
+      $('result-modes').textContent = `pitch=${report.pitch} / steer=${report.steer} / display=${report.display}`;
+      $('result-settings').textContent = describeSettings(report);
     },
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = mode !== 'flight' || phase !== 'paused';

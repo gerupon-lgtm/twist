@@ -95,3 +95,73 @@ test('view initialization snaps only at initialization and invalid time never ad
     assert.equal(next.offset.distanceTo(current.offset),0);
   }
 });
+
+import { Vector3 } from 'three';
+import { advanceDisplayRoll, flightDisplayPose, withoutViewRoll, wrapDisplayAngle } from '../src/flight-display.js';
+const r = deg => deg*Math.PI/180;
+const sameRotation = (a,b,tolerance=1e-7) => assert.ok(a.angleTo(b)<tolerance,`${a.toArray()} != ${b.toArray()}`);
+
+test('fixed camera cancels full phone turns, while bank only affects scenery',()=>{
+  for(const twist of [-180,-120,-30,0,30,120,179]) for(const bank of [-40,0,40]) {
+    const p=flightDisplayPose({display:'fixed',phoneRoll:r(twist),bank:r(bank)});
+    const physicalPhone=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-r(twist));
+    const screenCraft=p.camera.clone().invert().multiply(p.craft);
+    sameRotation(physicalPhone.clone().multiply(screenCraft),new Quaternion());
+    sameRotation(p.craft,new Quaternion());
+    const screenWorld=p.camera.clone().invert().multiply(p.worldBank);
+    sameRotation(physicalPhone.clone().multiply(screenWorld),new Quaternion().setFromAxisAngle(new Vector3(0,0,1),r(bank)));
+  }
+});
+
+test('fixed layout compensation keeps the calibrated physical direction through screen rotations',()=>{
+  const axis=new Vector3(0,0,1);
+  for(const initial of [0,90,270]) for(const screen of [0,90,180,270]) {
+    const p=flightDisplayPose({display:'fixed',phoneRoll:r(30),screenOffset:r(screen-initial)});
+    const physical=new Quaternion().setFromAxisAngle(axis,-r(30)).multiply(new Quaternion().setFromAxisAngle(axis,-r(screen)));
+    sameRotation(physical.multiply(p.camera.clone().invert()).multiply(p.craft),new Quaternion().setFromAxisAngle(axis,-r(initial)));
+  }
+});
+
+test('bank display retains the former craft bank and ignores phone/display-only inputs',()=>{
+  for(const bank of [-.7,0,.7]) {
+    const p=flightDisplayPose({bank,phoneRoll:2,screenOffset:1});
+    sameRotation(p.camera,new Quaternion());sameRotation(p.worldBank,new Quaternion());
+    sameRotation(p.craft,new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-bank));
+    assert.equal(p.roll,0);
+  }
+});
+
+test('display smoothing crosses half turns by the shortest path and has a zero-delay option',()=>{
+  const next=advanceDisplayRoll(r(179),r(-179),.016,.05);
+  assert.ok(wrapDisplayAngle(next-r(179))>0 && wrapDisplayAngle(next-r(179))<r(2));
+  assert.ok(Math.abs(advanceDisplayRoll(0,r(30),.01,0)-r(30))<1e-12);
+  const a=advanceDisplayRoll(0,r(30),.05,.05);
+  const b=advanceDisplayRoll(advanceDisplayRoll(0,r(30),.025,.05),r(30),.025,.05);
+  assert.ok(Math.abs(a-b)<1e-12);
+  assert.ok(Math.abs(a-r(30)*(1-Math.exp(-1)))<1e-12);
+  for(const dt of [0,-1,NaN,Infinity]) assert.ok(Math.abs(advanceDisplayRoll(.1,.2,dt,.05)-.1)<1e-12);
+});
+
+test('fixed view assistance removes roll so all visible horizon bank comes from the actual wings',()=>{
+  for(const pitch of [-.6,0,.3]) for(const yaw of [-2,0,1]) {
+    const view=withoutViewRoll({orientation:pose(pitch,yaw,.2),offset:new Vector3()});
+    for(const bank of [-.7,.7]) {
+      const p=flightDisplayPose({display:'fixed',bank,phoneRoll:.4});
+      const world=view.orientation.clone().invert().premultiply(p.worldBank);
+      const vertical=new Vector3(0,1,0).applyQuaternion(world).applyQuaternion(p.camera.clone().invert());
+      assert.ok(Math.abs(wrapDisplayAngle(Math.atan2(-vertical.x,vertical.y)-bank-.4))<1e-10);
+    }
+  }
+});
+
+test('display math is finite for invalid, very large, vertical and inverted values',()=>{
+  for(const value of [undefined,NaN,Infinity,-Infinity,Number.MAX_VALUE]) {
+    const p=flightDisplayPose({display:'fixed',bank:value,phoneRoll:value,screenOffset:value});
+    assert.ok([p.roll,...p.camera.toArray(),...p.craft.toArray(),...p.worldBank.toArray()].every(Number.isFinite));
+    assert.ok(Number.isFinite(advanceDisplayRoll(value,value,value,value)));
+  }
+  for(const orientation of [null,{x:NaN},pose(Math.PI/2),pose(Math.PI),{x:1e308,y:1e308,z:1e308,w:1e308}]) {
+    const view=withoutViewRoll({orientation});assert.ok(view.orientation.toArray().every(Number.isFinite));
+  }
+  assert.ok(withoutViewRoll().orientation.toArray().every(Number.isFinite));
+});

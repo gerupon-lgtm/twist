@@ -2,14 +2,27 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.13 / 2026-11-07**
+**操作検証 v0.1.14 / 2026-11-07**
 
-公開先URL:
+公開先URL（機首は角度方式が標準、機体表示は現行のbankが標準）:
 
-- [飛行機・傾き＝角度（標準・おすすめ）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&v=0.1.13)
-- [飛行機・回り続ける（比較）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=rate&v=0.1.13)
+- [現行表示・bank（標準）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&v=0.1.14)
+- [自機固定・fixed（新しい比較表示）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&v=0.1.14)
+- [機首が回り続けるrate（比較）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&v=0.1.14)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.14の固定表示
+
+`display=bank`（標準）は従来どおり機体が旋回側へ傾きます。`display=fixed`（比較）は自機を傾けず、地平線で翼の傾きを表します。どちらも開始画面・一時停止画面の「機体表示」で選べ、切替は位置・姿勢・速度や操縦を変えません。探索の表示は従来どおりです。
+
+固定表示では、スマホの面内回転だけをカメラで打ち消します。自機と景色を同じ角度で描き直すため、文字・メーター・ボタンは回らず、画面の角に空白も作りません。前後・左右の端を倒す動きで模型を回さないため、模型が横を向いて細くなる補正を加えません。景色の傾きには実際の翼の全角度を使い、低空で地面を見る補助中も15度に縮めません。bank側の視点補助は継続します。
+
+一時停止の「調整」に「固定表示の回転のならし」を追加しました。初期値0.05秒、範囲0〜0.3秒。0秒は即時で、大きいほど表示がゆっくり追いつきます。半回転をまたぐときは近い方向へ追いかけます。操縦入力はならしません。画面の縦横が切り替わる分は遅らせず別に補正し、合わせ直した中立の画面上向きを基準に保ちます。既存の調整値は保存を引き継ぎ、新項目だけ初期値を補います。
+
+コピーには`display`と、結果がある場合に`result: clear|grounded`を追加。結果画面にも「クリア」「墜落」を表示します。rateで使わない`maxPitch`と`timeConstant`、bank表示では使わない`displayTimeConstant`は、`inactiveSettings`と画面の「未使用」で区別します。設定コピーは現在値（結果画面では結果種別も付加）、結果コピーは接地・クリア時点の値を保ちます。
+
+提供資料では、v0.1.13の実機1人分としてangleは約240秒・墜落1回でクリア、飛び直し後は補助0秒・墜落0回、rateは約111秒・墜落3回・未クリアと報告されています。本人の感触と指示に沿ってangleを標準として継続します。比較条件が統一された試験としては扱いません。新しいfixedの実機での見え方・酔いやすさ・手ぶれは未確認です。[指示資料](docs/instruction-v0114.md) と [検証記録](docs/verification-v0114.md) を参照してください。
 
 ## v0.1.13の機首操作と調整
 
@@ -113,7 +126,7 @@ npm run dev
 ```sh
 npm test
 npx playwright test tests/smoke.spec.js tests/flight.spec.js tests/visibility.spec.js tests/device-flight.spec.js tests/ground-proximity.spec.js
-npx playwright test tests/flight-input.spec.js
+npx playwright test tests/flight-input.spec.js tests/flight-display.spec.js
 npm run build
 ```
 
@@ -121,6 +134,7 @@ npm run build
 
 ## 記録
 
+- [v0.1.14の固定表示・ならし・結果と検証](docs/verification-v0114.md)
 - [v0.1.13の角度操作・調整・記録と検証](docs/verification-v0113.md)
 - [v0.1.12の慣性と失速からの復帰](docs/verification-v0112.md)
 - [v0.1.11の旋回表示・視点移動・落下の確認](docs/verification-v0111.md)

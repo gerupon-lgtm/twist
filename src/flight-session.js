@@ -17,8 +17,13 @@ export function createFlightSession() {
   };
 }
 
-export function flightReport({ version, pitch, steer, settings, stats }) {
-  return { version, pitch, steer, settings: normalizeFlightSettings(settings), ...(stats ? { stats: { ...stats } } : {}) };
+export function flightReport({ version, pitch, steer, display = 'bank', result, settings, stats }) {
+  const inactiveSettings = [...(pitch === 'rate' ? ['maxPitch', 'timeConstant'] : []),
+    ...(display !== 'fixed' ? ['displayTimeConstant'] : [])];
+  return { version, pitch, steer, display: display === 'fixed' ? 'fixed' : 'bank',
+    ...(['clear', 'grounded'].includes(result) ? { result } : {}),
+    settings: normalizeFlightSettings(settings), inactiveSettings,
+    ...(stats ? { stats: { ...stats } } : {}) };
 }
 
 export const copyableFlightReport = report => JSON.stringify(report);

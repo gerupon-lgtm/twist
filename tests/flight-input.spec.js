@@ -15,7 +15,7 @@ async function clipboard(page) {
 test('opening version and pitch choice are visible on three phone layouts',async({page})=>{
   for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
     await page.setViewportSize(size); await page.goto('/?mode=flight');
-    await expect(page.locator('#intro-version')).toContainText('v0.1.13');
+    await expect(page.locator('#intro-version')).toContainText('v0.1.14');
     await expect(page.locator('#intro-version')).toBeInViewport();
     await expect(page.locator('#pitch-angle')).toBeInViewport();
     await expect(page.locator('#start-button')).toBeInViewport();
@@ -70,14 +70,14 @@ test('rate remains selectable and retains its pitch, switch keeps position and d
   await expect(page.locator('#throttle-value')).toHaveText('50%');
 });
 
-test('tuning persists all five fields, affects pitch and bank, copies and resets',async({page})=>{
+test('tuning persists all flight fields, affects pitch and bank, copies and resets',async({page})=>{
   await clipboard(page); await launch(page);
   await page.locator('#pause-button').click(); await page.locator('#flight-adjustments > summary').click();
-  const values={deadzone:2,maxTilt:10,maxPitch:25,timeConstant:.5,maxBank:20};
+  const values={deadzone:2,maxTilt:10,maxPitch:25,timeConstant:.5,maxBank:20,displayTimeConstant:.05};
   for(const [key,value] of Object.entries(values)) await slider(page,`setting-${key}`,value);
   await page.locator('#settings-copy').click();
   const copied=await page.evaluate(()=>JSON.parse(window.copied));
-  expect(copied).toEqual({version:'0.1.13',pitch:'angle',steer:'tilt',settings:values});
+  expect(copied).toEqual({version:'0.1.14',pitch:'angle',steer:'tilt',display:'bank',settings:values,inactiveSettings:['displayTimeConstant']});
   await page.reload(); await page.clock.runFor(100); await page.locator('#practice-button').click(); await page.clock.runFor(100);
   await slider(page,'practice-pitch',10); await slider(page,'practice-steer',10); await page.clock.runFor(3200);
   expect(await data(page,'flight-pitch')).toBeCloseTo(25*Math.PI/180,2);
@@ -86,7 +86,7 @@ test('tuning persists all five fields, affects pitch and bank, copies and resets
   for(const [key,value] of Object.entries(values)) await expect(page.locator(`#setting-${key}`)).toHaveValue(String(value));
   await page.screenshot({path:'test-results/v0113-adjustments.png'});
   await page.locator('#settings-reset').click();
-  for(const [key,value] of Object.entries({deadzone:3,maxTilt:25,maxPitch:15,timeConstant:.3,maxBank:40})) await expect(page.locator(`#setting-${key}`)).toHaveValue(String(value));
+  for(const [key,value] of Object.entries({deadzone:3,maxTilt:25,maxPitch:15,timeConstant:.3,maxBank:40,displayTimeConstant:.05})) await expect(page.locator(`#setting-${key}`)).toHaveValue(String(value));
 });
 
 test('denied storage and clipboard keep flight usable and offer manually selectable copy text',async({page})=>{
@@ -113,6 +113,7 @@ test('contacts and flight time accumulate across crash restarts, pause time is e
     const before=await session(page); expect(before.elapsedSeconds).toBeGreaterThan(count);
     await page.clock.runFor(5000); expect(await session(page)).toEqual(before);
     await page.locator('#result-copy').click(); const report=await page.evaluate(()=>JSON.parse(window.copied));
+    expect(report.result).toBe('grounded');expect(report.display).toBe('bank');await expect(page.locator('#result-outcome')).toHaveText('墜落');
     expect(report.stats.groundContacts).toBe(count); expect(report.stats.elapsedSeconds).toBeCloseTo(before.elapsedSeconds,5);
     if(count===1) {await page.locator('#start-button').click();await page.clock.runFor(100);}
   }
@@ -137,8 +138,8 @@ test('recovery assistance time accumulates from real flight and freezes while pa
   const paused=await session(page); await page.clock.runFor(5000);expect(await session(page)).toEqual(paused);
 });
 
-test('angle input can fly the full course and the clear screen has a copyable result',async({page})=>{
-  test.setTimeout(60000); await clipboard(page);await launch(page);
+for(const display of ['bank','fixed']) test(`angle input can fly the full course and copy the ${display} clear result`,async({page})=>{
+  test.setTimeout(60000); await clipboard(page);await launch(page,'&display='+display);
   const targets=[{x:0,y:10,z:0},{x:16,y:18,z:-24},{x:-14,y:12,z:-44},{x:0,y:7,z:-62}];
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const tilt=d=>Math.sign(d)*(3+Math.abs(d)*22);
@@ -160,9 +161,10 @@ test('angle input can fly the full course and the clear screen has a copyable re
   }
   await expect(page.locator('#dialog-title')).toHaveText('出口に到着しました');
   await expect(page.locator('#flight-result')).toBeVisible();
-  await expect(page.locator('#result-modes')).toHaveText('pitch=angle / steer=tilt');
+  await expect(page.locator('#result-modes')).toHaveText(`pitch=angle / steer=tilt / display=${display}`);
   await page.locator('#result-copy').click();
   const report=await page.evaluate(()=>JSON.parse(window.copied));
+  expect(report.result).toBe('clear');expect(report.display).toBe(display);await expect(page.locator('#result-outcome')).toHaveText('クリア');
   expect(report.stats.elapsedSeconds).toBeGreaterThan(10);expect(report.stats.groundContacts).toBe(0);
   await page.screenshot({path:'test-results/v0113-clear-record.png'});
 });
