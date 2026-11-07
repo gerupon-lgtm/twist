@@ -1,3 +1,8 @@
+import './afterburner.css';
+import {createThrottleControl} from './throttle-control.js';
+import {updateAfterburnerPanel} from './afterburner-panel.js';
+import {createAfterburnerSession} from './afterburner-session.js';
+import {convertSpeed,normalizeSpeedUnit} from './speed-units.js';
 import './style.css';
 import './guidance.css';
 import './boundary.css';
@@ -43,14 +48,15 @@ let pitchMode = new URLSearchParams(location.search).get('pitch') === 'rate' ? '
 let flightDisplay = new URLSearchParams(location.search).get('display') === 'fixed' ? 'fixed' : 'bank';
 let cameraMode = normalizeCameraMode(new URLSearchParams(location.search).get('camera'));
 const flightSession = createFlightSession();
+const afterburnerSession=createAfterburnerSession();
 const routeTiming=createRouteTiming(selectedCourse.lights.length);
 const feedback = createFeedbackController();
 const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dialog });
 let inputMode = null;
 let inputHeld=false,lastPauseReason='',exitNoticeUntil=0,activeFrameAt=0;
 const inputTransitions=[];
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:routeTiming.snapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length}, stageSize:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2}, ...pwa.report() }));
-function resetRoute(){stage.reset();routeTiming.reset(selectedCourse.lights.length);exitNoticeUntil=0;}
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:routeTiming.snapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length}, stageSize:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2}, ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...pwa.report() }));
+function resetRoute(){stage.reset();afterburnerSession.beginLeg();routeTiming.reset(selectedCourse.lights.length);exitNoticeUntil=0;}
 function setInputMode(next,reason) {
   if(inputMode!==next){inputTransitions.push({from:inputMode,to:next,reason,phase,at:new Date().toISOString()});if(inputTransitions.length>8)inputTransitions.shift();}
   inputMode=next;app.dataset.input=next??'';
@@ -72,6 +78,8 @@ let angles = { pitch: 0, steer: 0, twist: 0 };
 let rates = { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };
 let speed = 0;
 let throttle = 0;
+let manualAfterburner=false;
+let throttleControl=null;
 const craftQuaternion = new Quaternion();
 const neutralQuaternion = new Quaternion();
 const practiceAngles = { pitch: 0, steer: 0, twist: 0 };
@@ -112,9 +120,11 @@ const modeIntroduction = () => playMode === 'flight'
   : `自機はスマホと一緒に傾かず、最初の上向きを保ちます。${lightColor()}光を${selectedCourse.lights.length}つ集めて出口へ。`;
 
 function setThrottle(value) {
-  throttle = Number.isFinite(value) ? MathUtils.clamp(value, 0, 1) : 0;
+  throttle = Number.isFinite(value) ? MathUtils.clamp(value, 0, 1.2) : 0;
+  if(throttle>=1.1)manualAfterburner=true;else if(throttle<=1)manualAfterburner=false;
   $('throttle-input').value = String(Math.round(throttle * 100));
-  $('throttle-value').textContent = `${Math.round(throttle * 100)}%`;
+  $('throttle-value').textContent = manualAfterburner?'100% AB':`${Math.round(Math.min(1,throttle) * 100)}%`;
+  throttleControl?.sync(throttle);
 }
 
 function applyVisibilityUI() {
@@ -246,7 +256,7 @@ function applyModeUI() {
   $('guide-steer-glyph').classList.toggle('twist-glyph', flight && twistSteering);
   $('guide-steer-glyph').classList.toggle('steer-glyph', !flight || !twistSteering);
   $('guide-twist-title').textContent = flight ? '画面下のスロットル' : 'スマホを左右に回して保つ';
-  $('guide-twist-text').textContent = flight ? 'エンジン出力を調整' : '右回しで上、左回しで下へ曲がる';
+  $('guide-twist-text').textContent = flight ? '光・低空でAB補充／110%点火・100%解除' : '右回しで上、左回しで下へ曲がる';
   $('guide-third-glyph').textContent = flight ? '⇄' : '↻';
   $('guide-third-glyph').classList.toggle('twist-glyph', !flight);
   $('keyboard-guide').textContent = flight ? 'W・S 機首の上・下\nA・D 旋回 / Q・E 出力の弱・強' : 'W 加速 / S ブレーキ\nA・D 左右 / Q・E 下・上';
@@ -296,7 +306,7 @@ function selectMode(next) {
   previousCollected = 0;
   $('toast').hidden = true;
   playMode = next;
-  flightSession.reset();
+  flightSession.reset();afterburnerSession.reset();
   feedback.reset();
   flightPanel.showResult(null);
   flightPanel.setPhase(phase, playMode);
@@ -328,7 +338,7 @@ function selectCourse(id){
   stage.dispose();
   try{stage=createStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,turnGravity:flightPanel.getSettings().turnGravity});}
   catch(error){stage=null;setPhase('error');dialog({title:'コースを開けませんでした',description:'ページを再読み込みして、もう一度お試しください。',action:'再読み込みする',error:error.message});return;}
-  reference=null;previousCollected=0;exitNoticeUntil=0;routeTiming.reset(next.lights.length);flightSession.reset();feedback.reset();
+  reference=null;previousCollected=0;exitNoticeUntil=0;routeTiming.reset(next.lights.length);flightSession.reset();afterburnerSession.reset();feedback.reset();
   $('toast').hidden=true;flightPanel.showResult(null);resize();stage.update(0,{mode:playMode,speed:0,craftQuaternion});
   const url=new URL(location.href);url.searchParams.set('course',next.id);url.searchParams.set('v',APP_VERSION);history.replaceState(null,'',url);
   applyModeUI();
@@ -374,6 +384,7 @@ function zeroPractice() {
 
 function halt() {
   inputHeld=false;
+  throttleControl?.cancel();
   feedback.stop();
   pendingCalibration = false;
   clearTimeout(waitingTimer);
@@ -580,7 +591,7 @@ $('practice-button').addEventListener('click', async () => {
   }
   if (phase === 'complete' || stage.getStatus().grounded) {
     pwa.clearOrientation();
-    if (phase === 'complete') { flightSession.reset(); feedback.reset(); }
+    if (phase === 'complete') { flightSession.reset();afterburnerSession.reset(); feedback.reset(); }
     else flightSession.restartLeg();
     resetRoute(); previousCollected = 0; craftReference = null;
   }
@@ -616,7 +627,7 @@ $('practice-brake').addEventListener('click', () => {
   if (playMode === 'flight') setThrottle(0);
   else { keyboardActive = false; pointPracticeTilt(25, 0); }
 });
-$('throttle-input').addEventListener('input', (event) => { if (phase === 'running' && playMode === 'flight') setThrottle(Number(event.target.value) / 100); });
+throttleControl=createThrottleControl($('throttle-input'),{getValue:()=>throttle,onChange:value=>{if(phase==='running'&&playMode==='flight')setThrottle(value);else throttleControl?.sync(throttle);}});
 const practiceEditors=Object.fromEntries(controls.map(axis=>[axis,createRangeEditor($(`practice-${axis}`),{
   name:axis==='pitch'?'画面の上辺':axis==='steer'?'画面の右辺':'回し角度',unit:'°',initial:0,showValue:true,
 })]));
@@ -624,7 +635,7 @@ for (const axis of controls) $(`practice-${axis}`).addEventListener('input', (ev
 
 function resetStage({ preserveSession = false } = {}) {
   pwa.clearOrientation();
-  if (!preserveSession) { flightSession.reset(); feedback.reset(); }
+  if (!preserveSession) { flightSession.reset();afterburnerSession.reset(); feedback.reset(); }
   else flightSession.restartLeg();
   flightPanel.showResult(null);
   permissionAttempt++;
@@ -779,7 +790,9 @@ function updateHud(now, state) {
   for (const axis of controls) meter(axis, playMode === 'flight'
     ? axis === 'pitch' ? settings.maxTilt : axis === 'steer' ? settings.maxSteerTilt : settings.maxSteerTwist
     : axis === 'pitch' ? CONTROL_LIMITS.throttleMaximum : axis === 'twist' ? CONTROL_LIMITS.twistMaximum : CONTROL_LIMITS.tiltMaximum);
-  $('speed-value').textContent = state.speed.toFixed(1);
+  $('speed-value').textContent = convertSpeed(state.speed,flightPanel.getSettings().speedUnit).toFixed(1);
+  $('speed-unit').textContent=normalizeSpeedUnit(flightPanel.getSettings().speedUnit);
+  updateAfterburnerPanel(state,flightPanel.getSettings());
   updateGroundProximity(state,language);
   $('nose-value').textContent = `${Math.round(MathUtils.radToDeg(state.pitch))}°`;
   $('bank-value').textContent = `${Math.round(MathUtils.radToDeg(state.bank || 0))}°`;
@@ -812,6 +825,8 @@ function updateHud(now, state) {
   app.dataset.yawRate = String(state.yawRate || 0);
   app.dataset.verticalSpeed = String(state.verticalSpeed || 0);
   app.dataset.throttle = String(state.throttle || 0);
+  app.dataset.afterburner=JSON.stringify(state.afterburner??{});
+  app.dataset.speedEffects=JSON.stringify(state.speedEffects??{});
   app.dataset.recoveryAssist = String(state.recoveryAssist || 0);
   app.dataset.session = JSON.stringify(flightSession.snapshot());
   app.dataset.pitchTarget = String(rates.pitchTarget || 0);
@@ -881,7 +896,7 @@ function frame(now) {
     const wasRunning=phase==='running',wasFlying = wasRunning && playMode === 'flight';
     if (phase === 'running') {
       if (playMode === 'explore') speed = advanceSpeed(speed, dt, rates);
-      stage.update(dt, { ...rates, mode: playMode, speed, throttle, craftQuaternion,
+      stage.update(dt, { ...rates, mode: playMode, speed, throttle:Math.min(1,throttle), manualAfterburner, pitchInputDegrees:angles.pitch, speedSettings:flightPanel.getSettings(), craftQuaternion,
         ...(playMode === 'flight' ? { displayTwist: angles.twist,
           displayScreenOffset: inputMode === 'sensor' ? screenAngle() - referenceScreenAngle : 0,
           displayTimeConstant: flightPanel.getSettings().displayTimeConstant,
@@ -894,7 +909,7 @@ function frame(now) {
       const targetVisible=targetCenterInViewport(state);
       routeTiming.advance(activeSeconds,{...state,targetVisible,exitVisible:state.collected===state.total&&targetCenterInPlayArea(state)});activeFrameAt=now;
     }
-    if (wasFlying) flightSession.advance(activeSeconds, state);
+    if (wasFlying) {flightSession.advance(activeSeconds, state);afterburnerSession.advance(state.afterburner);}
     if (phase === 'running' && playMode === 'flight' && !state.grounded) {
       lastFlightSnapshot = { throttle: state.throttle, pitch: state.pitch,
         verticalSpeed: state.verticalSpeed, inputPitch: angles.pitch,

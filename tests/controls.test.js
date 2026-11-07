@@ -810,8 +810,8 @@ test('settings normalize unknown, corrupt, and out-of-range input without imposs
   for(const value of [null,undefined,[],{},'bad',{deadzone:NaN,maxTilt:Infinity}]) assert.deepEqual(normalizeFlightSettings(value),DEFAULT_FLIGHT_SETTINGS);
   for(const key of Object.keys(FLIGHT_SETTING_FIELDS)) {
     const field=FLIGHT_SETTING_FIELDS[key];
-    if(field.options){assert.equal(normalizeFlightSettings({[key]:'ja'})[key],'ja');for(const bad of [new String('en'),{toString:null},123,'bad'])assert.equal(normalizeFlightSettings({[key]:bad})[key],field.initial);continue;}
-    if(typeof field.initial==='boolean'){assert.equal(normalizeFlightSettings({[key]:false})[key],false);assert.equal(normalizeFlightSettings({[key]:123})[key],true);continue;}
+    if(field.options){for(const option of Object.keys(field.options))assert.equal(normalizeFlightSettings({[key]:option})[key],option);for(const bad of [new String('en'),{toString:null},123,'bad'])assert.equal(normalizeFlightSettings({[key]:bad})[key],field.initial);continue;}
+    if(typeof field.initial==='boolean'){assert.equal(normalizeFlightSettings({[key]:false})[key],false);assert.equal(normalizeFlightSettings({[key]:123})[key],field.initial);continue;}
     near(normalizeFlightSettings({[key]:-100})[key],field.min);
     near(normalizeFlightSettings({[key]:field.max+100})[key],field.max);
   }
@@ -870,11 +870,11 @@ test('flight record counts weak active assistance even below the HUD label thres
 test('comparison reports identify outcome, display and rate-only inactive settings',()=>{
   const mid=flightReport({version:'0.1.14',pitch:'rate',steer:'twist',display:'fixed'});
   assert.equal('result' in mid,false);assert.equal(mid.display,'fixed');
-  assert.deepEqual(mid.inactiveSettings,['timeConstant','chaseTimeConstant','maxSteerTilt','steerTiltDeadzone','ladderRange','cockpitFov']);
+  assert.deepEqual(mid.inactiveSettings,['timeConstant','chaseTimeConstant','maxSteerTilt','steerTiltDeadzone','ladderRange','cockpitFov','autoAfterburnerAngle']);
   for(const result of ['clear','grounded']) {
     const report=flightReport({version:'0.1.14',pitch:'angle',steer:'tilt',display:'bank',result});
     assert.equal(report.result,result);assert.equal(JSON.parse(copyableFlightReport(report)).display,'bank');
-    assert.deepEqual(report.inactiveSettings,['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov']);
+    assert.deepEqual(report.inactiveSettings,['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov','autoAfterburnerAngle']);
   }
 });
 

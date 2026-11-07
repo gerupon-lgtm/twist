@@ -1,3 +1,5 @@
+import { AFTERBURNER_TUNING } from './afterburner.js';
+
 /** Game-scale flight approximation; values are accelerations per unit mass. */
 export const FLIGHT_MODEL = Object.freeze({
   cruiseSpeed: 10,
@@ -36,12 +38,12 @@ function normalized(v) {
   return { x: x / length, y: y / length, z: z / length };
 }
 
-function boundedVelocity(v) {
+function boundedVelocity(v, maxSpeed = FLIGHT_MODEL.maxSpeed) {
   const scale = Math.max(Math.abs(v.x), Math.abs(v.y), Math.abs(v.z));
   if (scale === 0) return v;
   const unitLength = Math.hypot(v.x / scale, v.y / scale, v.z / scale);
-  if (scale <= FLIGHT_MODEL.maxSpeed / unitLength) return v;
-  const factor = FLIGHT_MODEL.maxSpeed / unitLength;
+  if (scale <= maxSpeed / unitLength) return v;
+  const factor = maxSpeed / unitLength;
   return { x: v.x / scale * factor, y: v.y / scale * factor, z: v.z / scale * factor };
 }
 
@@ -59,7 +61,7 @@ function flightBasis(input) {
   return { forward, up: normalized(perpendicular) };
 }
 
-function forces(velocity, forward, up, throttle) {
+function forces(velocity, forward, up, throttle, extraThrust = 0) {
   const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
   const direction = speed > EPSILON
     ? { x: velocity.x / speed, y: velocity.y / speed, z: velocity.z / speed }
@@ -88,7 +90,8 @@ function forces(velocity, forward, up, throttle) {
   const lowForwardSpeed = 1 - smooth(dot(velocity, forward), 1, 4.5);
   const stalled = smooth(angleOfAttack, FLIGHT_MODEL.stallStart, FLIGHT_MODEL.stallEnd);
   const recoveryAssist = throttle * recoveryPosture * Math.max(lowForwardSpeed, stalled);
-  const thrust = throttle * (FLIGHT_MODEL.maxThrust + FLIGHT_MODEL.recoveryThrust * recoveryPosture * lowForwardSpeed);
+  const thrust = throttle * (FLIGHT_MODEL.maxThrust + FLIGHT_MODEL.recoveryThrust * recoveryPosture * lowForwardSpeed)
+    + extraThrust;
   const alongForward = dot(forward, direction);
   const redirect = { x: forward.x - direction.x * alongForward,
     y: forward.y - direction.y * alongForward, z: forward.z - direction.z * alongForward };
@@ -117,23 +120,31 @@ function forces(velocity, forward, up, throttle) {
  * Midpoint substeps limit spurious energy from numerical integration. Large dt
  * is capped at .05 s; invalid/negative dt advances no time. Missing/invalid
  * throttle is zero; explicit start/restart uses FLIGHT_MODEL.defaultThrottle.
+ * AB adds only thrust and a temporary cap. After release, preserveOverspeed
+ * permits existing momentum to decay under the same forces without a 30m/s cut.
  */
 export function stepFlightVelocity(velocity, dt, input) {
-  let state = boundedVelocity(cleanVector(velocity));
+  const cleaned = cleanVector(velocity);
+  const startSpeed = Math.hypot(cleaned.x, cleaned.y, cleaned.z);
+  const maxSpeed = input?.afterburner === true ? AFTERBURNER_TUNING.maxSpeed
+    : input?.preserveOverspeed === true && Number.isFinite(startSpeed)
+      ? Math.max(FLIGHT_MODEL.maxSpeed, startSpeed) : FLIGHT_MODEL.maxSpeed;
+  const extraThrust = input?.afterburner === true ? AFTERBURNER_TUNING.extraThrust : 0;
+  let state = boundedVelocity(cleaned, maxSpeed);
   const { forward, up } = flightBasis(input);
   const throttle = clamp(finite(input?.throttle), 0, 1);
   const elapsed = clamp(finite(dt), 0, FLIGHT_MODEL.maxTimeStep);
   const steps = Math.ceil(elapsed / FLIGHT_MODEL.integrationStep);
   const step = steps > 0 ? elapsed / steps : 0;
   for (let i = 0; i < steps; i += 1) {
-    const initial = forces(state, forward, up, throttle);
+    const initial = forces(state, forward, up, throttle, extraThrust);
     const midpoint = boundedVelocity({ x: state.x + initial.x * step / 2,
-      y: state.y + initial.y * step / 2, z: state.z + initial.z * step / 2 });
-    const middle = forces(midpoint, forward, up, throttle);
+      y: state.y + initial.y * step / 2, z: state.z + initial.z * step / 2 }, maxSpeed);
+    const middle = forces(midpoint, forward, up, throttle, extraThrust);
     state = boundedVelocity({ x: state.x + middle.x * step,
-      y: state.y + middle.y * step, z: state.z + middle.z * step });
+      y: state.y + middle.y * step, z: state.z + middle.z * step }, maxSpeed);
   }
-  const final = forces(state, forward, up, throttle);
+  const final = forces(state, forward, up, throttle, extraThrust);
   return {
     velocity: state,
     speed: Math.hypot(state.x, state.y, state.z),

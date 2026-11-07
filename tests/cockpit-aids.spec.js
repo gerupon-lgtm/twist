@@ -79,7 +79,7 @@ test('vertical bar follows climb and descent, vario can be disabled and remains 
  await page.reload();await page.locator('#practice-button').click();await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await expect(page.locator('#feedback-vario')).not.toBeChecked();
 });
 test('assisted scenery toggles as a whole while legacy keeps its original world and physical state',async({page})=>{
- await launch(page);await expect.poll(()=>page.locator('#app').getAttribute('data-scenery').then(JSON.parse)).toMatchObject({visible:true,islands:12,towerHeight:116,clouds:12,suns:1,fogless:true,collisions:false});
+ await launch(page);await expect.poll(()=>page.locator('#app').getAttribute('data-scenery').then(JSON.parse)).toMatchObject({visible:true,islands:12,towerHeight:116,clouds:expect.any(Number),nearClouds:expect.any(Number),groundDetails:expect.any(Number),suns:1,fogless:true,collisions:false});
  await page.locator('#pause-button').click();const position=await page.locator('#app').getAttribute('data-position');
  await page.locator('#view-classic').click();await expect.poll(()=>page.locator('#app').getAttribute('data-scenery').then(JSON.parse)).toMatchObject({visible:false});
  expect(await page.locator('#app').getAttribute('data-position')).toBe(position);

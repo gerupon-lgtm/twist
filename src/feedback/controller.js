@@ -11,7 +11,7 @@ import { FEEDBACK_HELP } from '../settings-help.js';
 
 export function createFeedbackController(){
   let storage;try{storage=localStorage;}catch{/* Defaults work without storage. */}
-  let settings=loadFeedbackSettings(storage),active=false,lastAudio=0;
+  let settings=loadFeedbackSettings(storage),active=false,lastAudio=0,lastAfterburner=null;
   const query=new URL(location.href).searchParams.get('music');
   if(Object.hasOwn(FEEDBACK_FIELDS.musicSet.options,query))settings={...settings,musicSet:query};
   let frames=0,frameSum=0,frameMax=0;
@@ -60,8 +60,8 @@ export function createFeedbackController(){
   refresh();
   return {
     unlock(){haptics.arm();if(settings.sound){void audio.unlock();void music.preload();}},
-    start({flightNumber=1}={}){active=true;music.setFlightNumber(flightNumber);audio.start();audio.configure(settings);void music.play('flight');},
-    stop(){active=false;music.stop();audio.stop();haptics.stop();jitter.clearWindow();},
+    start({flightNumber=1}={}){active=true;lastAfterburner=null;music.setFlightNumber(flightNumber);audio.start();audio.configure(settings);void music.play('flight');},
+    stop(){active=false;lastAfterburner=null;music.stop();audio.stop();haptics.stop();jitter.clearWindow();},
     event(kind){haptics.event(kind,settings,performance.now());
       if(kind==='clear')void music.play('clear').then(result=>{if(result==='unavailable')audio.event(kind,settings);});
       else audio.event(kind,settings);
@@ -70,7 +70,8 @@ export function createFeedbackController(){
       if(!active)return;
       if(inputMode==='sensor')jitter.add(now,angles.pitch,steering==='twist'?angles.twist:angles.steer);
       const model=flightFeedback(state,settings),phase=haptics.update(model,settings,now);
-      if(now-lastAudio>=40||phase?.restarted){audio.update(model,settings,phase,navigation);lastAudio=now;}
+      const afterburnerChanged=lastAfterburner!==model.afterburner.active;lastAfterburner=model.afterburner.active;
+      if(now-lastAudio>=40||phase?.restarted||afterburnerChanged){audio.update(model,settings,phase,navigation);lastAudio=now;}
     },
     frameTiming(ms){if(active&&Number.isFinite(ms)){frames++;frameSum+=ms;frameMax=Math.max(frameMax,ms);}},
     reset(){jitter.reset();music.reset();audio.resetMetrics();frames=0;frameSum=0;frameMax=0;},

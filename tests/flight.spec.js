@@ -45,7 +45,11 @@ test('flight screen throttle accepts a touch, retains output after release, and 
   const slider = page.getByRole('slider', { name: 'エンジン出力', exact: true });
   const rect = await slider.boundingBox();
   expect(rect.height).toBeGreaterThanOrEqual(44);
-  await slider.tap({ position: { x: rect.width * 0.85, y: rect.height / 2 } });
+  // A tap now deliberately preserves output. Use an actual touch drag.
+  const touch=await page.context().newCDPSession(page),y=rect.y+rect.height/2,x=rect.x+rect.width*.42;
+  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+  for(let i=1;i<=5;i++)await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+rect.width*.28*i/5,y}]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await touch.detach();
   await expect.poll(() => slider.inputValue().then(Number)).toBeGreaterThan(75);
   const selected = await slider.inputValue();
   await page.waitForTimeout(300);

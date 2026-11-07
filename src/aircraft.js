@@ -39,14 +39,17 @@ export function createAircraft() {
     const item = mesh(new THREE.ConeGeometry(.2,1,10),flame,side*.42,-.16,2.25);
     item.rotation.x = Math.PI / 2; return item;
   });
-  let power = 0;
-  function setPower(value) {
+  let power = 0, afterburnerActive=false;
+  function setPower(value,afterburner=false) {
     power = THREE.MathUtils.clamp(Number.isFinite(value) ? value : 0,0,1);
-    flame.opacity = .3 + .65 * power;
-    exhaust.forEach(item => { item.visible = power > 0; item.scale.y = .15 + 1.35*power;
+    afterburnerActive=afterburner===true&&power>0;
+    flame.opacity = afterburnerActive ? .82+.18*power : .3 + .65 * power;
+    flame.color.setHex(afterburnerActive?0xfff0b0:0x93e5ff);
+    exhaust.forEach(item => { item.visible = power > 0; item.scale.set(afterburnerActive?1.55:1,(.15 + 1.35*power)*(afterburnerActive?2.1:1),afterburnerActive?1.55:1);
       item.position.z = 2.2 + item.scale.y / 2; });
   }
   setPower(0);
   return { group, setPower, diagnostics: () => ({ engines: 2, power, exhaustVisible: power > 0,
-    exhaustLength: power > 0 ? .15+1.35*power : 0, exhaustOpacity: power > 0 ? flame.opacity : 0 }) };
+    exhaustLength: power > 0 ? (.15+1.35*power)*(afterburnerActive?2.1:1) : 0,
+    exhaustOpacity: power > 0 ? flame.opacity : 0, afterburner:afterburnerActive }) };
 }

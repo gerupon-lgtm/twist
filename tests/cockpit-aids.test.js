@@ -66,10 +66,10 @@ test('new settings preserve old defaults and distinguish automatic FOV from expl
  assert.equal(normalizeFlightSettings({cockpitFov:40}).cockpitFov,60);assert.equal(normalizeFlightSettings({cockpitFov:200}).cockpitFov,100);
  assert.equal(normalizeFlightSettings({cockpitFov:NaN}).cockpitFov,0);assert.equal(normalizeFlightSettings({ladderRange:100}).ladderRange,30);
 });
-test('scenery is static, fogless and grouped in eight batches, with no collision objects',()=>{
- const {group,details}=createScenery();assert.deepEqual(details,{islands:12,towerHeight:116,clouds:12,suns:1,fogless:true,collisions:false,batches:8});
- assert.equal(group.children.length,8);
+test('scenery is static, fogless and grouped in eleven bounded batches, with no collision objects',()=>{
+ const {group,details}=createScenery();assert.deepEqual(details,{islands:12,towerHeight:116,clouds:36,suns:1,fogless:true,collisions:false,batches:11,nearClouds:24,cloudPuffs:108,groundDetails:640,groundBatches:3,groundCounts:{rocks:240,grass:280,ruins:120}});
+ assert.equal(group.children.length,11);
  let instances=0;group.traverse(object=>{if(object.material)assert.equal(object.material.fog,false);if(object.isInstancedMesh)instances+=object.count;});
- assert.ok(instances>70);assert.equal(group.children.filter(o=>o.isInstancedMesh).length,5);
+ assert.ok(instances>710);assert.equal(group.children.filter(o=>o.isInstancedMesh).length,8);
  group.traverse(o=>{o.geometry?.dispose();if(o.isInstancedMesh)o.dispose();});
 });

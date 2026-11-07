@@ -1,12 +1,12 @@
 import { ChipMixer } from './chip-mixer.js';
-import { flightFeedback, sfxRegisters, pulseAt, EVENT_FEEDBACK,varioMaySound } from './model.js';
+import { flightFeedback, sfxRegisters, pulseAt, EVENT_FEEDBACK,varioMaySound,afterburnerPhase } from './model.js';
 import { advanceVarioPhase } from '../cockpit-aids.js';
 import { NAVIGATION_BURST_MS,navigationCue,navigationBlockReason } from './navigation-audio.js';
 
 class TwistAudioProcessor extends AudioWorkletProcessor {
   constructor(){
     super();this.mixer=new ChipMixer(Math.round(sampleRate));this.active=false;this.event=null;
-    this.eventAt=0;this.cueAt=0;this.cue='quiet';this.model=flightFeedback();this.settings={};
+    this.eventAt=0;this.cueAt=0;this.cue='quiet';this.model=flightFeedback();this.stateAt=0;this.settings={};
     this.silentModel=flightFeedback();this.registers=new Uint8Array(14);
     this.musicQueue=[];this.musicHead=0;this.musicPlaying=false;this.musicVolume=.5;
     this.busyMs=0;this.frames=0;this.untilUpdate=0;
@@ -28,7 +28,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
         }
       }
       if(m.type==='state'){
-        this.active=true;this.model=m.model;this.settings=m.settings;this.mixer.setVolume(m.settings.volume);
+        this.active=true;this.model=m.model;this.stateAt=currentTime;this.settings=m.settings;this.mixer.setVolume(m.settings.volume);
         this.navigation=m.navigation||null;this.blockNavigation();
         if(this.cue!==m.model.cue||m.phase?.restarted){this.cue=m.model.cue;this.cueAt=currentTime-(m.phase?.elapsedMs||0)/1000;}
       }
@@ -40,9 +40,22 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       if(m.type==='poll'){
         this.port.postMessage({type:'metrics',load:this.frames?this.busyMs/1000/(this.frames/sampleRate):0,
           peak:this.mixer.takePeak(),active:this.active,event:this.event,music:this.musicPlaying,
-          vario:this.active&&this.settings.sound&&this.settings.sfx&&varioMaySound(this.model,Boolean(this.event)),navigation:this.navigationSnapshot()});this.busyMs=0;this.frames=0;
+          vario:this.active&&this.settings.sound&&this.settings.sfx&&varioMaySound(this.model,Boolean(this.event)),navigation:this.navigationSnapshot(),afterburner:this.afterburnerSnapshot()});this.busyMs=0;this.frames=0;
       }
     };
+  }
+  afterburnerSeconds(){
+    const seconds=this.model.afterburner?.burstSeconds;
+    return Number.isFinite(seconds)?seconds+Math.max(0,currentTime-this.stateAt):0;
+  }
+  afterburnerSnapshot(){
+    const active=Boolean(this.active&&this.settings.sound&&this.settings.sfx&&this.model.afterburner?.active);
+    const burstSeconds=active?this.afterburnerSeconds():0;
+    let phase=active?afterburnerPhase(this.model,burstSeconds):'off';
+    const eventActive=Boolean(this.event&&(currentTime-this.eventAt)*1000<EVENT_FEEDBACK[this.event].duration);
+    if(active&&(eventActive||['ground','stall','buffet'].includes(this.model.cue)))phase='suppressed';
+    else if(active&&(varioMaySound(this.model,eventActive)||this.navigationBurst))phase='roar';
+    return {active,burstSeconds,phase};
   }
   navigationSnapshot(){
     return {...this.navigationMetrics,active:Boolean(this.navigationBurst),pan:this.navigationBurst?.pan??0,
@@ -91,7 +104,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
         const model=this.active?this.model:this.silentModel;
         this.mixer.writeSfx(sfxRegisters(model,this.event,(currentTime-this.eventAt)*1000,
           pulseAt(model.soundPattern,(currentTime-this.cueAt)*1000),this.registers,this.varioPhase*(model.vario?.periodMs||1000),
-          this.navigationBurst?{elapsedMs:(currentTime-this.navigationAt)*1000}:null));
+          this.navigationBurst?{elapsedMs:(currentTime-this.navigationAt)*1000}:null,this.afterburnerSeconds()));
         this.untilUpdate=sampleRate/100;
       }
       const end=currentTime+left.length/sampleRate;

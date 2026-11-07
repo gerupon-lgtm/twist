@@ -1,0 +1,202 @@
+{
+  "flightPlaylist": [
+    "flight",
+    "flight2"
+  ],
+  "flightSets": {
+    "brave": [
+      "brave"
+    ],
+    "rock": [
+      "rock"
+    ],
+    "all": [
+      "flight",
+      "flight2",
+      "brave",
+      "rock"
+    ]
+  },
+  "rock": {
+    "title": "黒曜の翼",
+    "file": "rock.mid",
+    "loop": {
+      "start": 0,
+      "end": 73.84608
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 111
+      },
+      "2": {
+        "waveform": 0,
+        "volume": 55
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 49
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 88
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 43
+      },
+      "10": {
+        "volume": 104
+      }
+    }
+  },
+  "brave": {
+    "title": "勇進の航路",
+    "file": "brave.mid",
+    "loop": {
+      "start": 0,
+      "end": 67.764672
+    },
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 101
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 66
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 64
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 96
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 44
+      },
+      "10": {
+        "volume": 105
+      }
+    }
+  },
+  "flight": {
+    "title": "蒼穹突破",
+    "file": "flight.mid",
+    "loop": {
+      "start": 0,
+      "end": 72
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 94
+      },
+      "2": {
+        "waveform": 4,
+        "volume": 74
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 68
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 92
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 54
+      },
+      "10": {
+        "volume": 100
+      }
+    }
+  },
+  "flight2": {
+    "title": "遺跡の閃光",
+    "file": "flight2.mid",
+    "loop": {
+      "start": 0,
+      "end": 68.571456
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 94
+      },
+      "2": {
+        "waveform": 4,
+        "volume": 74
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 68
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 92
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 54
+      },
+      "10": {
+        "volume": 100
+      }
+    }
+  },
+  "clear": {
+    "title": "突破の凱歌",
+    "file": "clear.mid",
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 96
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 78
+      },
+      "3": {
+        "waveform": 1,
+        "volume": 88
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 50
+      },
+      "10": {
+        "volume": 98
+      }
+    }
+  },
+  "comparison": {
+    "title": "ひかりの航路（比較）",
+    "file": "flight-legacy.mid",
+    "loop": {
+      "start": 0,
+      "end": 45
+    },
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 96
+      },
+      "2": {
+        "waveform": 2,
+        "volume": 78
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 96
+      },
+      "10": {
+        "volume": 85
+      }
+    }
+  }
+}

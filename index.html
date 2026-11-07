@@ -8,21 +8,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="twist" />
-    <link rel="manifest" href="./manifest.webmanifest?v=0.1.26" />
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.26" />
+    <link rel="manifest" href="./manifest.webmanifest?v=0.1.27" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.27" />
     <meta name="description" content="自分はそのまま、世界を動かす。スマホの動きで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.26" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.27" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
       <div id="ground-edge-warning" class="ground-edge-warning" data-level="clear" aria-hidden="true" hidden></div>
       <header class="topbar">
-        <a class="brand" id="home-link" href="./?v=0.1.26" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <a class="brand" id="home-link" href="./?v=0.1.27" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
         <span class="mode-tag" id="play-mode-label">探索モード</span>
         <details class="feedback-metrics"><summary>計測</summary><p id="feedback-diagnostics" aria-label="操作検証の計測値"></p></details>
-        <span class="version">操作検証 <b>v0.1.26</b></span>
+        <span class="version">操作検証 <b>v0.1.27</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
@@ -100,12 +100,13 @@
           <div class="meter" id="steer-control-meter"><div><span id="steer-label">自機の左右</span><output id="steer-value">0°</output></div><div class="meter-track bilateral"><i id="steer-meter"></i></div><small id="steer-caption">下げた側へ曲がる</small></div>
           <div class="meter" id="twist-control-meter"><div><span id="twist-label">スマホを回す</span><output id="twist-value">0°</output></div><div class="meter-track bilateral"><i id="twist-meter"></i></div><small id="twist-caption">右に回して上・左で下へ</small></div>
         </div>
-        <div class="flight-line"><span>速さ <b id="speed-value">0.0</b> m/s</span><span id="ground-proximity" data-level="clear"><span id="ground-clearance">高さ</span> <b id="altitude-value">7.0</b> m<span id="ground-height-meter" aria-hidden="true" hidden><i></i></span></span><span id="stop-hint">逆側を下げるとブレーキ</span><span id="ground-warning-text" hidden>地面との間隔</span></div>
+        <div class="flight-line"><span>速さ <b id="speed-value">0.0</b> <span id="speed-unit">km/h</span></span><span id="ground-proximity" data-level="clear"><span id="ground-clearance">高さ</span> <b id="altitude-value">7.0</b> m<span id="ground-height-meter" aria-hidden="true" hidden><i></i></span></span><span id="stop-hint">逆側を下げるとブレーキ</span><span id="ground-warning-text" hidden>地面との間隔</span></div>
         <div class="flight-attitude" id="flight-attitude" hidden><span>機首 <b id="nose-value">0°</b></span><span>翼の傾き <b id="bank-value">0°</b></span><span>昇降 <b id="climb-value">0.0</b> m/s</span><small id="view-assist-note">中立で翼を戻す</small></div>
         <div class="flight-throttle" id="flight-throttle" hidden>
           <div class="throttle-heading"><label for="throttle-input">エンジン出力</label><div id="target-height-inline" class="target-height-guide" hidden></div><output id="throttle-value" for="throttle-input">0%</output></div>
-          <input id="throttle-input" type="range" min="0" max="100" step="1" value="0" aria-label="エンジン出力" disabled />
-          <small>左で弱く・右で強く。離すと出力を保つ</small>
+          <input id="throttle-input" type="range" min="0" max="120" step="1" value="0" aria-label="エンジン出力" aria-describedby="afterburner-status" disabled />
+          <div class="throttle-hint-line"><span id="afterburner-hud" aria-live="off"><b>AB</b><span class="ab-meter"><i></i></span><output>0</output></span><span id="afterburner-status">EMPTY</span><span class="ab-zone-hint">DRAG · 100% → AB</span></div>
+
         </div>
         <div class="toolbar"><button id="pause-button" type="button" disabled>一時停止</button><button id="recenter-button" type="button" disabled>持ち方を合わせ直す</button><button id="help-button" type="button" aria-label="操作の説明">?</button></div>
         <details class="practice-panel" id="practice-panel" open hidden>
@@ -122,7 +123,7 @@
         <section class="intro-card" id="intro-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-description">
           <span class="card-symbol" aria-hidden="true">↝</span>
           <p class="card-kicker" id="dialog-kicker">スマホの動きで操作検証</p>
-          <p class="intro-version" id="intro-version">twist <b>v0.1.26</b><span>操作検証版</span></p>
+          <p class="intro-version" id="intro-version">twist <b>v0.1.27</b><span>操作検証版</span></p>
           <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
           <aside id="orientation-notice" class="orientation-notice" role="status" aria-live="polite" hidden><button type="button" aria-label="向き固定の案内を閉じる">×</button><strong data-notice-title></strong><p data-notice-copy></p></aside>
           <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。ピンクの光を3つ集めて出口へ。</p>
@@ -172,7 +173,7 @@
           <p class="installation-advice" id="installation-advice" hidden></p>
           <button class="secondary-button pwa-action" id="install-button" type="button" hidden>ホーム画面に追加</button>
           <button class="secondary-button pwa-action" id="release-screen-button" type="button" hidden>全画面と向き固定を解除</button>
-          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.26" target="_blank" rel="noopener">ブラウザーで開く</a></p>
+          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.27" target="_blank" rel="noopener">ブラウザーで開く</a></p>
           <aside id="update-notice" class="update-notice" role="status" hidden><p>新しい版 <b id="update-version"></b> があります。</p><button id="update-button" type="button">最新版を開く</button></aside>
           <button class="primary-button" id="start-button" type="button">スマホの傾きで始める</button>
           <button class="secondary-button" id="practice-button" type="button">画面で操縦（スマホ傾きは無効）</button>
@@ -183,7 +184,7 @@
             <dl><div><dt>飛行時間</dt><dd id="result-elapsed"></dd></div><div><dt>接地</dt><dd id="result-contacts"></dd></div><div><dt>復帰補助の合計</dt><dd id="result-recovery"></dd></div></dl>
             <h3>最後の1回</h3><dl><div><dt>飛行時間</dt><dd id="result-last-elapsed"></dd></div><div><dt>接地</dt><dd id="result-last-contacts"></dd></div><div><dt>復帰補助</dt><dd id="result-last-recovery"></dd></div></dl>
             <h3>目標が画面に入るまで（最後の1回）</h3><dl id="result-target-views"></dl><h3>区間ごとの時間（最後の1回）</h3><dl id="result-segments"></dl><dl><div><dt>出口が開いてから初めて表示</dt><dd id="result-exit-discovery"></dd></div></dl>
-            <p id="result-modes"></p><p id="result-settings"></p>
+            <p id="result-modes"></p><p id="result-afterburner" hidden></p><p id="result-settings"></p>
             <small>合計は飛び直しも含み、最後の1回は飛び直しで区切ります。一時停止では区切りません。設定は到着・接地時点の値です。</small>
             <button id="result-copy" type="button">記録をコピー</button>
             <p id="result-copy-status" role="status"></p><textarea id="result-copy-text" aria-label="コピーする飛行記録" readonly hidden></textarea>
@@ -192,7 +193,7 @@
             <summary>調整</summary><p id="adjustment-scope-note">機首と旋回の入力角度を別々に調整します。</p>
             <p class="range-help">1回に変える設定は1つだけにすると、効果を比べやすくなります。</p>
             <details id="settings-troubles" class="settings-troubles"><summary>こう感じたら</summary><div id="settings-troubles-list"></div></details>
-            <p class="range-help"><a id="settings-guide-link" href="./settings-guide.html?v=0.1.26" target="_blank" rel="noopener">調整の早見表を開く</a></p>
+            <p class="range-help"><a id="settings-guide-link" href="./settings-guide.html?v=0.1.27" target="_blank" rel="noopener">調整の早見表を開く</a></p>
             <div id="flight-settings-fields"></div>
             <fieldset class="feedback-settings"><legend>音と振動</legend><div id="feedback-settings-fields"></div><p id="vibration-support"></p><p id="feedback-audio-status"></p><p id="feedback-save-status"></p></fieldset>
             <!-- 調整パネル内のヘルプへ挿入。設定項目名・操作ボタン・結果の説明文は日本語を保つ。 -->

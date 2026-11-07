@@ -4,7 +4,10 @@ import { NAVIGATION_BURST_MS,NAVIGATION_TONE_HZ,NAVIGATION_VOLUME } from './navi
 const clamp = (n,min,max) => Math.max(min,Math.min(max,Number.isFinite(n)?n:min));
 export const FEEDBACK_TUNING = Object.freeze({ buffetStart: 14, stallStart: 20, stallEnd: 70,
   engineCycle: 400, enginePulse: 5, groundPattern: [85,100,85,430], stallPattern: [100,45,55,90,160,110],
-  fineCycle: 60, finePulses: 4, strongStallPattern: [180,30,120,40,260,50] });
+  fineCycle: 60, finePulses: 4, strongStallPattern: [180,30,120,40,260,50],
+  afterburner: Object.freeze({ignitionSeconds:.12,attackSeconds:.01,releaseSeconds:.03,
+    roarVolume:8,ignitionVolume:11,duckVolume:5,noiseStart:31,noiseEnd:6,roarNoise:8,
+    fineOn:30,classicOn:120}) });
 export const EVENT_FEEDBACK = Object.freeze({
   collect: { priority: 2, duration: 300, pattern: [30,80,70] },
   exitOpen: { priority: 2, duration: 650, pattern: [] },
@@ -26,25 +29,37 @@ export function pulseAt(pattern,elapsedMs) {
   for(let i=0;i<pattern.length;i++){ if(time<pattern[i]) return i%2===0; time-=pattern[i]; }
   return false;
 }
+function afterburnerState(value) {
+  const active=value?.active===true&&Number.isFinite(value.burstSeconds)&&value.burstSeconds>=0;
+  return {active,burstSeconds:active?value.burstSeconds:0};
+}
+export function afterburnerPhase(model,seconds=model.afterburner?.burstSeconds) {
+  if(model.afterburner?.active!==true||!Number.isFinite(seconds)||seconds<0)return 'off';
+  return seconds<FEEDBACK_TUNING.afterburner.ignitionSeconds?'ignition':'roar';
+}
 /** All timing/threshold choices live here, outside the unmodified chip code. */
 export function flightFeedback(state={},settings={}) {
   const angle=clamp(Math.abs(state.angleOfAttack||0)*180/Math.PI,0,180);
   const power=clamp(state.throttle,0,1),speed=clamp(state.speed,0,18);
+  const afterburner=afterburnerState(state.afterburner),boost=FEEDBACK_TUNING.afterburner;
   let cue='quiet',pattern=[];
   if(state.mode!=='explore'&&getGroundProximity(state).level==='danger') {cue='ground';pattern=[...FEEDBACK_TUNING.groundPattern];}
   else if(angle>=FEEDBACK_TUNING.stallStart){cue='stall';pattern=scaledPattern(FEEDBACK_TUNING.stallPattern,.6+.4*clamp((angle-FEEDBACK_TUNING.stallStart)/(FEEDBACK_TUNING.stallEnd-FEEDBACK_TUNING.stallStart),0,1));}
   else if(angle>=FEEDBACK_TUNING.buffetStart){cue='buffet';const on=Math.round(15+(angle-FEEDBACK_TUNING.buffetStart)/(FEEDBACK_TUNING.stallStart-FEEDBACK_TUNING.buffetStart)*70);pattern=[on,300-on];}
+  else if(afterburner.active&&settings.engineVibration!==false){cue='afterburner';pattern=[boost.classicOn,FEEDBACK_TUNING.engineCycle-boost.classicOn];}
   else if(power>0 && settings.engineVibration!==false){cue='engine';const on=Math.max(1,Math.round(FEEDBACK_TUNING.enginePulse*power));pattern=[on,FEEDBACK_TUNING.engineCycle-on];}
   let vibrationPattern=pattern;
   if(cue==='engine'&&settings.flightVibration!=='classic') {
     // Four pulses per request; eight entries also fit the current Vibration API limit.
     const on=Math.round(8+6*power);
     vibrationPattern=Array.from({length:FEEDBACK_TUNING.finePulses},()=>[on,FEEDBACK_TUNING.fineCycle-on]).flat();
+  } else if(cue==='afterburner'&&settings.flightVibration!=='classic') {
+    vibrationPattern=Array.from({length:FEEDBACK_TUNING.finePulses},()=>[boost.fineOn,FEEDBACK_TUNING.fineCycle-boost.fineOn]).flat();
   } else if(cue==='stall') vibrationPattern=scaledPattern(FEEDBACK_TUNING.strongStallPattern,.75+.25*clamp((angle-20)/50,0,1));
   const vibration=scaledPattern(vibrationPattern,clamp(settings.vibrationScale??1,0,2));
   return { cue, pattern:vibration, soundPattern:pattern, cycle:vibrationPattern.reduce((a,b)=>a+b,0),
     angleOfAttack:angle,power,speed,engineHz:55+power*120,wind:Math.min(1,speed/18),
-    vario:varioCue(state.verticalSpeed,settings.vario!==false&&state.mode==='flight') };
+    vario:varioCue(state.verticalSpeed,settings.vario!==false&&state.mode==='flight'),afterburner };
 }
 
 const COLLECT_NOTES=[523,784,1047],CLEAR_NOTES=[523,659,784,1047,784,1047];
@@ -54,11 +69,24 @@ function voice(regs,channel,hz,volume,noise,mixer){
   regs[channel*2]=period&255;regs[channel*2+1]=(period>>8)&15;regs[8+channel]=clamp(Math.round(volume),0,15);
   if(hz>0)mixer&=~(1<<channel);if(noise)mixer&=~(1<<(channel+3));return mixer;
 }
-export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uint8Array(14),varioMs=eventMs,navigation=null) {
+export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uint8Array(14),varioMs=eventMs,navigation=null,afterburnerSeconds=model.afterburner?.burstSeconds) {
   regs.fill(0);let mixer=0x3f;
   const eventActive=Boolean(event && EVENT_FEEDBACK[event] && eventMs<EVENT_FEEDBACK[event].duration);
-  mixer=voice(regs,0,model.power>0?model.engineHz:0,eventActive?1:Math.max(model.power*4,model.wind*4),model.wind>.12||model.power>.1,mixer);
-  regs[6]=Math.round(28-model.wind*22);
+  const warning=['ground','stall','buffet'].includes(model.cue);
+  const navigationActive=Boolean(navigation&&!eventActive&&!model.vario?.active&&!warning
+    &&Number.isFinite(navigation.elapsedMs)&&navigation.elapsedMs>=0&&navigation.elapsedMs<NAVIGATION_BURST_MS);
+  const boost=FEEDBACK_TUNING.afterburner,phase=afterburnerPhase(model,afterburnerSeconds);
+  if(phase!=='off'&&!eventActive&&!warning) {
+    const duck=varioMaySound(model,eventActive)||navigationActive;
+    const ignition=phase==='ignition'&&!duck;
+    const envelope=ignition?clamp(Math.min(afterburnerSeconds/boost.attackSeconds,(boost.ignitionSeconds-afterburnerSeconds)/boost.releaseSeconds),0,1):0;
+    mixer=voice(regs,0,0,duck?boost.duckVolume:boost.roarVolume+(boost.ignitionVolume-boost.roarVolume)*envelope,true,mixer);
+    regs[6]=ignition?Math.round(boost.noiseStart+(boost.noiseEnd-boost.noiseStart)*afterburnerSeconds/boost.ignitionSeconds):boost.roarNoise;
+  } else {
+    // Noise period is shared by A/B/C: protected warnings/events retain the exact old A output.
+    mixer=voice(regs,0,model.power>0?model.engineHz:0,eventActive?1:Math.max(model.power*4,model.wind*4),model.wind>.12||model.power>.1,mixer);
+    regs[6]=Math.round(28-model.wind*22);
+  }
   if(!eventActive&&(model.cue==='stall'||model.cue==='ground'||model.cue==='buffet')&&pulse) {
     mixer=voice(regs,1,model.cue==='buffet'?0:model.cue==='ground'?880:180,model.cue==='buffet'?6:10,model.cue==='buffet',mixer);
     if(model.cue==='buffet')regs[6]=22;
@@ -72,8 +100,7 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
     &&varioMs%model.vario.periodMs<model.vario.onMs) {
     mixer=voice(regs,2,model.vario.hz,6,false,mixer);
   }
-  if(navigation&&!eventActive&&!model.vario?.active&&!['ground','stall','buffet'].includes(model.cue)
-    &&Number.isFinite(navigation.elapsedMs)&&navigation.elapsedMs>=0&&navigation.elapsedMs<NAVIGATION_BURST_MS){
+  if(navigationActive){
     const envelope=Math.min(1,navigation.elapsedMs/5,(NAVIGATION_BURST_MS-navigation.elapsedMs)/10);
     mixer=voice(regs,2,NAVIGATION_TONE_HZ,NAVIGATION_VOLUME*envelope,false,mixer);
   }

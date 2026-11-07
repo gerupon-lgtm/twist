@@ -1,3 +1,5 @@
+import {createAfterburnerState,advanceAfterburner,awardAfterburner,stopAfterburner,observeAfterburnerSpeed} from './afterburner.js';
+import {createSpeedEffects,speedPresentation} from './speed-effects.js';
 import * as THREE from 'three';
 import { FLIGHT_MODEL, stepFlightVelocity } from './flight-physics.js';
 import { computeFieldOfView, normalizeVisibility } from './visibility.js';
@@ -56,7 +58,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   // Both cameras remain fixed for the entire simulation.
   const world = new THREE.Group();
   scene.add(world);
-  const scenery=createScenery({halfExtent:STAGE_HALF_EXTENT});world.add(scenery.group);
+  const scenery=createScenery({halfExtent:STAGE_HALF_EXTENT,avoidPoints:[layout.start,...layout.lights,layout.exit]});world.add(scenery.group);
+  const airflow=createSpeedEffects();camera.add(airflow.group);scene.add(camera);
   const boundaryVisual=createStageBoundary({halfExtent:STAGE_HALF_EXTENT});world.add(boundaryVisual.group);
   scene.add(new THREE.HemisphereLight(0xf4fcff, 0x7896a2, 2.4));
   const sun = new THREE.DirectionalLight(0xfff8e7, 2.6);
@@ -516,6 +519,10 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   let yawRate = 0;
   let speed = 0;
   let throttle = 0;
+  let afterburner=createAfterburnerState(),overspeedFromAB=false;
+  let speedSettings={streakAmount:0,speedFov:0,highSpeedShake:false,autoAfterburner:false,autoAfterburnerAngle:35};
+  let speedExtraFov=0,baseVerticalFov=64;
+  const effectShake=new THREE.Quaternion(),effectEuler=new THREE.Euler();
   let recoveryAssist = 0;
   let angleOfAttack = 0;
   let grounded = false;
@@ -536,6 +543,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
 
   function syncWorld(dt = 0) {
     visualTime+=Math.max(0,dt);
+    const presentation=mode==='flight'?speedPresentation(speed,speedSettings,afterburner,visualTime,cameraMode):{extraFov:0,shake:{x:0,y:0,z:0}};
+    if(Math.abs(presentation.extraFov-speedExtraFov)>1e-6){speedExtraFov=presentation.extraFov;updateProjection();}
     orientation.copy(baseOrientation);
     if (mode === 'flight') {
       // Positive bank lowers the craft's right wing; its inverse tilts scenery.
@@ -595,7 +604,10 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       forward.set(0, 0, -1).applyQuaternion(orientation);
       viewPitch = Math.atan2(forward.y, Math.hypot(forward.x, forward.z));
     }
+    effectShake.setFromEuler(effectEuler.set(presentation.shake.x,presentation.shake.y,presentation.shake.z));
+    camera.quaternion.multiply(effectShake);craftCamera.quaternion.multiply(effectShake);
     displayCameraInverse.copy(camera.quaternion).invert();
+    airflow.update({speed,afterburner,amount:speedSettings.streakAmount,timeSeconds:visualTime,verticalFov:camera.fov,aspect:width/height,visible:visibility==='assisted'&&!grounded&&!complete});
     world.quaternion.copy(viewQuaternion);
     world.position.copy(viewPosition).negate().applyQuaternion(viewQuaternion);
     horizonBackdrop.position.copy(viewPosition);
@@ -604,7 +616,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     overlayJet.group.visible = mode === 'flight';
     craft.visible = mode !== 'flight' || cameraMode === 'overlay';
     worldJet.group.visible = mode === 'flight' && cameraMode === 'chase';
-    overlayJet.setPower(throttle); worldJet.setPower(throttle);
+    overlayJet.setPower(throttle,afterburner.active); worldJet.setPower(throttle,afterburner.active);
     // This group is a child of world, so it receives the same inverse pose as
     // the floor. Its local location remains the craft's true ground position.
     const overIsland = position.x ** 2 + ((position.z + 24) / 1.1) ** 2 < 83.5 ** 2;
@@ -616,6 +628,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   }
 
   function stopMotion() {
+    afterburner=stopAfterburner(afterburner);overspeedFromAB=false;
     velocity.set(0, 0, 0);
     speed = 0;
     throttle = 0;
@@ -715,6 +728,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       fieldOfView.vertical=Math.min(fieldOfView.vertical,cockpitFov);
       fieldOfView.horizontal=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(fieldOfView.vertical)/2)*width/height));
     }
+    baseVerticalFov=fieldOfView.vertical;
+    if(speedExtraFov>0){fieldOfView.vertical=Math.min(115,baseVerticalFov+speedExtraFov);fieldOfView.horizontal=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(fieldOfView.vertical)/2)*width/height));}
     camera.aspect = width / height;
     camera.fov = fieldOfView.vertical;
     camera.far=1800;
@@ -758,6 +773,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       } else craft.quaternion.identity();
     } else craft.quaternion.identity();
     const elapsed = Math.max(0, finite(dt));
+    if(input.speedSettings&&typeof input.speedSettings==='object')speedSettings={...speedSettings,...input.speedSettings};
     arenaTime+=elapsed;boundaryVisual.update(arenaTime);
     if(Number.isFinite(input.turnGravity))turnGravity=normalizeTurnGravity(input.turnGravity);
     if(Number.isFinite(input.maxBank))turnBankLimit=THREE.MathUtils.clamp(input.maxBank,5,40);
@@ -844,13 +860,21 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         forward.set(0, 0, -1).applyQuaternion(flightOrientation);
         up.set(0, 1, 0).applyQuaternion(flightOrientation);
         previousVelocity.copy(velocity);
-        const next = stepFlightVelocity(velocity, step, { forward, up, throttle: targetThrottle });
+        const burn=advanceAfterburner(afterburner,step,{running:true,flight:true,manualRequest:input.manualAfterburner===true,
+          autoEnabled:speedSettings.autoAfterburner===true,pitchInputDegrees:input.pitchInputDegrees,autoAngle:speedSettings.autoAfterburnerAngle,
+          groundClearance:position.y,speed,grounded});afterburner=burn.state;
+        const paid=Math.max(0,Math.min(step,burn.activeSeconds));
+        let next=paid>0?stepFlightVelocity(velocity,paid,{forward,up,throttle:1,afterburner:true}):null;
+        if(paid>0)overspeedFromAB=true;
+        if(step-paid>1e-12)next=stepFlightVelocity(next?.velocity??velocity,step-paid,{forward,up,throttle:targetThrottle,preserveOverspeed:overspeedFromAB});
+        if(next.speed<=FLIGHT_MODEL.maxSpeed+1e-8)overspeedFromAB=false;
         // Keep the natural bank response from the unchanged lift model. Add
         // only the requested increase in horizontal turning, without changing
         // speed or vertical velocity (and with an exact identity at strength 3).
         const extraYaw=turnYawRate-flightYawForBank(middleBank,speed,FLIGHT_MODEL.gravity);
         const turned=extraYaw===0?next.velocity:applyHorizontalTurn(next.velocity,next.velocity,extraYaw,step);
         velocity.set(turned.x, turned.y, turned.z);
+        afterburner=observeAfterburnerSpeed(afterburner,velocity.length());
         throttle = next.throttle;
         recoveryAssist = next.recoveryAssist;
         angleOfAttack = next.angleOfAttack;
@@ -877,7 +901,9 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       }
       if (mode === 'flight') baseOrientation.premultiply(fullFlightYaw).multiply(fullFlightPitch).normalize();
       else baseOrientation.multiply(fullTurn).normalize();
+      const beforeCollected=collected,beforeComplete=complete;
       collectAlongSegment(previousPosition, position);
+      if(mode==='flight')afterburner=awardAfterburner(afterburner,{targets:collected-beforeCollected,exit:complete&&!beforeComplete});
       if (complete) {
         if (mode === 'flight') stopMotion();
         else { speed = 0; velocity.set(0, 0, 0); }
@@ -901,6 +927,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       turnGravity,
       boundary:stageBoundaryStatus(position,{heading:Math.atan2(forward.x,-forward.z),velocity,speed,turnGravity,maxBank:turnBankLimit}),
       boundaryAppearance:boundaryVisual.snapshot(),
+      afterburner:{...afterburner},
+      speedEffects:{...airflow.snapshot(),extraFov:speedExtraFov,baseVerticalFov,highSpeedShake:speedSettings.highSpeedShake===true},
       complete,
       radarHeading: Math.hypot(velocity.x, velocity.z) > .1 ? Math.atan2(velocity.x, -velocity.z) : Math.atan2(forward.x, -forward.z),
       navigationTargets: complete ? [] : collected < BEACONS.length ? BEACONS.slice(collected).map((p,i) => ({
@@ -971,6 +999,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   }
 
   function reset() {
+    afterburner=createAfterburnerState();overspeedFromAB=false;
     position.copy(START);
     baseOrientation.identity();
     orientation.identity();

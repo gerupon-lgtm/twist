@@ -1,3 +1,4 @@
+import {convertSpeed,normalizeSpeedUnit} from './speed-units.js';
 import { APP_VERSION } from './version.js';
 import { FLIGHT_SETTING_FIELDS, DEFAULT_FLIGHT_SETTINGS, normalizeFlightSettings, loadFlightSettings, saveFlightSettings,resetFlightSetting } from './flight-settings.js';
 import { flightReport, copyableFlightReport } from './flight-session.js';
@@ -63,6 +64,8 @@ export function createFlightPanel(getModes) {
     fovAuto.disabled=inactive;input.disabled=inactive||fovAuto.checked;
     $('setting-ladderRange').disabled=inactive;
     $('setting-targetHeightGuide').disabled=modes.view!=='assisted';
+    $('setting-streakAmount').disabled=modes.view!=='assisted';
+    $('setting-autoAfterburnerAngle').disabled=modes.mode!=='flight'||!settings.autoAfterburner;
     $('setting-value-cockpitFov').textContent=fovAuto.checked?`自動（${maximum.toFixed(1)}°）`:`${Math.min(maximum,settings.cockpitFov).toFixed(1)}°`;
     for(const editor of Object.values(rangeEditors))editor.sync();
   }
@@ -113,7 +116,7 @@ export function createFlightPanel(getModes) {
   $('settings-reset').addEventListener('click', () => {
     beforeReset={...settings};$('settings-undo-reset').hidden=false;
     settings = getModes().mode === 'explore'
-      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange, targetHeightGuide: true, hudLanguage:'en' }
+      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange, targetHeightGuide: true, hudLanguage:'en',speedUnit:DEFAULT_FLIGHT_SETTINGS.speedUnit,streakAmount:DEFAULT_FLIGHT_SETTINGS.streakAmount }
       : { ...DEFAULT_FLIGHT_SETTINGS };
     persist();
   });
@@ -144,6 +147,8 @@ export function createFlightPanel(getModes) {
       $('result-outcome').textContent = report.result === 'clear' ? 'クリア' : '墜落';
       $('result-modes').textContent = `pitch=${report.pitch} / steer=${report.steer} / display=${report.display} / camera=${report.camera}`;
       $('result-settings').textContent = describeSettings(report);
+      const ab=report.afterburner,unit=normalizeSpeedUnit(report.settings.speedUnit);$('result-afterburner').hidden=!ab;
+      $('result-afterburner').textContent=ab?`AB ${ab.uses}回・${ab.seconds.toFixed(1)}秒 / ゲージ獲得 ${ab.earned.toFixed(1)} / 最高速 ${convertSpeed(ab.maxSpeed,unit).toFixed(1)} ${unit}`:'';
       $('result-segments').replaceChildren(...(report.segments??[]).map(segment=>{
         const row=document.createElement('div');row.dataset.segmentId=segment.id;
         const label=document.createElement('dt');label.textContent=segment.label;
@@ -158,7 +163,7 @@ export function createFlightPanel(getModes) {
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = phase !== 'paused';
       const inactiveSteering = getModes().steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone'];
-      for (const label of $('flight-settings-fields').children) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage'].includes(label.dataset.settingKey))
+      for (const label of $('flight-settings-fields').children) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','speedUnit','streakAmount'].includes(label.dataset.settingKey))
         || inactiveSteering.includes(label.dataset.settingKey);
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       refreshLayout();
@@ -167,7 +172,7 @@ export function createFlightPanel(getModes) {
       $('settings-reset').textContent = mode === 'flight' ? '操縦をすべて初期値へ' : '目印をすべて初期値へ';
       $('adjustment-scope-note').textContent = mode === 'flight'
         ? '機首と旋回の入力角度を別々に調整します。選んだ旋回方式の項目だけ表示します。'
-        : 'レーダーの表示範囲と目標高度の目印を調整します。探索の操縦には影響しません。';
+        : 'レーダー・目標高度・速度単位・流線を調整します。探索の操縦には影響しません。';
       if (phase !== 'paused') $('flight-adjustments').open = false;
       if (phase === 'running' || mode !== 'flight') this.showResult(null);
     },

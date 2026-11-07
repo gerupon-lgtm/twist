@@ -2,17 +2,29 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.26（公開確認済み） / 2026-11-08**
+**操作検証 v0.1.27（公開確認待ち） / 2026-11-08**
 
-v0.1.26の公開URLです。公開ファイルと実画面の版26を確認済みです。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
+v0.1.27の公開予定URLです。現在版27の公開ファイル・実画面はまだ確認していません。以下の`v`は更新確認用の値で、過去版を選ぶ指定ではありません。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
 
-- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.26)
-- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.26)
-- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.26)
-- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.26)
-- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.26)
+- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.27)
+- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.27)
+- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.27)
+- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.27)
+- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.27)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.27のスピード感とアフターバーナー
+
+近くの景色が流れる量と、視野・音・振動を増やして速さを伝えます。見失い対策の地面に岩・草・遺跡のかけら、近くを通る雲を追加しました。これらに当たり判定はありません。画面の周辺だけに速度に応じた流線を出し、飛行機の視野の広がりと小さな揺れは個別に調整できます。流線と速度の単位は探索でも使え、視野・揺れ・ABは飛行機用です。速度表示は実速度をm/s・km/h・ktへ換算し、初期値をkm/hにしました。
+
+アフターバーナー（AB）は、ためたゲージを使う一時的な加速です。開始時は0、光で25、10秒以内の連続取得で追加5・10・15（追加の上限15）、出口で40を獲得します。地面から12m未満・速度6m/s以上の飛行でもたまり、AB使用中はこの低空分を加算しません。上限100、消費は毎秒12です。出力を横に動かして110%のAB領域へ入れると点火し、少し戻して105%でも保持、100%へ戻すと解除します。空のまま押し続けても、補充された瞬間には点火しません。一度戻してから入れ直します。
+
+通常の巡航10m/s・上限30m/sは維持し、**45m/sの上限と追加推力は、ゲージを消費したABの時間だけ**適用します。解除直後は30m/sへ急に切り下げず、慣性を保ち、従来の空気抵抗で通常域へ減速します。外から見る炎を大きく明るくし、ABの音・振動・HUDゲージも追加。大きな機首下げ入力で発動する補助は初期値オフです。
+
+v26の旋回の強さ9.8、揚力・落下・失速の重力3、700m四方のステージ、3／5／8光の配置、取得半径3.2m／出口4mを維持します。単体377件に成功し、その中で通常飛行の固定360条件がv26と全出力値で一致しました。ブラウザー262件と公開用ビルドに成功。通常/ABの処理負荷比較も記録しました。公開確認はまだ完了していません。**Pixel 9aのスピード感・酔い・ABの操作感と爽快感・音・振動・負荷・発熱は未確認**です。[設定と操作](docs/settings-guide.md)、[指示資料](docs/instruction-speed-afterburner.md)、[確認済みと未確認の記録](docs/verification-v0127.md)を参照してください。
+
+版を固定して比べる場合は[保存版v0.1.25（公開確認済み）](https://twist.sikumilab.com/versions/0.1.25/?mode=flight&camera=cockpit&v=0.1.25)を使います。v0.1.26は公開済み配信ファイル21件を`public/versions/0.1.26/`へ保存し、ローカルのバイト一致を確認済みですが、`/versions/0.1.26/`での公開動作は**PENDING**です。現在版27の公開も**PENDING**です。保存版25／26の比較確認と現在版の公開確認を分けます。
 
 ## v0.1.26の旋回・広いステージ・3コース
 

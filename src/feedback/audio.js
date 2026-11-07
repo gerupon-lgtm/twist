@@ -5,7 +5,7 @@ export function createGameAudio(){
   let context=null,node=null,pending=null,poll=null,status='idle',lastState=null,wanted=false,eventTimer=null,generation=0;
   let load=0,maxLoad=0,peak=0,musicActive=false,varioActive=false;
   let lastEvent=null;
-  let navigationAcknowledged=null;
+  let navigationAcknowledged=null,afterburnerAcknowledged=null;
   let musicPending=[],musicFlush=false,scheduleTime=null;
   const post=m=>node?.port.postMessage(m);
   async function unlock(){
@@ -22,6 +22,7 @@ export function createGameAudio(){
           node.port.onmessage=({data})=>{
             if(data.type==='metrics'){load=data.load;maxLoad=Math.max(maxLoad,load);peak=data.peak;musicActive=Boolean(data.music);varioActive=wanted&&Boolean(data.vario);}
             if(data.navigation)navigationAcknowledged=data.navigation;
+            if(data.afterburner)afterburnerAcknowledged=data.afterburner;
           };
           poll=setInterval(()=>post({type:'poll'}),1000);
         }
@@ -59,6 +60,7 @@ export function createGameAudio(){
     },
     stop(){generation++;musicPending=[];wanted=false;varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop'});context?.suspend().catch(()=>{});},
     snapshot:()=>({status,load,maxLoad,peak,musicActive,varioActive,lastEvent,contextState:context?.state||'none',workletReady:Boolean(node),
+      afterburner:{requested:lastState?.model?.afterburner?{...lastState.model.afterburner}:null,acknowledged:afterburnerAcknowledged?{...afterburnerAcknowledged}:null},
       navigation:{requested:lastState?.navigation?{...lastState.navigation}:null,acknowledged:navigationAcknowledged?{...navigationAcknowledged}:null}}),
     resetMetrics(){load=0;maxLoad=0;peak=0;post({type:'resetMetrics'});},
     dispose(){clearInterval(poll);clearTimeout(eventTimer);node?.disconnect();context?.close();},

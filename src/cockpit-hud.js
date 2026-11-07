@@ -1,3 +1,4 @@
+import {convertSpeed,normalizeSpeedUnit} from './speed-units.js';
 import { cockpitReadings, cockpitProjection, horizonSegment } from './cockpit-projection.js';
 import { getGroundProximity } from './ground-proximity.js';
 import { verticalSpeedIndicator } from './cockpit-aids.js';
@@ -49,7 +50,7 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
     const base = Math.round(value/step)*step;
     return `<span>${label} ${unit}</span><small>${Math.max(0,base+step)}</small><strong>${format(value)}</strong><small>${Math.max(0,base-step)}</small>${extra}`;
   };
-  $('cockpit-speed').innerHTML = tape(readings.speed,2,hudText(language,'speed'),'m/s');
+  $('cockpit-speed').innerHTML = tape(convertSpeed(readings.speed,settings.speedUnit),normalizeSpeedUnit(settings.speedUnit)==='km/h'?10:normalizeSpeedUnit(settings.speedUnit)==='kt'?5:2,hudText(language,'speed'),normalizeSpeedUnit(settings.speedUnit));
   $('cockpit-altitude').innerHTML = heightGuide
     ? `<span>${hudText(language,'altitude')} m</span><div class="height-tape-scale">${heightBandSvg(heightGuide)}<strong style="top:${Math.max(16,Math.min(84,heightGuide.scale.currentY))}%">${format(readings.altitude)}</strong></div>`
     : tape(readings.altitude,5,hudText(language,'altitude'),'m');
