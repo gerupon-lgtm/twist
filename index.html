@@ -6,16 +6,16 @@
     <meta name="theme-color" content="#dcebf1" />
     <meta name="description" content="自分はそのまま、世界を動かす。スマホの動きで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.9" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.10" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
       <div id="ground-edge-warning" class="ground-edge-warning" data-level="clear" aria-hidden="true" hidden></div>
       <header class="topbar">
-        <a class="brand" id="home-link" href="./?v=0.1.9" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <a class="brand" id="home-link" href="./?v=0.1.10" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
         <span class="mode-tag" id="play-mode-label">探索モード</span>
-        <span class="version">操作検証 <b>v0.1.9</b></span>
+        <span class="version">操作検証 <b>v0.1.10</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
@@ -40,7 +40,7 @@
           <div class="meter" id="twist-control-meter"><div><span id="twist-label">スマホを回す</span><output id="twist-value">0°</output></div><div class="meter-track bilateral"><i id="twist-meter"></i></div><small id="twist-caption">右に回して上・左で下へ</small></div>
         </div>
         <div class="flight-line"><span>速さ <b id="speed-value">0.0</b> m/s</span><span id="ground-proximity" data-level="clear"><span id="ground-clearance">高さ</span> <b id="altitude-value">7.0</b> m<span id="ground-height-meter" aria-hidden="true" hidden><i></i></span></span><span id="stop-hint">逆側を下げるとブレーキ</span><span id="ground-warning-text" hidden>地面との間隔</span></div>
-        <div class="flight-attitude" id="flight-attitude" hidden><span>機首 <b id="nose-value">0°</b></span><span>翼の傾き <b id="bank-value">0°</b></span><span>昇降 <b id="climb-value">0.0</b> m/s</span><small>中立で翼を戻す</small></div>
+        <div class="flight-attitude" id="flight-attitude" hidden><span>機首 <b id="nose-value">0°</b></span><span>翼の傾き <b id="bank-value">0°</b></span><span>昇降 <b id="climb-value">0.0</b> m/s</span><small id="view-assist-note">中立で翼を戻す</small></div>
         <div class="flight-throttle" id="flight-throttle" hidden>
           <div class="throttle-heading"><label for="throttle-input">エンジン出力</label><output id="throttle-value" for="throttle-input">0%</output></div>
           <input id="throttle-input" type="range" min="0" max="100" step="1" value="0" aria-label="エンジン出力" disabled />

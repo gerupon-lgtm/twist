@@ -85,7 +85,7 @@ test('actual descent progresses from clear through low and danger to a ground st
   await expect(page.locator('#ground-edge-warning')).toHaveAttribute('data-level', 'danger');
   await expectLevel(page, 'stopped');
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused');
-  await expect(page.locator('#altitude-value')).toHaveText('2.0');
+  await expect(page.locator('#altitude-value')).toHaveText('0.0');
   await expect(page.locator('#throttle-value')).toHaveText('0%');
   await expect(page.locator('#speed-value')).toHaveText('0.0');
   await expect(page.locator('#ground-edge-warning')).toBeHidden();
@@ -104,6 +104,43 @@ test('actual descent progresses from clear through low and danger to a ground st
   await expect(page.locator('#ground-clearance')).toHaveText('高さ');
   await expect(page.locator('#ground-height-meter')).toBeHidden();
   await expect(page.locator('#ground-warning-text')).toBeHidden();
+});
+
+test('nose-up descent keeps the ground in view, passes below two metres, and stops only on contact', async ({ page }) => {
+  await launch(page, { controlledClock: true });
+  await pitch(page, 25);
+  await page.locator('#practice-steer').evaluate(el => { el.value = '20'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.clock.runFor(1500);
+  await pitch(page, 0);
+  await output(page, 0);
+  let sawBelowTwo = false, sawGroundView = false;
+  for (let i = 0; i < 180; i++) {
+    await page.clock.runFor(50);
+    const state = await page.locator('#app').evaluate(el => ({
+      phase: el.dataset.phase, height: Number(el.dataset.groundClearance),
+      pitch: Number(el.dataset.flightPitch), viewPitch: Number(el.dataset.viewPitch ?? el.dataset.flightPitch),
+      assistance: Number(el.dataset.viewAssistance), grounded: el.dataset.grounded,
+    }));
+    if (state.height > 0 && state.height < 2) {
+      expect(state.phase).toBe('running');
+      expect(state.grounded).toBe('false');
+      sawBelowTwo = true;
+      await page.screenshot({ path: 'test-results/v0110-nose-up-below-two.png' });
+    }
+    if (state.height < 5 && state.phase === 'running') {
+      expect(state.pitch).toBeGreaterThan(.8);
+      expect(state.viewPitch).toBeLessThan(0);
+      expect(state.assistance).toBeCloseTo(1, 5);
+      sawGroundView = true;
+    }
+    if (state.phase === 'paused') break;
+  }
+  expect(sawBelowTwo).toBe(true);
+  expect(sawGroundView).toBe(true);
+  await expect(page.locator('#app')).toHaveAttribute('data-grounded', 'true');
+  await expect(page.locator('#altitude-value')).toHaveText('0.0');
+  await expect(page.locator('#dialog-title')).toContainText('接触');
+  await page.screenshot({ path: 'test-results/v0110-contact.png' });
 });
 
 test('low and danger warnings fit three phone viewports without covering the craft or target marker', async ({ page }) => {

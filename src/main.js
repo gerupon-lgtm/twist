@@ -72,7 +72,7 @@ function applyVisibilityUI() {
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? '視野を広く。色と形の目印と、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.9`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.10`;
 }
 
 function selectVisibility(next) {
@@ -83,7 +83,7 @@ function selectVisibility(next) {
   const url = new URL(location.href);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.9');
+  url.searchParams.set('v', '0.1.10');
   history.replaceState(null, '', url);
 }
 $('view-assisted').addEventListener('click', () => selectVisibility('assisted'));
@@ -146,7 +146,7 @@ function selectSteering(next) {
   applyModeUI();
   const url = new URL(location.href);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.9');
+  url.searchParams.set('v', '0.1.10');
   history.replaceState(null, '', url);
 }
 $('steering-twist').addEventListener('click', () => selectSteering('twist'));
@@ -168,7 +168,7 @@ function selectMode(next) {
   url.searchParams.set('mode', playMode);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.9');
+  url.searchParams.set('v', '0.1.10');
   history.replaceState(null, '', url);
   if (resume) {
     setPhase('paused');
@@ -480,6 +480,7 @@ function meter(axis, limit) {
 }
 
 let lastHudAt = 0;
+let lastHudPhase = null;
 function updateGroundProximity(state) {
   const proximity = getGroundProximity({ altitude: state.groundClearance, verticalSpeed: state.verticalSpeed, grounded: state.grounded });
   const flight = playMode === 'flight';
@@ -487,7 +488,7 @@ function updateGroundProximity(state) {
   $('ground-proximity').dataset.level = level;
   $('ground-height-meter').style.setProperty('--clearance-ratio', String(proximity.ratio));
   $('altitude-value').textContent = proximity.known ? proximity.clearance.toFixed(1) : '—';
-  const messages = { clear: '地面との間隔', low: '低空に注意', danger: '地面接近！', stopped: '接近して停止', unknown: '高さを確認できません' };
+  const messages = { clear: '地面との間隔', low: '低空に注意', danger: '地面接近！', stopped: '地面に接触', unknown: '高さを確認できません' };
   const message = messages[level];
   if ($('ground-warning-text').textContent !== message) $('ground-warning-text').textContent = message;
   $('ground-warning-text').dataset.level = level;
@@ -538,14 +539,16 @@ function updateEdgeMarker(state) {
 }
 
 function updateHud(now, state) {
-  if (now - lastHudAt < 80) return;
+  if (now - lastHudAt < 80 && phase === lastHudPhase) return;
   lastHudAt = now;
+  lastHudPhase = phase;
   for (const axis of controls) meter(axis, playMode === 'explore' && axis === 'pitch' ? CONTROL_LIMITS.throttleMaximum : axis === 'twist' ? CONTROL_LIMITS.twistMaximum : CONTROL_LIMITS.tiltMaximum);
   $('speed-value').textContent = state.speed.toFixed(1);
   updateGroundProximity(state);
   $('nose-value').textContent = `${Math.round(MathUtils.radToDeg(state.pitch))}°`;
   $('bank-value').textContent = `${Math.round(MathUtils.radToDeg(state.bank || 0))}°`;
   $('climb-value').textContent = `${(state.verticalSpeed || 0) > 0 ? '+' : ''}${(state.verticalSpeed || 0).toFixed(1)}`;
+  $('view-assist-note').textContent = state.viewAssistance > .05 ? '地面を見る補助中' : '中立で翼を戻す';
   $('motion-state').textContent = phase !== 'running' || state.speed < 0.01 ? '停止中'
     : playMode === 'flight' ? (state.verticalSpeed > 0.1 ? '上昇中' : state.verticalSpeed < -0.1 ? '下降中' : '巡航中')
     : rates.brake > 0 ? 'ブレーキ' : rates.acceleration > 0 ? '加速中' : '速度維持';
@@ -569,6 +572,8 @@ function updateHud(now, state) {
   app.dataset.verticalSpeed = String(state.verticalSpeed || 0);
   app.dataset.throttle = String(state.throttle || 0);
   app.dataset.grounded = String(Boolean(state.grounded));
+  app.dataset.viewPitch = String(state.viewPitch || 0);
+  app.dataset.viewAssistance = String(state.viewAssistance || 0);
   app.dataset.horizontalFov = String(state.fieldOfView?.horizontal || 0);
   app.dataset.landmarkCount = String(state.landmarks?.length || 0);
   updateEdgeMarker(state);
@@ -616,8 +621,8 @@ function frame(now) {
       dialog({ title: '出口に到着しました', description: playMode === 'flight' ? '3つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？' : '3つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？', note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
     }
     if (state.grounded && phase === 'running') {
-      pause('地面に近づいたため停止しました。最初から飛び直せます。');
-      dialog({ title: '地面に近づいたため停止', description: '地面まで2mで停止しました。機首と出力を調整して、高さを保ちましょう。', note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
+      pause('地面に接触して停止しました。最初から飛び直せます。');
+      dialog({ title: '地面に接触して停止', description: '地面まで0mで接触しました。下降中や低空では、地面を見る補助が入ります。', note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
     }
     updateHud(now, state);
   }

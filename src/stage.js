@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FLIGHT_MODEL, stepFlightVelocity } from './flight-physics.js';
 import { computeFieldOfView } from './visibility.js';
+import { computeFlightView } from './flight-view.js';
 
 const START = new THREE.Vector3(0, 7, 26);
 const BEACONS = [
@@ -449,6 +450,8 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   const baseOrientation = new THREE.Quaternion();
   const orientation = new THREE.Quaternion();
   const viewQuaternion = new THREE.Quaternion();
+  const viewPosition = START.clone();
+  const contactVelocity = new THREE.Vector3();
   const bankRotation = new THREE.Quaternion();
   const bankAxis = new THREE.Vector3(0, 0, 1);
   const halfTurn = new THREE.Quaternion();
@@ -482,6 +485,8 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   let height = 1;
   let fieldOfView = { vertical: 64, horizontal: 64 };
   let disposed = false;
+  let viewAssistance = 0;
+  let viewPitch = 0;
 
   function syncWorld() {
     orientation.copy(baseOrientation);
@@ -490,9 +495,22 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
       bankRotation.setFromAxisAngle(bankAxis, -bank);
       orientation.multiply(bankRotation);
     }
-    viewQuaternion.copy(orientation).invert();
+    if (mode === 'flight') {
+      const view = computeFlightView({ orientation, altitude: position.y,
+        velocity: grounded ? contactVelocity : velocity, bank });
+      viewQuaternion.copy(view.orientation).invert();
+      viewPosition.copy(position).add(view.offset);
+      viewAssistance = view.assistance;
+      viewPitch = view.pitch;
+    } else {
+      viewQuaternion.copy(orientation).invert();
+      viewPosition.copy(position);
+      viewAssistance = 0;
+      forward.set(0, 0, -1).applyQuaternion(orientation);
+      viewPitch = Math.atan2(forward.y, Math.hypot(forward.x, forward.z));
+    }
     world.quaternion.copy(viewQuaternion);
-    world.position.copy(position).negate().applyQuaternion(viewQuaternion);
+    world.position.copy(viewPosition).negate().applyQuaternion(viewQuaternion);
     // This group is a child of world, so it receives the same inverse pose as
     // the floor. Its local location remains the craft's true ground position.
     const overIsland = position.x ** 2 + ((position.z + 24) / 1.1) ** 2 < 83.5 ** 2;
@@ -685,13 +703,17 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
         velocity.set(next.velocity.x, next.velocity.y, next.velocity.z);
         throttle = next.throttle;
         position.addScaledVector(previousVelocity, step / 2).addScaledVector(velocity, step / 2);
-        if (position.y <= 2 && velocity.y < 0) {
-          position.y = 2;
+        if (position.y <= 0 && velocity.y < 0) {
+          // Stop at the intersection with the actual ground reference plane.
+          const fraction = previousPosition.y / (previousPosition.y - position.y);
+          position.lerpVectors(previousPosition, position, THREE.MathUtils.clamp(fraction, 0, 1));
+          position.y = 0;
+          contactVelocity.copy(velocity);
           grounded = true;
           stopMotion();
         }
         position.x = THREE.MathUtils.clamp(position.x, -110, 110);
-        position.y = THREE.MathUtils.clamp(position.y, 2, 45);
+        position.y = THREE.MathUtils.clamp(position.y, 0, 45);
         position.z = THREE.MathUtils.clamp(position.z, -110, 110);
         if ((position.x <= -110 && velocity.x < 0) || (position.x >= 110 && velocity.x > 0)) velocity.x = 0;
         if (position.y >= 45 && velocity.y > 0) velocity.y = 0;
@@ -723,7 +745,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   function getStatus() {
     const target = collected < BEACONS.length ? BEACONS[collected] : EXIT;
     relative.subVectors(target, position);
-    localRelative.copy(relative).applyQuaternion(viewQuaternion);
+    localRelative.subVectors(target, viewPosition).applyQuaternion(viewQuaternion);
     forward.set(0, 0, -1).applyQuaternion(orientation);
     return {
       collected,
@@ -735,6 +757,9 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
       elevation: Math.atan2(localRelative.y, Math.hypot(localRelative.x, localRelative.z)),
       altitude: position.y,
       groundClearance: position.y,
+      viewAssistance,
+      viewPitch,
+      viewPosition: { x: viewPosition.x, y: viewPosition.y, z: viewPosition.z },
       speed,
       throttle,
       verticalSpeed: velocity.y,
@@ -771,6 +796,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
     bank = 0;
     stopMotion();
     grounded = false;
+    contactVelocity.set(0, 0, 0);
     collected = 0;
     complete = false;
     refreshTargets();

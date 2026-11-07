@@ -1,6 +1,6 @@
 /** Display thresholds only. This module never changes the flight or stop logic. */
 export const GROUND_PROXIMITY_LIMITS = Object.freeze({
-  stopClearance: 2,
+  stopClearance: 0,
   lowClearance: 5,
   dangerClearance: 3.5,
   lowSeconds: 3,
@@ -9,7 +9,7 @@ export const GROUND_PROXIMITY_LIMITS = Object.freeze({
 });
 
 /**
- * Clearance is the height above ground level 0, not the gap to the 2 m stop.
+ * Clearance and contact-time predictions use the actual ground plane at 0 m.
  * ratio is a height meter (0..12 m -> 0..1), not a measure of warning severity.
  * A descending time estimate assumes the current vertical speed stays constant.
  * Unknown height returns a finite placeholder with known=false; callers must

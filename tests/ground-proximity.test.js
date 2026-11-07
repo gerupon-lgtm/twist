@@ -40,10 +40,10 @@ test('height warning boundaries are inclusive and persist while ascending', () =
   assert.equal(proximity(-4, 2).level, 'danger');
 });
 
-test('descending time forecasts use the 2 m stop height with inclusive 3 s and 1.5 s boundaries', () => {
+test('descending time forecasts use ground contact at 0 m with inclusive 3 s and 1.5 s boundaries', () => {
   for (const [seconds, level] of [[3.000001, 'clear'], [3, 'low'],
     [1.500001, 'low'], [1.5, 'danger']]) {
-    const result = proximity(8, -6 / seconds);
+    const result = proximity(8, -8 / seconds);
     near(result.secondsToStop, seconds);
     assert.equal(result.clearance, 8);
     assert.equal(result.level, level);
@@ -56,20 +56,21 @@ test('descending time forecasts use the 2 m stop height with inclusive 3 s and 1
 test('rapid descent warns above the low-height band and the stronger warning wins', () => {
   const rapid = proximity(20, -20);
   assert.equal(rapid.level, 'danger');
-  near(rapid.secondsToStop, .9);
+  near(rapid.secondsToStop, 1);
   assert.equal(rapid.clearance, 20);
   near(rapid.ratio, 1);
   assert.equal(proximity(5, -.01).level, 'low');
   assert.equal(proximity(3.5, -.01).level, 'danger');
   assert.equal(proximity(5, -10).level, 'danger');
-  near(proximity(2, -1).secondsToStop, 0);
+  near(proximity(2, -1).secondsToStop, 2);
+  near(proximity(0, -1).secondsToStop, 0);
 });
 
 test('the explicit ground-stop flag takes priority without inferring a stop from altitude alone', () => {
-  const stopped = proximity(2, 0, true);
+  const stopped = proximity(0, 0, true);
   assert.equal(stopped.level, 'stopped');
-  assert.equal(stopped.clearance, 2);
-  near(stopped.ratio, 2 / 12);
+  assert.equal(stopped.clearance, 0);
+  near(stopped.ratio, 0);
   assert.equal(stopped.secondsToStop, null);
   assert.equal(proximity(2, 0, false).level, 'danger');
   assert.equal(proximity(20, -1, true).level, 'stopped');
@@ -80,8 +81,8 @@ test('the explicit ground-stop flag takes priority without inferring a stop from
 });
 
 test('warning clears after climbing away or arresting a predicted rapid descent, without stored state', () => {
-  assert.equal(proximity(8, -4).level, 'danger');
-  assert.equal(proximity(8, -2).level, 'low');
+  assert.equal(proximity(8, -6).level, 'danger');
+  assert.equal(proximity(8, -3).level, 'low');
   assert.equal(proximity(8, 0).level, 'clear');
   assert.equal(proximity(4, 2).level, 'low');
   assert.equal(proximity(6, 2).level, 'clear');
