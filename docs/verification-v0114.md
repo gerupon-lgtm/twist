@@ -33,6 +33,11 @@ Standards軸・Spec軸とも、90度を越えた機首角度を±90度へ折り�
 
 ## 公開版
 
-配信版の確認後に追記する。
+- アプリコミット `8800dcd987067490c865e2a91d9515b6960fe2d9`。[GitHub Pages更新](https://github.com/gerupon-lgtm/twist/actions/runs/42349888070) 成功。CIの113件とビルドも成功。
+- [固定表示の比較URL](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&v=0.1.14)、[現行表示の標準URL](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&v=0.1.14) を公開。画面v0.1.14、JS `index-Cg1W3qod.js` / CSS `index-D-waalSt.css`。HTTP200・HTML型、JS/CSSの型とSHA-256が最終ビルドに一致。
+- 公開版22件、Edge・1worker、1.4分、終了コード0、実行エラー0。両旋回の疑似センサーで逆30度、模型の無バンク、HUD維持、120度/半回転、0/90/180/270度の画面切替、物理状態を保つ表示切替、両旋回の画面端目標を確認。低空で翼40度が地平線へ入り、模型は固定されることを画面から検証。
+- 公開22件には、bankとfixedそれぞれの全光・出口到達とclear表示、grounded表示、display/result/inactiveSettingsのコピー、ならしの保存と初期化、保存/コピー拒否、記録の累積も含む。固定表示・低空画像を目視。変更前の4条件の厳密比較はソースを直接読むローカル試験で行い、公開版は配信資産の一致と実UIで確認する層を分けた。
+- 公開bank/rateの既存回帰確認も終了コード0。疑似センサー、本体基準、旋回表示、出力保持、上昇減速/下降加速、無効入力停止と手動再開、探索、見え方比較、目標、地面表示、0m接地、50/100%出力の失速復帰を確認。実行/HTTP読込エラー0。
+- 公開試験は `node_modules/.cache/public-v0114-*.spec.js` と同config、回帰は `node_modules/.cache/twist-public-regression-v0114.mjs`。画像は `test-results/public-v0114-*`、回帰結果は `test-results/public-v0114-rate-result.json`。Git管理外で、次の検証により上書きされ得る。
 
 物理計算、復帰補助、angle/rate・左右ひねり/面内回転の入力計算、従来の視点補助・投影計算のファイルは変更しない。新しいfixedのスマホ実機の見え方、酔いやすさ、手ぶれ感は未確認として残す。
