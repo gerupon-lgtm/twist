@@ -515,7 +515,7 @@ $('practice-button').addEventListener('click', () => {
   if (!stage) return;
   feedback.unlock();
   if (phase === 'complete' || stage.getStatus().grounded) {
-    if (phase === 'complete') flightSession.reset();
+    if (phase === 'complete') { flightSession.reset(); feedback.reset(); }
     else flightSession.restartLeg();
     stage.reset(); previousCollected = 0; craftReference = null;
   }

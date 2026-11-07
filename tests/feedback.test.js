@@ -56,3 +56,26 @@ test('all vendored SCC chip bytes match the pinned source commit',async()=>{
   for(const [path,hash]of Object.entries(source.sha256))assert.equal(createHash('sha256').update(await readFile(new URL('../src/vendor/scc/'+path,import.meta.url))).digest('hex'),hash,path);
   assert.match(await readFile(new URL('../public/licenses/SCC-NOTICE.txt',import.meta.url),'utf8'),/BSD|Redistribution/);
 });
+
+test('warning vibration supplies a fresh shared phase after pause and after an event',()=>{
+ const h=createHaptics(()=>{});h.arm();const model=flightFeedback({...flying,altitude:2},settings);
+ assert.deepEqual(h.update(model,settings,100),{restarted:true,elapsedMs:0});
+ assert.deepEqual(h.update(model,settings,150),{restarted:false,elapsedMs:50});
+ h.stop();assert.deepEqual(h.update(model,settings,700),{restarted:true,elapsedMs:0});
+ h.event('collect',settings,710);assert.equal(h.update(model,settings,720),undefined);
+ assert.deepEqual(h.update(model,settings,1010),{restarted:true,elapsedMs:0});h.stop();
+});
+
+test('audio processor resets warning phase on stop and accepts the common haptic phase after events',async()=>{
+ let Processor;
+ globalThis.AudioWorkletProcessor=class{constructor(){this.port={postMessage(){},onmessage:null};}};
+ globalThis.sampleRate=48000;globalThis.currentTime=10;globalThis.registerProcessor=(_name,C)=>{Processor=C;};
+ try{
+  await import('../src/feedback/audio-worklet.js?unit-phase');const p=new Processor(),model=flightFeedback({...flying,altitude:2},settings);
+  const send=data=>p.port.onmessage({data});send({type:'state',model,settings});assert.equal(p.cueAt,10);
+  globalThis.currentTime=12;send({type:'stop'});globalThis.currentTime=20;send({type:'state',model,settings});assert.equal(p.cueAt,20);
+  send({type:'event',kind:'collect',settings});globalThis.currentTime=20.31;
+  p.process([],[[new Float32Array(128)]]);send({type:'state',model,settings,phase:{restarted:true,elapsedMs:0}});
+  assert.equal(p.cueAt,20.31);assert.equal(p.event,null);
+ }finally{delete globalThis.AudioWorkletProcessor;delete globalThis.sampleRate;delete globalThis.currentTime;delete globalThis.registerProcessor;}
+});

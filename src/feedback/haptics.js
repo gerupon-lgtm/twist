@@ -1,6 +1,6 @@
 import { EVENT_FEEDBACK, scaledPattern } from './model.js';
 export function createHaptics(vibrate) {
-  let armed=false,next=0,cue='',eventUntil=0,eventTimer=null;
+  let armed=false,next=0,cue='',eventUntil=0,eventTimer=null,cueAt=0;
   const send=pattern=>{try {vibrate?.(pattern);}catch{/* Vibration rejection never stops flight. */}};
   return {
     arm(){armed=true;},
@@ -8,8 +8,11 @@ export function createHaptics(vibrate) {
       if(!armed||!vibrate)return;
       if(!settings.vibration||settings.vibrationScale===0){if(cue||eventUntil)this.stop();return;}
       if(now<eventUntil)return;
+      if(eventUntil){clearTimeout(eventTimer);eventUntil=0;cue='';next=0;}
       if(!model.pattern.some(n=>n>0)){if(cue)this.stop();return;}
-      if(cue!==model.cue||now>=next){send(model.pattern);cue=model.cue;next=now+model.cycle;}
+      const restarted=cue!==model.cue||now>=next;
+      if(restarted){send(model.pattern);cue=model.cue;cueAt=now;next=now+model.cycle;}
+      return {restarted,elapsedMs:now-cueAt};
     },
     event(kind,settings,now){
       const event=EVENT_FEEDBACK[kind];if(!armed||!vibrate||!settings.vibration||!settings.vibrationScale||!event)return;

@@ -47,7 +47,7 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
   const eventActive=Boolean(event && EVENT_FEEDBACK[event] && eventMs<EVENT_FEEDBACK[event].duration);
   mixer=voice(regs,0,model.power>0?model.engineHz:0,eventActive?1:Math.max(model.power*4,model.wind*4),model.wind>.12||model.power>.1,mixer);
   regs[6]=Math.round(28-model.wind*22);
-  if((model.cue==='stall'||model.cue==='ground'||model.cue==='buffet')&&pulse) {
+  if(!eventActive&&(model.cue==='stall'||model.cue==='ground'||model.cue==='buffet')&&pulse) {
     mixer=voice(regs,1,model.cue==='buffet'?0:model.cue==='ground'?880:180,model.cue==='buffet'?6:10,model.cue==='buffet',mixer);
     if(model.cue==='buffet')regs[6]=22;
   }

@@ -26,7 +26,7 @@ export function createGameAudio(){
   return {
     unlock,
     start(){wanted=true;if(context)context.resume().catch(()=>{});if(lastState)post(lastState);},
-    update(model,settings){lastState={type:'state',model,settings};if(wanted)post(lastState);},
+    update(model,settings,phase){lastState={type:'state',model,settings,phase};if(wanted)post(lastState);},
     event(kind,settings){
       if(!node||!settings.sound||!settings.sfx)return;
       const token=generation;
@@ -35,6 +35,7 @@ export function createGameAudio(){
     },
     stop(){generation++;wanted=false;lastState=null;clearTimeout(eventTimer);post({type:'stop'});context?.suspend().catch(()=>{});},
     snapshot:()=>({status,load,maxLoad,peak,contextState:context?.state||'none',workletReady:Boolean(node)}),
+    resetMetrics(){load=0;maxLoad=0;peak=0;post({type:'resetMetrics'});},
     dispose(){clearInterval(poll);clearTimeout(eventTimer);node?.disconnect();context?.close();},
   };
 }

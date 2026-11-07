@@ -17,7 +17,6 @@ test('audio and vibration stay silent before start, run after a gesture, and pau
  await expect.poll(async()=>(await audio(page)).workletReady).toBe(true);
  await expect.poll(async()=>(await audio(page)).peak,{timeout:8000}).toBeGreaterThan(0);
  expect((await page.evaluate(()=>window.vibrations)).some(Array.isArray)).toBe(true);
- await page.locator('#feedback-metrics').count();
  await page.locator('.feedback-metrics summary').click();await expect(page.locator('#feedback-diagnostics')).toContainText('音源');
  await page.screenshot({path:'test-results/v0117-audio-metrics.png'});
  await page.locator('.feedback-metrics summary').click();await page.locator('#pause-button').click();
@@ -39,6 +38,7 @@ test('feedback switches and volume persist, and copies include feedback settings
  expect(report.feedback.sensorJitter).toHaveProperty('meanPitchRange');expect(report.feedback.audio).toHaveProperty('maxLoad');
  await page.reload();await page.locator('#practice-button').click();await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();
  await expect(page.locator('#feedback-volume')).toHaveValue('10');await expect(page.locator('#feedback-sfx')).not.toBeChecked();await expect(page.locator('#feedback-vibration')).not.toBeChecked();
+ await page.locator('#feedback-settings-fields').scrollIntoViewIfNeeded();
  await page.screenshot({path:'test-results/v0117-feedback-settings.png'});
 });
 test('real crash notification interrupts the flight pulse and hidden pages cancel its tail',async({page})=>{

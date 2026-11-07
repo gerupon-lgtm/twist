@@ -8,10 +8,11 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
     this.silentModel=flightFeedback();this.registers=new Uint8Array(14);
     this.busyMs=0;this.frames=0;this.untilUpdate=0;
     this.port.onmessage=({data:m})=>{
-      if(m.type==='stop'){this.active=false;this.event=null;this.mixer.stop();}
+      if(m.type==='stop'){this.active=false;this.event=null;this.cue='quiet';this.cueAt=currentTime;this.mixer.stop();}
+      if(m.type==='resetMetrics'){this.busyMs=0;this.frames=0;this.mixer.post.takePeak();}
       if(m.type==='state'){
         this.active=true;this.model=m.model;this.settings=m.settings;this.mixer.setVolume(m.settings.volume);
-        if(this.cue!==m.model.cue){this.cue=m.model.cue;this.cueAt=currentTime;}
+        if(this.cue!==m.model.cue||m.phase?.restarted){this.cue=m.model.cue;this.cueAt=currentTime-(m.phase?.elapsedMs||0)/1000;}
       }
       if(m.type==='event'&&EVENT_FEEDBACK[m.kind]){
         if(this.event&&EVENT_FEEDBACK[this.event].priority>EVENT_FEEDBACK[m.kind].priority)return;

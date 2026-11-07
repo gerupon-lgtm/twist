@@ -46,11 +46,11 @@ export function createFeedbackController(){
     update(state,angles,inputMode,steering,now){
       if(!active)return;
       if(inputMode==='sensor')jitter.add(now,angles.pitch,steering==='twist'?angles.twist:angles.steer);
-      const model=flightFeedback(state,settings);haptics.update(model,settings,now);
-      if(now-lastAudio>=40){audio.update(model,settings);lastAudio=now;}
+      const model=flightFeedback(state,settings),phase=haptics.update(model,settings,now);
+      if(now-lastAudio>=40||phase?.restarted){audio.update(model,settings,phase);lastAudio=now;}
     },
     frameTiming(ms){if(active&&Number.isFinite(ms)){frames++;frameSum+=ms;frameMax=Math.max(frameMax,ms);}},
-    reset(){jitter.reset();frames=0;frameSum=0;frameMax=0;},
+    reset(){jitter.reset();audio.resetMetrics();frames=0;frameSum=0;frameMax=0;},
     report(){return {settings:{...settings},vibrationSupported:supported,sensorJitter:jitter.snapshot(),
       audio:audio.snapshot(),frameCpu:{meanMs:frames?frameSum/frames:0,maxMs:frameMax}};},
     updateDiagnostics(){

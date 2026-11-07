@@ -85,7 +85,7 @@ export function createFlightPanel(getModes) {
         || inactiveSteering.includes(label.dataset.settingKey);
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       $('flight-settings-help').hidden = mode !== 'flight';
-      $('settings-reset').textContent = mode === 'flight' ? '初期値に戻す' : 'レーダーを初期値へ';
+      $('settings-reset').textContent = mode === 'flight' ? '操縦を初期値へ' : 'レーダーを初期値へ';
       $('adjustment-scope-note').textContent = mode === 'flight'
         ? '機首と旋回の入力角度を別々に調整します。選んだ旋回方式の項目だけ表示します。'
         : 'レーダーの表示範囲を調整します。探索の操縦には影響しません。';

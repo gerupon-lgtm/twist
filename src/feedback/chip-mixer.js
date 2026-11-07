@@ -12,7 +12,6 @@ export class ChipMixer {
     this.musicPsg=new PsgStage();this.sfxPsg=new PsgStage();
     this.converter=new WindowConverter(SCC_COMPAT.clock,rate);this.post=new PostStage(rate,5);
     this.musicGain=0;this.sfxGain=1;this.post.setMaster(.25);this.post.clear();
-    this.psgMix={sample:L=>this.musicPsg.sample(L)*this.musicGain+this.sfxPsg.sample(L)*this.sfxGain};
   }
   writeSfx(registers){for(let i=0;i<registers.length;i++)this.sfxPsg.psg.writeReg(i,registers[i]);}
   writeMusic(addr,value){this.regs.write(addr,value);}
