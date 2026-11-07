@@ -53,7 +53,7 @@ async function beginSensor(page) {
   await page.locator('#start-button').click();
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
   await page.evaluate(() => clearInterval(window.deviceFlightCalibration));
-  await expect(page.locator('#app')).toHaveAttribute('data-control-basis', 'device');
+  await expect(page.locator('#app')).toHaveAttribute('data-control-basis', 'screen');
   await expect(page.locator('#throttle-value')).toHaveText('50%');
 }
 
@@ -142,31 +142,22 @@ test('tilt steering ignores twist, including a twist opposite to the selected tu
   await expect(page.locator('#throttle-value')).toHaveText('50%');
 });
 
-test('landscape calibration and recenter preserve hardware input while flight drawing follows bank', async ({ page }) => {
-  await startSensor(page, 'tilt', 90);
-  const pitched = devicePose({ pitch: 12 });
-  await sensor(page, pitched);
-  await expect(page.locator('#pitch-value')).toHaveText('12°');
-  await page.evaluate(() => {
-    Object.defineProperty(screen.orientation, 'angle', { value: 270, configurable: true });
-    screen.orientation.dispatchEvent(new Event('change'));
-  });
-  await expect(page.locator('#pitch-value')).toHaveText('12°');
-  await expect(page.locator('#steer-value')).toHaveText('0°');
-  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
-  await expect(page.locator('#throttle-value')).toHaveText('50%');
-  await expectBankDisplay(page);
-  await page.locator('#recenter-button').click();
-  const newNeutral = devicePose({ pitch: 15, twist: 30 });
-  await sensor(page, newNeutral);
-  await page.locator('#start-button').click();
-  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
-  for (const axis of ['pitch', 'steer', 'twist']) await expect(page.locator(`#${axis}-value`)).toHaveText('0°');
-  await expectBankDisplay(page);
-  await sensor(page, devicePose({ pitch: 12 }, newNeutral));
-  await expect(page.locator('#pitch-value')).toHaveText('12°');
-  await expect(page.locator('#steer-value')).toHaveText('0°');
-  await expect(page.locator('#throttle-value')).toHaveText('50%');
+test('landscape calibration follows visible screen axes and recenter keeps the new neutral', async ({ page }) => {
+  await startSensor(page,'tilt',90);await sensor(page,devicePose({pitch:12}));
+  await expect(page.locator('#pitch-value')).toHaveText('0°');await expect(page.locator('#steer-value')).toHaveText('12°');
+  await page.evaluate(()=>{Object.defineProperty(screen.orientation,'angle',{value:270,configurable:true});screen.orientation.dispatchEvent(new Event('change'));});
+  await expect(page.locator('#pitch-value')).toHaveText('0°');await expect(page.locator('#steer-value')).toHaveText('-12°');
+  await expect(page.locator('#app')).toHaveAttribute('data-phase','running');await expect(page.locator('#throttle-value')).toHaveText('50%');
+  await page.locator('#recenter-button').click();const neutral=devicePose({pitch:15,twist:30});await sensor(page,neutral);await page.locator('#start-button').click();
+  for(const axis of ['pitch','steer','twist'])await expect(page.locator('#'+axis+'-value')).toHaveText('0°');
+  await sensor(page,devicePose({steer:12},neutral));await expect(page.locator('#pitch-value')).toHaveText('12°');await expect(page.locator('#steer-value')).toHaveText('0°');
+});
+for(const angle of [0,90,180,270])test(`visible up and right stay pitch and steering at screen angle ${angle}`,async({page})=>{
+ await page.setViewportSize(angle%180?{width:844,height:390}:{width:390,height:844});await startSensor(page,'tilt',angle);
+ const screenPose=(pitch,steer)=>{const q=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-rad(angle));return q.clone().multiply(devicePose({pitch,steer})).multiply(q.clone().invert());};
+ for(const sign of [1,-1]){await sensor(page,screenPose(sign*12,0));await expect(page.locator('#pitch-value')).toHaveText(`${sign*12}°`);await expect(page.locator('#steer-value')).toHaveText('0°');await expect.poll(async()=>sign*await data(page,'pitch-target')).toBeGreaterThan(.05);}
+ for(const sign of [1,-1]){await sensor(page,screenPose(0,sign*12));await expect(page.locator('#steer-value')).toHaveText(`${sign*12}°`);await expect(page.locator('#pitch-value')).toHaveText('0°');await expect.poll(async()=>sign*await data(page,'bank')).toBeGreaterThan(.15);}
+ await expect(page.locator('#throttle-value')).toHaveText('50%');
 });
 
 test('right and left turns bank the drawn craft in the same direction despite opposite phone compensation', async ({ page }) => {

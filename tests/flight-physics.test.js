@@ -39,28 +39,28 @@ function simulate(seconds, dt, input, initial = cruiseVelocity()) {
   return { ...result, position };
 }
 
-test('50-percent level cruise balances thrust, drag, lift, and gravity at 8 m/s', () => {
-  near(FLIGHT_MODEL.cruiseSpeed, 8);
+test('50-percent level cruise balances thrust, drag, lift, and gravity at 10 m/s', () => {
+  near(FLIGHT_MODEL.cruiseSpeed, 10);
   near(FLIGHT_MODEL.defaultThrottle, 0.5);
   near(FLIGHT_MODEL.gravity, 3);
   near(FLIGHT_MODEL.maxThrust, 1.8);
   near(FLIGHT_MODEL.cruiseDrag, 0.9);
-  near(FLIGHT_MODEL.maxSpeed, 24);
+  near(FLIGHT_MODEL.maxSpeed, 30);
   const result = simulate(10, 1 / 60, { ...pose(), throttle: 0.5 });
-  near(result.speed, 8);
+  near(result.speed, 10);
   near(result.velocity.y, 0);
   near(result.position.y, 0);
   near(result.angleOfAttack, 0);
   near(result.lift, 3);
 });
 
-test('the 24 m/s speed cap preserves direction and bounds accelerated steps', () => {
+test('the 30 m/s speed cap preserves direction and bounds accelerated steps', () => {
   const limited = stepFlightVelocity({ x: 30, y: 40, z: 0 }, 0, { ...pose(), throttle: 1 });
-  near(limited.speed, 24);
-  near(limited.velocity.x, 24 * .6);
-  near(limited.velocity.y, 24 * .8);
+  near(limited.speed, 30);
+  near(limited.velocity.x, 30 * .6);
+  near(limited.velocity.y, 30 * .8);
   near(limited.velocity.z, 0);
-  const accelerated = stepFlightVelocity({ x: 0, y: 0, z: -24 }, .05,
+  const accelerated = stepFlightVelocity({ x: 0, y: 0, z: -30 }, .05,
     { ...pose(-30), throttle: 1 });
   finiteResult(accelerated);
 });
@@ -184,13 +184,13 @@ test('invalid state, directions, and output stay finite without mutating caller 
   near(stepFlightVelocity(velocity, 0, { ...pose(), throttle: 2 }).throttle, 1);
 });
 
-test('powered level recovery regains forward flight within eight seconds and game-scale altitude', () => {
-  // Cruise is now 8 rather than 6 m/s, while all acceleration formulas remain
-  // unchanged. Allow the same proportional 6 * (8 / 6) seconds to build speed.
-  const recoverySeconds = 8;
-  // With the new speed normalization, the measured worst loss is 6.705 m.
-  // A 7 m drop budget reserves more than 3 m above the 10 m course start.
-  const maxRecoveryDrop = 7;
+test('powered level recovery regains forward flight within ten seconds and game-scale altitude', () => {
+  // Cruise is now 10 rather than 6 m/s, while all acceleration formulas remain
+  // unchanged. Allow the same proportional 6 * (10 / 6) seconds to build speed.
+  const recoverySeconds = 10;
+  // At 10 m/s the measured worst loss is 10.200 m. The 11 m budget leaves
+  // more than 3 m above ground from the course's minimum/start altitude of 14 m.
+  const maxRecoveryDrop = 11;
   for (const down of [0, 3, 6]) for (const throttle of [.5, 1]) {
     let velocity = { x: 0, y: -down, z: 0 }, height = 0, minimum = 0;
     for (let i = 0; i < recoverySeconds * 60; i++) {

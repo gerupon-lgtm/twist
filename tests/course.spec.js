@@ -1,12 +1,13 @@
 import {test,expect} from '@playwright/test';
-for(const [speed,bank] of [[8,30],[8,40],[11,40]])test(`course clears at ${speed}m/s with ${bank} degree bank without a return loop`,async({page})=>{
+for(const [speed,bank] of [[8,30],[10,30],[14,40]])test(`course clears at ${speed}m/s with ${bank} degree bank without a return loop`,async({page})=>{
  test.setTimeout(60000);await page.goto('/?mode=flight');
  const result=await page.evaluate(async({speed,bank})=>{
   const {createStage}=await import('/src/stage.js'),{flightCommands}=await import('/src/flight-input.js');
   const stage=createStage(document.createElement('canvas'));stage.resize(390,844,1);stage.launchFlight();
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));let s=stage.getStatus(),backtrack=0,turn=0,lastHeading=0,steps=0,segments=[],since=0,maxBank=0;
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));let s=stage.getStatus(),backtrack=0,turn=0,lastHeading=0,steps=0,segments=[],since=0,maxBank=0,minima=[];
   for(;steps<2000&&!s.complete&&!s.grounded;steps++){
    const dx=s.targetPosition.x-s.position.x,dy=s.targetPosition.y-s.position.y,dz=s.targetPosition.z-s.position.z;
+   const dist=Math.hypot(dx,dy,dz);if(!minima[s.collected]||dist<minima[s.collected].dist)minima[s.collected]={dist,horiz:Math.hypot(dx,dz),dy};
    const heading=Math.atan2(s.velocity.x,-s.velocity.z),error=Math.atan2(Math.sin(Math.atan2(dx,-dz)-heading),Math.cos(Math.atan2(dx,-dz)-heading));
    const pitch=clamp(Math.atan2(dy,Math.hypot(dx,dz)),-.25,.25),demand=clamp(error*1.4,-bank*Math.PI/180,bank*Math.PI/180)/(40*Math.PI/180);
    const angles={pitch:Math.sign(pitch)*(3+Math.abs(pitch)/(15*Math.PI/180)*22),steer:Math.sign(demand)*(3+Math.abs(demand)*12),twist:0};
@@ -15,7 +16,7 @@ for(const [speed,bank] of [[8,30],[8,40],[11,40]])test(`course clears at ${speed
    backtrack+=Math.max(0,s.position.z-prev.position.z);turn+=Math.abs(Math.atan2(Math.sin(s.heading-lastHeading),Math.cos(s.heading-lastHeading)));lastHeading=s.heading;maxBank=Math.max(maxBank,Math.abs(s.bank)*180/Math.PI);
    if(s.collected!==prev.collected||s.complete){segments.push(since);since=0;}
   }
-  const out={complete:s.complete,collected:s.collected,grounded:s.grounded,backtrack,turn,maxBank,segments,steps};stage.dispose();return out;
+  const out={complete:s.complete,collected:s.collected,grounded:s.grounded,backtrack,turn,maxBank,segments,minima,steps};stage.dispose();return out;
  },{speed,bank});
  expect(result.complete,JSON.stringify(result)).toBe(true);expect(result.collected).toBe(3);expect(result.grounded).toBe(false);expect(result.backtrack).toBeLessThan(.2);expect(result.turn).toBeLessThan(Math.PI);expect(result.maxBank).toBeLessThanOrEqual(bank+.01);expect(result.segments).toHaveLength(4);expect(Math.max(...result.segments)).toBeLessThan(12);
 });

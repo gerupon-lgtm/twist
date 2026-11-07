@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {Euler,Quaternion,Vector3} from 'three';
 import {readFile} from 'node:fs/promises';
+import {COURSE} from '../src/course.js';
 const rad=d=>d*Math.PI/180;
 const Z=new Vector3(0,0,1);
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
@@ -67,7 +68,7 @@ test('display uses unfolded half-turn angles and follows the short path through 
  await page.clock.runFor(500);rotationClose(await quat(page,'craft-screen-quaternion'),new Quaternion().setFromAxisAngle(Z,rad(-179)));
 });
 
-test('portrait/landscape layout rotation immediately preserves the physical calibrated up direction',async({page})=>{
+test('layout rotation preserves calibrated display up and maps tilt to the visible screen axes',async({page})=>{
  await sensorLaunch(page,'tilt',0);await send(page,{twist:30,pitch:12});await page.clock.runFor(600);
  for(const screen of [90,180,270,0]) {
   await page.setViewportSize(screen%180?{width:844,height:390}:{width:390,height:844});
@@ -75,7 +76,10 @@ test('portrait/landscape layout rotation immediately preserves the physical cali
   await page.clock.runFor(100);
   const physical=new Quaternion().setFromAxisAngle(Z,-rad(30)).multiply(new Quaternion().setFromAxisAngle(Z,-rad(screen)));
   rotationClose(physical.multiply(await quat(page,'craft-screen-quaternion')),new Quaternion());
-  await expect(page.locator('#pitch-value')).toHaveText('12°');await expect(page.locator('#throttle-value')).toHaveText('50%');
+  const pitch=Math.round(Math.atan(Math.tan(rad(12))*Math.cos(rad(screen)))*180/Math.PI);
+  const steer=Math.round(Math.atan(Math.tan(rad(12))*Math.sin(rad(screen)))*180/Math.PI);
+  await expect(page.locator('#pitch-value')).toHaveText(`${pitch}°`);await expect(page.locator('#steer-value')).toHaveText(`${steer}°`);
+  await expect(page.locator('#throttle-value')).toHaveText('50%');
  }
 });
 
@@ -108,28 +112,42 @@ for(const steering of ['tilt','twist'])test(`fixed ${steering} navigation matche
  await page.screenshot({path:`test-results/v0114-edge-${steering}.png`});
 });
 
-test('bank matches the v0.1.13 trace and display cannot alter physical flight',async({page})=>{
- const baseline=JSON.parse(await readFile('tests/fixtures/bank-v0113-trace.json','utf8'));await page.goto('/?mode=flight');
- const traces=await page.evaluate(async data=>{
+test('legacy conditions retain the v0.1.13 trace and both displays retain current physical flight',async({page})=>{
+ const baseline=JSON.parse(await readFile('tests/fixtures/bank-v0113-trace.json','utf8'));
+ const capture=()=>page.evaluate(async data=>{
   const {createStage}=await import('/src/stage.js');const rows=[];
   for(const display of ['bank','fixed']){
-   const stage=createStage(document.createElement('canvas'),{display});stage.resize(390,844,1);stage.launchFlight();const samples=[];
+   const stage=createStage(document.createElement('canvas'),{display});stage.resize(390,844,1);stage.launchFlight();const initial=stage.getStatus(),samples=[];
    for(const row of data.samples){for(let i=0;i<row.frames;i++)stage.update(data.dt,{mode:'flight',...row.input,displayTwist:30});samples.push(stage.getStatus());}
-   rows.push(samples);stage.dispose();
+   rows.push({initial,samples});stage.dispose();
   }return rows;
  },baseline);
+ await page.goto('/?mode=flight');const current=await capture();
+ expect(current[0].initial.speed).toBe(10);expect(current[0].initial.position).toEqual(COURSE.start);
+ // Supply only the approved pre-v24 constants in HTTP responses; production files stay untouched.
+ const physics=(await readFile('src/flight-physics.js','utf8')).replace(/cruiseSpeed:\s*[\d.]+/,'cruiseSpeed: 6').replace(/maxSpeed:\s*[\d.]+/,'maxSpeed: 18');
+ const course=(await readFile('src/course.js','utf8')).replace(/export const COURSE = Object\.freeze\(\{[\s\S]*?\n\}\);/,`export const COURSE = Object.freeze({
+  start: {x:0,y:7,z:26}, lights: [{x:0,y:10,z:0},{x:16,y:18,z:-24},{x:-14,y:12,z:-44}], exit: {x:0,y:7,z:-62}
+ });`);
+ const routes=[[/\/src\/flight-physics\.js(?:\?|$)/,physics],[/\/src\/course\.js(?:\?|$)/,course]];
+ for(const [url,body] of routes)await page.route(url,route=>route.fulfill({contentType:'text/javascript',body}));
+ await page.reload();const legacy=await capture();
+ for(const [url] of routes)await page.unroute(url);
  function compare(actual,expected){for(const[key,value]of Object.entries(expected)){if(typeof value==='number')expect(actual[key]).toBeCloseTo(value,8);else if(value&&typeof value==='object')compare(actual[key],value);else expect(actual[key]).toEqual(value);}}
  for(let i=0;i<baseline.samples.length;i++){
-  compare(traces[0][i],baseline.samples[i].state);
-  for(const key of ['position','velocity','orientation','speed','bank','pitch','grounded','collected','complete'])expect(traces[1][i][key]).toEqual(traces[0][i][key]);
+  compare(legacy[0].samples[i],baseline.samples[i].state);
+  for(const traces of [current,legacy])for(const key of ['position','velocity','orientation','speed','bank','pitch','grounded','collected','complete'])expect(traces[1].samples[i][key]).toEqual(traces[0].samples[i][key]);
  }
 });
 
 test('fixed low-flight horizon uses full bank while the model stays upright',async({page})=>{
  await page.goto('/?mode=flight');const state=await page.evaluate(async()=>{
   const {createStage}=await import('/src/stage.js');const stage=createStage(document.createElement('canvas'),{display:'fixed'});stage.launchFlight();
-  for(let i=0;i<1200;i++)stage.update(1/60,{mode:'flight',bankAngle:40*Math.PI/180,throttle:.5,displayTwist:30});
-  const state=stage.getStatus();stage.dispose();return state;
+  let state=stage.getStatus();
+  for(let i=0;i<3600&&state.altitude>=5&&!state.grounded;i++){
+   stage.update(1/60,{mode:'flight',bankAngle:40*Math.PI/180,throttle:.5,displayTwist:30});state=stage.getStatus();
+  }
+  stage.dispose();return state;
  });
  expect(state.altitude).toBeLessThan(5);expect(state.grounded).toBe(false);
  const world=new Quaternion(state.worldQuaternion.x,state.worldQuaternion.y,state.worldQuaternion.z,state.worldQuaternion.w);

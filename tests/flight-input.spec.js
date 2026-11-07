@@ -164,7 +164,7 @@ for(const display of ['bank','fixed']) test(`angle input can fly the full course
     await slider(page,'practice-pitch',tilt(desired/(15*Math.PI/180)));
     const bankDemand=clamp(bearing*1.4,-40*Math.PI/180,40*Math.PI/180)/(40*Math.PI/180);
     await slider(page,'practice-steer',Math.sign(bankDemand)*(3+Math.abs(bankDemand)*12));
-    await slider(page,'throttle-input',Math.round(clamp(.5+(6-state.speed)*.3+state.pitch*.8,.15,1)*100));
+    await slider(page,'throttle-input',Math.round(clamp(.5+(10-state.speed)*.3+state.pitch*.8,.15,1)*100));
     await page.clock.runFor(100);
   }
   expect(sawExit).toBe(true);

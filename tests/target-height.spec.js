@@ -19,8 +19,8 @@ async function launchSensors(page,camera) {
 for(const camera of ['overlay','chase','cockpit'])for(const size of sizes)test(`target height stays clear in ${camera} at ${size.width}x${size.height}`,async({page})=>{
  await page.setViewportSize(size);await launchSensors(page,camera);
  const selector=camera==='cockpit'?'#cockpit-target-height':'#target-height-inline';
- await expect(page.locator(selector)).toBeVisible();await expect(page.locator(selector)).toContainText('目標 10m');await expect(page.locator(selector)).toContainText('高さOK');
- expect(await guide(page)).toMatchObject({target:10,radius:3.2,inside:true});
+ await expect(page.locator(selector)).toBeVisible();await expect(page.locator(selector)).toContainText('目標 14m');await expect(page.locator(selector)).toContainText('高さOK');
+ expect(await guide(page)).toMatchObject({target:14,radius:3.2,inside:true});
  const own=await page.locator(selector).boundingBox();expect(own.x).toBeGreaterThanOrEqual(0);expect(own.x+own.width).toBeLessThanOrEqual(size.width);
  const obstacles=camera==='cockpit'?['#cockpit-speed','#cockpit-altitude','#cockpit-vario','#cockpit-heading','#cockpit-power','#radar','.navigation','#bottom-panel']:['#throttle-value','.throttle-heading > label','#throttle-input','#pause-button','#recenter-button','#ground-proximity'];
  for(const other of obstacles)expect(overlap(own,await page.locator(other).boundingBox()),selector+'/'+other).toBe(false);
@@ -30,11 +30,12 @@ for(const camera of ['overlay','chase','cockpit'])for(const size of sizes)test(`
 });
 for(const camera of ['overlay','chase','cockpit'])test(`next light changes the height band and warns early in ${camera}`,async({page})=>{
  await launch(page,'mode=flight&camera='+camera);await page.clock.runFor(4400);
- expect(await guide(page)).toMatchObject({target:14,lower:10.8,upper:17.2,inside:false,direction:'up'});
- const selector=camera==='cockpit'?'#cockpit-target-height':'#target-height-inline';await expect(page.locator(selector)).toContainText('目標 14m');
- // Turn toward the second light; approaching it horizontally makes the early cue eligible.
- await slider(page,'practice-steer',15);await page.clock.runFor(1300);await slider(page,'practice-steer',0);await page.clock.runFor(200);
- expect((await guide(page)).urgent).toBe(true);await expect(page.locator(selector)).toContainText('早めに▲');
+ expect(await guide(page)).toMatchObject({target:16,lower:12.8,upper:19.2,inside:true,direction:'level'});
+ const selector=camera==='cockpit'?'#cockpit-target-height':'#target-height-inline';await expect(page.locator(selector)).toContainText('目標 16m');
+ // Deliberately descend below the second light's band while still approaching it.
+ await slider(page,'practice-pitch',-25);await slider(page,'throttle-input',0);
+ for(let i=0;i<80&&!(await guide(page)).urgent;i++)await page.clock.runFor(50);
+ expect((await guide(page)).target).toBe(16);expect((await guide(page)).inside).toBe(false);expect((await guide(page)).urgent).toBe(true);await expect(page.locator(selector)).toContainText('早めに▲');
 });
 test('guide setting survives reload, is copied, is hidden in legacy, and also works in exploration',async({page})=>{
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>window.copied=text},configurable:true}));

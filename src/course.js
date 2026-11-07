@@ -1,12 +1,12 @@
 /** One route is shared by exploration, flight, and the legacy drawing. */
 export const COURSE = Object.freeze({
-  start: Object.freeze({ x: 0, y: 10, z: 26 }),
+  start: Object.freeze({ x: 0, y: 14, z: 26 }),
   lights: Object.freeze([
-    Object.freeze({ x: 0, y: 10, z: 0 }),
-    Object.freeze({ x: 6, y: 14, z: -34 }),
-    Object.freeze({ x: 4, y: 16, z: -68 }),
+    Object.freeze({ x: 0, y: 14, z: 0 }),
+    Object.freeze({ x: 4, y: 16, z: -34 }),
+    Object.freeze({ x: 4, y: 18, z: -68 }),
   ]),
-  exit: Object.freeze({ x: 8, y: 16, z: -96 }),
+  exit: Object.freeze({ x: 8, y: 20, z: -96 }),
 });
 
 const LIMITS = Object.freeze({ horizontal: 110, minHeight: 2, maxHeight: 45, heightChange: 10 });

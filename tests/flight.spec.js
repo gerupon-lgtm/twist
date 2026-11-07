@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { COURSE } from '../src/course.js';
+import { FLIGHT_MODEL } from '../src/flight-physics.js';
 
 test.use({ hasTouch: true });
 const angle = (page, axis, value) => page.locator(`#practice-${axis}`).evaluate((el, value) => { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); }, value);
@@ -11,7 +13,7 @@ async function practice(page) {
   await page.getByRole('button', { name: '画面で操縦（スマホ傾きは無効）', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-play-mode', 'flight');
   await expect(page.locator('#throttle-value')).toHaveText('50%');
-  await expect.poll(() => speed(page)).toBeGreaterThan(5.5);
+  await expect.poll(() => speed(page)).toBeGreaterThan(FLIGHT_MODEL.cruiseSpeed - .5);
 }
 async function fakeFlight(page) {
   await page.addInitScript(() => {
@@ -38,6 +40,7 @@ async function fakeFlight(page) {
 
 test('flight screen throttle accepts a touch, retains output after release, and speeds up', async ({ page }) => {
   await practice(page);
+  const initialSpeed = await speed(page);
   const slider = page.getByRole('slider', { name: 'エンジン出力', exact: true });
   const rect = await slider.boundingBox();
   expect(rect.height).toBeGreaterThanOrEqual(44);
@@ -46,17 +49,18 @@ test('flight screen throttle accepts a touch, retains output after release, and 
   const selected = await slider.inputValue();
   await page.waitForTimeout(300);
   expect(await slider.inputValue()).toBe(selected);
-  await expect.poll(() => speed(page)).toBeGreaterThan(6.2);
+  await expect.poll(() => speed(page)).toBeGreaterThan(initialSpeed + .2);
 });
 
 test('nose up climbs while slowing and nose down descends while gaining speed at the same output', async ({ page }) => {
   await practice(page);
+  const initialSpeed = await speed(page), initialHeight = Number(await page.locator('#altitude-value').textContent());
   await angle(page, 'pitch', 20);
   await expect.poll(() => data(page, 'flight-pitch')).toBeGreaterThan(0.12);
   await angle(page, 'pitch', 0);
   await expect.poll(() => data(page, 'vertical-speed')).toBeGreaterThan(0.15);
-  await expect.poll(() => speed(page)).toBeLessThan(5.9);
-  expect(Number(await page.locator('#altitude-value').textContent())).toBeGreaterThan(7);
+  await expect.poll(() => speed(page)).toBeLessThan(initialSpeed - .1);
+  expect(Number(await page.locator('#altitude-value').textContent())).toBeGreaterThan(initialHeight);
   const climbSpeed = await speed(page);
   await angle(page, 'pitch', -20);
   await expect.poll(() => data(page, 'flight-pitch')).toBeLessThan(-0.12);
@@ -83,12 +87,13 @@ test('flight bank turns scenery and banks the drawn craft in the turn direction'
 
 test('zero engine power glides and descends; pause stops everything and resume explicitly relaunches', async ({ page }) => {
   await practice(page);
+  const initialSpeed = await speed(page), initialHeight = Number(await page.locator('#altitude-value').textContent());
   await output(page, 0);
   await expect(page.locator('#throttle-value')).toHaveText('0%');
-  expect(await speed(page)).toBeGreaterThan(4);
-  await expect.poll(() => speed(page)).toBeLessThan(5.7);
+  expect(await speed(page)).toBeGreaterThan(initialSpeed * 2 / 3);
+  await expect.poll(() => speed(page)).toBeLessThan(initialSpeed - .3);
   await expect.poll(() => data(page, 'vertical-speed')).toBeLessThan(-0.1);
-  await expect.poll(() => page.locator('#altitude-value').textContent().then(Number)).toBeLessThan(7);
+  await expect.poll(() => page.locator('#altitude-value').textContent().then(Number)).toBeLessThan(initialHeight);
   await page.getByRole('button', { name: '一時停止', exact: true }).click();
   await expect(page.locator('#speed-value')).toHaveText('0.0');
   await expect(page.locator('#throttle-value')).toHaveText('0%');
@@ -98,7 +103,7 @@ test('zero engine power glides and descends; pause stops everything and resume e
   expect(await page.locator('#app').getAttribute('data-position')).toBe(position);
   await page.getByRole('button', { name: '画面操作を再開する', exact: true }).click();
   await expect(page.locator('#throttle-value')).toHaveText('50%');
-  await expect.poll(() => speed(page)).toBeGreaterThan(5.5);
+  await expect.poll(() => speed(page)).toBeGreaterThan(FLIGHT_MODEL.cruiseSpeed - .5);
 });
 
 test('phone twist does not change flight power or speed in level cruise', async ({ page }) => {
@@ -107,7 +112,7 @@ test('phone twist does not change flight power or speed in level cruise', async 
     await angle(page, 'twist', twist);
     await page.waitForTimeout(150);
     await expect(page.locator('#throttle-value')).toHaveText('50%');
-    expect(await speed(page)).toBeCloseTo(8, 1);
+    expect(await speed(page)).toBeCloseTo(10, 1);
     expect(await data(page, 'flight-pitch')).toBeCloseTo(0, 5);
   }
   await expect(page.locator('#twist-control-meter')).toBeHidden();
@@ -202,7 +207,7 @@ test('approaching the ground stops flight and explicit restart resets the route'
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
   await expect(page.locator('#app')).toHaveAttribute('data-grounded', 'false');
   await expect(page.locator('#throttle-value')).toHaveText('50%');
-  expect(Number(await page.locator('#altitude-value').textContent())).toBe(7);
+  expect(Number(await page.locator('#altitude-value').textContent())).toBe(COURSE.start.y);
 });
 
 test('compound flight steering adds no unintended roll and a full pitch loop stays continuous', async ({ page }) => {
@@ -250,7 +255,7 @@ test('physical flight reaches all aerial targets and the exit without moving the
       const d = { x: state.targetPosition.x - state.position.x, y: state.targetPosition.y - state.position.y, z: state.targetPosition.z - state.position.z };
       const bearing = wrap(Math.atan2(d.x, -d.z) - Math.atan2(state.velocity.x, -state.velocity.z));
       const desiredPitch = clamp(Math.atan2(d.y, Math.hypot(d.x, d.z)), -.25, .25);
-      stage.update(.1, { mode: 'flight', pitchRate: clamp((desiredPitch - state.pitch) * 1.5, -.5, .5), bankAngle: clamp(bearing * 1.4, -40 * Math.PI / 180, 40 * Math.PI / 180), throttle: clamp(.5 + (6 - state.speed) * .3 + state.pitch * .8, .15, 1) });
+      stage.update(.1, { mode: 'flight', pitchRate: clamp((desiredPitch - state.pitch) * 1.5, -.5, .5), bankAngle: clamp(bearing * 1.4, -40 * Math.PI / 180, 40 * Math.PI / 180), throttle: clamp(.5 + (10 - state.speed) * .3 + state.pitch * .8, .15, 1) });
       state = stage.getStatus(); minimumAltitude = Math.min(minimumAltitude, state.altitude);
     }
     const output = { complete: state.complete, collected: state.collected, grounded: state.grounded, steps, minimumAltitude, fixed: state.craftScreen.x === 195 && state.craftScreen.y === 422 && Object.values(state.cameraPosition).every(v => v === 0) };
@@ -277,15 +282,20 @@ for (const percent of [50, 100]) test(`restoring level pitch and ${percent}-perc
   expect(await data(page, 'vertical-speed')).toBeLessThan(-2);
   const before = JSON.parse(await page.locator('#app').getAttribute('data-position'));
   await output(page, percent);
-  await angle(page, 'pitch', -25);
   let assisted = false, minimumHeight = Infinity;
-  for (let i = 0; i < 100 && await data(page, 'flight-pitch') > .025; i++) {
+  for (let i = 0; i < 100; i++) {
+    const pitch = await data(page, 'flight-pitch');
+    if (Math.abs(pitch) < .002) break;
+    // Reduce the last 50 ms input so rate mode stops at level, rather than holding a dive.
+    const demand = Math.min(1, Math.abs(pitch) / (.65 * .05));
+    await angle(page, 'pitch', -Math.sign(pitch) * (3 + 22 * demand));
     await page.clock.runFor(50);
     assisted ||= await data(page, 'recovery-assist') > .05;
     minimumHeight = Math.min(minimumHeight, await data(page, 'ground-clearance'));
     await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
   }
   await angle(page, 'pitch', 0);
+  expect(Math.abs(await data(page, 'flight-pitch'))).toBeLessThan(.005);
   let recovered = false;
   for (let i = 0; i < 180; i++) {
     await page.clock.runFor(50);

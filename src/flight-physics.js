@@ -1,11 +1,11 @@
 /** Game-scale flight approximation; values are accelerations per unit mass. */
 export const FLIGHT_MODEL = Object.freeze({
-  cruiseSpeed: 8,
+  cruiseSpeed: 10,
   defaultThrottle: 0.5,
   gravity: 3,
   maxThrust: 1.8,
   cruiseDrag: 0.9,
-  maxSpeed: 24,
+  maxSpeed: 30,
   maxLift: 9,
   stallStart: 20 * Math.PI / 180,
   stallEnd: 70 * Math.PI / 180,

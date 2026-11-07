@@ -20,7 +20,7 @@ async function launch(page, { controlledClock = false } = {}) {
   await expect(page.locator('#throttle-value')).toHaveText('50%');
   await expect(page.locator('#ground-clearance')).toHaveText('地面まで');
   await expect(page.locator('#ground-edge-warning')).toBeHidden();
-  expect(await data(page, 'ground-clearance')).toBeCloseTo(7, 1);
+  expect(await data(page, 'ground-clearance')).toBeCloseTo(14, 1);
 }
 
 async function descend(page) {
@@ -97,7 +97,7 @@ test('actual descent progresses from clear through low and danger to a ground st
   await expectLevel(page, 'clear');
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
   await expect(page.locator('#throttle-value')).toHaveText('50%');
-  await expect(page.locator('#altitude-value')).toHaveText('7.0');
+  await expect(page.locator('#altitude-value')).toHaveText('14.0');
   await page.locator('#pause-button').click();
   await expect(page.locator('#ground-edge-warning')).toBeHidden();
   await page.locator('#mode-explore').click();
@@ -115,7 +115,7 @@ test('nose-up descent keeps the ground in view, passes below two metres, and sto
   await pitch(page, 0);
   await output(page, 0);
   let sawBelowTwo = false, sawGroundView = false;
-  for (let i = 0; i < 180; i++) {
+  for (let i = 0; i < 360; i++) {
     await page.clock.runFor(50);
     const state = await page.locator('#app').evaluate(el => ({
       phase: el.dataset.phase, height: Number(el.dataset.groundClearance),
@@ -223,7 +223,7 @@ test('low flight outside the original island still has a rendered floor and grou
     stage.resize(innerWidth, innerHeight, 1);
     stage.update(1, { mode: 'explore', yawRate: Math.PI / 2, speed: 0 });
     stage.update(.5, { mode: 'explore', pitchRate: -Math.PI / 2, speed: 0 });
-    stage.update(1, { mode: 'explore', speed: 10 });
+    stage.update(2, { mode: 'explore', speed: 10 });
     stage.update(.5, { mode: 'explore', pitchRate: Math.PI / 2, speed: 0 });
     stage.update(9, { mode: 'explore', speed: 10 });
     stage.update(8 / 9, { mode: 'explore', pitchRate: -Math.PI / 2, speed: 0 });

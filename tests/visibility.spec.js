@@ -82,7 +82,7 @@ test('all four landmarks are distinguishable in the stage and profiles preserve 
       const d = { x: s.targetPosition.x - s.position.x, y: s.targetPosition.y - s.position.y, z: s.targetPosition.z - s.position.z };
       const bearing = wrap(Math.atan2(d.x, -d.z) - Math.atan2(s.velocity.x, -s.velocity.z));
       const pitch = clamp(Math.atan2(d.y, Math.hypot(d.x, d.z)), -.25, .25);
-      const input = { mode: 'flight', pitchRate: clamp((pitch - s.pitch) * 1.5, -.5, .5), bankAngle: clamp(bearing * 1.4, -40 * Math.PI / 180, 40 * Math.PI / 180), throttle: clamp(.5 + (6 - s.speed) * .3 + s.pitch * .8, .15, 1) };
+      const input = { mode: 'flight', pitchRate: clamp((pitch - s.pitch) * 1.5, -.5, .5), bankAngle: clamp(bearing * 1.4, -40 * Math.PI / 180, 40 * Math.PI / 180), throttle: clamp(.5 + (10 - s.speed) * .3 + s.pitch * .8, .15, 1) };
       if (steps === 100) { a.setVisibility('classic'); b.setVisibility('assisted'); }
       a.update(.1, input); b.update(.1, input); s = a.getStatus(); equal &&= snapshot(s) === snapshot(b.getStatus());
       sawExit ||= s.targetLabel === '出口';

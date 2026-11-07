@@ -13,8 +13,8 @@ const oldCourse = {
 };
 
 test('shared route keeps the horizontal launch and first light, raises the exit, and gently reverses its turns', () => {
-  assert.deepEqual(COURSE.start, { x: 0, y: 10, z: 26 });
-  assert.deepEqual(COURSE.lights[0], { x: 0, y: 10, z: 0 });
+  assert.deepEqual(COURSE.start, { x: 0, y: 14, z: 26 });
+  assert.deepEqual(COURSE.lights[0], { x: 0, y: 14, z: 0 });
   assert.ok(COURSE.exit.y >= 10);
   assert.ok(Object.isFrozen(COURSE) && Object.isFrozen(COURSE.lights));
   for (const point of [COURSE.start, ...COURSE.lights, COURSE.exit]) assert.ok(Object.isFrozen(point));

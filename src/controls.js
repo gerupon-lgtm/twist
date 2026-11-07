@@ -88,14 +88,15 @@ export function compensationQuaternion(referenceQuaternion, currentQuaternion) {
   return current.invert().multiply(reference).normalize();
 }
 
-/** Read tilt along the phone's own top/right edges, independent of craft drawing. */
-export function deviceTiltAngles(referenceQuaternion, currentQuaternion) {
+/** Read tilt along the visible screen top/right edges, independent of craft drawing. */
+export function deviceTiltAngles(referenceQuaternion, currentQuaternion, screenAngle = 0) {
   const reference = normalizedQuaternion(referenceQuaternion);
   const current = normalizedQuaternion(currentQuaternion);
   const invalid = () => ({ pitch: 0, steer: 0, twist: 0, valid: false });
-  if (!reference || !current) return invalid();
+  if (!reference || !current || !Number.isFinite(screenAngle)) return invalid();
   const compensation = current.clone().invert().multiply(reference).normalize();
-  const normal = new Vector3(0, 0, 1).applyQuaternion(compensation);
+  const normal = new Vector3(0, 0, 1).applyQuaternion(compensation)
+    .applyAxisAngle(Z_AXIS, MathUtils.degToRad(screenAngle));
   if (normal.z <= 0.08) return invalid();
   return {
     pitch: MathUtils.radToDeg(Math.atan2(normal.y, normal.z)),

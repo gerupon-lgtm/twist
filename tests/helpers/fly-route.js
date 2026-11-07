@@ -20,7 +20,7 @@ export async function flyRoute(page,onExit,onApproach) {
   await setSlider(page,'practice-pitch',tilt(desired/(15*Math.PI/180)));
   const bank=clamp(bearing*1.4,-40*Math.PI/180,40*Math.PI/180)/(40*Math.PI/180);
   await setSlider(page,'practice-steer',Math.sign(bank)*(3+Math.abs(bank)*12));
-  await setSlider(page,'throttle-input',Math.round(clamp(.5+(6-state.speed)*.3+state.pitch*.8,.15,1)*100));
+  await setSlider(page,'throttle-input',Math.round(clamp(.5+(10-state.speed)*.3+state.pitch*.8,.15,1)*100));
   await page.clock.runFor(100);
  }
  return sawExit;
