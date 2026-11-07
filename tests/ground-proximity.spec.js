@@ -88,6 +88,7 @@ test('actual descent progresses from clear through low and danger to a ground st
   await expect(page.locator('#altitude-value')).toHaveText('0.0');
   await expect(page.locator('#throttle-value')).toHaveText('0%');
   await expect(page.locator('#speed-value')).toHaveText('0.0');
+  await expect(page.locator('#dialog-description')).toContainText('前倒し12°');
   await expect(page.locator('#ground-edge-warning')).toBeHidden();
   const stopped = await page.locator('#app').getAttribute('data-position');
   await page.waitForTimeout(200);

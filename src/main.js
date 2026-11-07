@@ -40,6 +40,7 @@ let keyboardActive = false;
 let keyboardTwistBase = 0;
 let previousCollected = 0;
 let toastUntil = 0;
+let lastFlightSnapshot = null;
 const screenAngle = () => screen.orientation?.angle ?? window.orientation ?? 0;
 const controls = ['pitch', 'steer', 'twist'];
 
@@ -58,6 +59,9 @@ function setPhase(next) {
 const modeNote = () => playMode === 'flight'
   ? 'スマホ本体を基準に操縦します。出力50%で出発。上昇で減速、下降で加速し、低出力では降下しやすくなります。'
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
+const modeIntroduction = () => playMode === 'flight'
+  ? '自機は画面中央。右へ曲がると機体も右へ傾きます。金色の光を3つ集めて出口へ。'
+  : '自機はスマホと一緒に傾かず、最初の上向きを保ちます。金色の光を3つ集めて出口へ。';
 
 function setThrottle(value) {
   throttle = Number.isFinite(value) ? MathUtils.clamp(value, 0, 1) : 0;
@@ -72,7 +76,7 @@ function applyVisibilityUI() {
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? '視野を広く。色と形の目印と、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.10`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&v=0.1.11`;
 }
 
 function selectVisibility(next) {
@@ -83,7 +87,7 @@ function selectVisibility(next) {
   const url = new URL(location.href);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.10');
+  url.searchParams.set('v', '0.1.11');
   history.replaceState(null, '', url);
 }
 $('view-assisted').addEventListener('click', () => selectVisibility('assisted'));
@@ -92,6 +96,7 @@ $('view-classic').addEventListener('click', () => selectVisibility('classic'));
 function applyModeUI() {
   const flight = playMode === 'flight';
   const twistSteering = flightSteering === 'twist';
+  if (phase === 'intro') $('dialog-description').textContent = modeIntroduction();
   app.dataset.playMode = playMode;
   app.dataset.controlBasis = flight ? 'device' : 'craft';
   app.dataset.flightSteering = flightSteering;
@@ -146,7 +151,7 @@ function selectSteering(next) {
   applyModeUI();
   const url = new URL(location.href);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.10');
+  url.searchParams.set('v', '0.1.11');
   history.replaceState(null, '', url);
 }
 $('steering-twist').addEventListener('click', () => selectSteering('twist'));
@@ -168,7 +173,7 @@ function selectMode(next) {
   url.searchParams.set('mode', playMode);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);
-  url.searchParams.set('v', '0.1.10');
+  url.searchParams.set('v', '0.1.11');
   history.replaceState(null, '', url);
   if (resume) {
     setPhase('paused');
@@ -176,7 +181,7 @@ function selectMode(next) {
   } else {
     inputMode = null;
     setPhase('intro');
-    dialog({ title: '自分はそのまま。世界を動かそう。', description: '金色の光を3つ集めて出口へ。自機は最初の上向きを保ちます。', note: modeNote(), action: 'スマホの傾きで始める', guide: true });
+    dialog({ title: '自分はそのまま。世界を動かそう。', description: modeIntroduction(), note: modeNote(), action: 'スマホの傾きで始める', guide: true });
   }
 }
 $('mode-explore').addEventListener('click', () => selectMode('explore'));
@@ -248,6 +253,7 @@ async function keepAwake() {
 }
 
 function run(mode) {
+  lastFlightSnapshot = null;
   inputMode = mode;
   app.dataset.input = mode;
   $('practice-panel').hidden = mode !== 'practice';
@@ -414,7 +420,7 @@ $('practice-button').addEventListener('click', () => {
   inputMode === 'practice' ? requestSensors() : startPractice();
 });
 $('pause-button').addEventListener('click', () => pause());
-$('recenter-button').addEventListener('click', () => pause('一度停止しました。自機の向きは保ったまま、今の持ち方を操作の中立に合わせ直します。'));
+$('recenter-button').addEventListener('click', () => pause(playMode === 'flight' ? '一度停止しました。今の持ち方を操作の中立に合わせ直します。' : '一度停止しました。自機の向きは保ったまま、今の持ち方を操作の中立に合わせ直します。'));
 $('help-button').addEventListener('click', () => {
   if (phase !== 'running') return;
   pause(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、機首は今の角度を保ちます。画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
@@ -614,6 +620,10 @@ function frame(now) {
       stage.update(dt, { ...rates, mode: playMode, speed, throttle, craftQuaternion });
     }
     const state = stage.getStatus();
+    if (phase === 'running' && playMode === 'flight' && !state.grounded) {
+      lastFlightSnapshot = { throttle: state.throttle, pitch: state.pitch,
+        verticalSpeed: state.verticalSpeed, inputPitch: angles.pitch };
+    }
     if (state.collected > previousCollected) { previousCollected = state.collected; showToast(state.collected === state.total ? '3つの光がそろいました。出口へ向かいましょう。' : `光を集めました。あと${state.total - state.collected}つ。`); }
     if (state.complete && phase === 'running') {
       halt();
@@ -621,8 +631,17 @@ function frame(now) {
       dialog({ title: '出口に到着しました', description: playMode === 'flight' ? '3つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？' : '3つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？', note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
     }
     if (state.grounded && phase === 'running') {
+      let description = '地面まで0mで接触しました。';
+      if (lastFlightSnapshot) {
+        const s = lastFlightSnapshot;
+        const nose = Math.round(MathUtils.radToDeg(s.pitch));
+        const noseText = Math.abs(nose) < 1 ? '機首ほぼ水平' : `機首${nose > 0 ? '上' : '下'}${Math.abs(nose)}°`;
+        const operation = Math.abs(s.inputPitch) <= CONTROL_LIMITS.tiltDeadzone ? '中立'
+          : `${s.inputPitch < 0 ? '前倒し' : '手前へ起こし'}${Math.round(Math.abs(s.inputPitch))}°`;
+        description = `接地直前：出力${Math.round(s.throttle * 100)}%・${noseText}・下降${Math.max(0, -s.verticalSpeed).toFixed(1)}m/s。前後操作：${operation}。`;
+      }
       pause('地面に接触して停止しました。最初から飛び直せます。');
-      dialog({ title: '地面に接触して停止', description: '地面まで0mで接触しました。下降中や低空では、地面を見る補助が入ります。', note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
+      dialog({ title: '地面に接触して停止', description, note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
     }
     updateHud(now, state);
   }

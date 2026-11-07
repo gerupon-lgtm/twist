@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { FLIGHT_MODEL, stepFlightVelocity } from './flight-physics.js';
 import { computeFieldOfView } from './visibility.js';
-import { computeFlightView } from './flight-view.js';
+import { computeFlightView, advanceFlightView } from './flight-view.js';
 
 const START = new THREE.Vector3(0, 7, 26);
 const BEACONS = [
@@ -487,22 +487,28 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
   let disposed = false;
   let viewAssistance = 0;
   let viewPitch = 0;
+  let displayedFlightView = null;
 
-  function syncWorld() {
+  function syncWorld(dt = 0) {
     orientation.copy(baseOrientation);
     if (mode === 'flight') {
       // Positive bank lowers the craft's right wing; its inverse tilts scenery.
       bankRotation.setFromAxisAngle(bankAxis, -bank);
       orientation.multiply(bankRotation);
+      // Flight drawing follows the actual bank, rather than inverse phone motion.
+      craft.quaternion.setFromAxisAngle(bankAxis, -bank);
     }
     if (mode === 'flight') {
-      const view = computeFlightView({ orientation, altitude: position.y,
+      const targetView = computeFlightView({ orientation, altitude: position.y,
         velocity: grounded ? contactVelocity : velocity, bank });
+      if (!displayedFlightView || dt > 0) displayedFlightView = advanceFlightView(displayedFlightView, targetView, dt);
+      const view = displayedFlightView;
       viewQuaternion.copy(view.orientation).invert();
       viewPosition.copy(position).add(view.offset);
       viewAssistance = view.assistance;
       viewPitch = view.pitch;
     } else {
+      displayedFlightView = null;
       viewQuaternion.copy(orientation).invert();
       viewPosition.copy(position);
       viewAssistance = 0;
@@ -738,7 +744,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
       }
       if (mode === 'flight' && (grounded || complete)) break;
     }
-    syncWorld();
+    syncWorld(elapsed);
     render();
   }
 
@@ -797,6 +803,7 @@ export function createStage(canvas, { visibility = 'assisted' } = {}) {
     stopMotion();
     grounded = false;
     contactVelocity.set(0, 0, 0);
+    displayedFlightView = null;
     collected = 0;
     complete = false;
     refreshTargets();

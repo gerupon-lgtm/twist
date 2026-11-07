@@ -62,16 +62,13 @@ async function startSensor(page, steering = 'tilt', screenAngle = 0) {
   await beginSensor(page);
 }
 
-async function expectPhysicalReference(page, currentDevicePose, initialScreenAngle) {
-  const screenAngle = await page.evaluate(() => screen.orientation.angle);
-  const currentDisplay = currentDevicePose.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), -rad(screenAngle)));
-  const initialDisplay = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), -rad(initialScreenAngle));
+async function expectBankDisplay(page) {
   await expect.poll(async () => {
     const raw = await page.locator('#app').getAttribute('data-craft-quaternion');
     if (!raw) return 0;
     const q = JSON.parse(raw);
-    const physical = currentDisplay.clone().multiply(new Quaternion(q.x, q.y, q.z, q.w));
-    return Math.abs(physical.dot(initialDisplay));
+    const bank = await data(page, 'bank');
+    return Math.abs(new Quaternion(q.x,q.y,q.z,q.w).dot(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-bank)));
   }).toBeCloseTo(1, 5);
 }
 
@@ -145,7 +142,7 @@ test('tilt steering ignores twist, including a twist opposite to the selected tu
   await expect(page.locator('#throttle-value')).toHaveText('50%');
 });
 
-test('landscape calibration and layout changes preserve hardware input and recenter preserves the drawn physical reference', async ({ page }) => {
+test('landscape calibration and recenter preserve hardware input while flight drawing follows bank', async ({ page }) => {
   await startSensor(page, 'tilt', 90);
   const pitched = devicePose({ pitch: 12 });
   await sensor(page, pitched);
@@ -158,18 +155,30 @@ test('landscape calibration and layout changes preserve hardware input and recen
   await expect(page.locator('#steer-value')).toHaveText('0°');
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
   await expect(page.locator('#throttle-value')).toHaveText('50%');
-  await expectPhysicalReference(page, pitched, 90);
+  await expectBankDisplay(page);
   await page.locator('#recenter-button').click();
   const newNeutral = devicePose({ pitch: 15, twist: 30 });
   await sensor(page, newNeutral);
   await page.locator('#start-button').click();
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
   for (const axis of ['pitch', 'steer', 'twist']) await expect(page.locator(`#${axis}-value`)).toHaveText('0°');
-  await expectPhysicalReference(page, newNeutral, 90);
+  await expectBankDisplay(page);
   await sensor(page, devicePose({ pitch: 12 }, newNeutral));
   await expect(page.locator('#pitch-value')).toHaveText('12°');
   await expect(page.locator('#steer-value')).toHaveText('0°');
   await expect(page.locator('#throttle-value')).toHaveText('50%');
+});
+
+test('right and left turns bank the drawn craft in the same direction despite opposite phone compensation', async ({ page }) => {
+  await startSensor(page, 'tilt');
+  for (const sign of [1, -1]) {
+    await sensor(page, devicePose({ steer: sign*20, twist: sign*20 }));
+    await expect.poll(async()=>sign*await data(page,'bank')).toBeGreaterThan(.15);
+    await expect.poll(async()=>{
+      const q=JSON.parse(await page.locator('#app').getAttribute('data-craft-quaternion'));
+      return sign*2*(q.x*q.y-q.w*q.z);
+    }).toBeGreaterThan(.1);
+  }
 });
 
 test('PC pitch follows the hardware top after turning and steering keys follow the selected axis while Q/E adjust power', async ({ page }) => {

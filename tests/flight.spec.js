@@ -66,13 +66,14 @@ test('nose up climbs while slowing and nose down descends while gaining speed at
   await expect(page.locator('#throttle-value')).toHaveText('50%');
 });
 
-test('flight bank turns scenery, eases back, and retains physical craft compensation', async ({ page }) => {
+test('flight bank turns scenery and banks the drawn craft in the turn direction', async ({ page }) => {
   await practice(page);
   await angle(page, 'steer', 20);
   await expect.poll(() => data(page, 'bank')).toBeGreaterThan(0.2);
   await expect.poll(() => data(page, 'heading')).toBeGreaterThan(0.04);
   const pose = JSON.parse(await page.locator('#app').getAttribute('data-craft-quaternion'));
-  expect(pose.y).toBeCloseTo(-Math.sin(10 * Math.PI / 180), 5);
+  expect(pose.y).toBeCloseTo(0, 5);
+  expect(pose.z).toBeLessThan(0);
   await page.screenshot({ path: 'test-results/flight-bank-mobile.png' });
   await angle(page, 'steer', 0);
   await expect.poll(() => data(page, 'bank')).toBeLessThan(0.02);

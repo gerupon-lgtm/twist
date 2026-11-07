@@ -44,3 +44,16 @@ export function computeFlightView({ orientation, altitude, velocity, bank } = {}
     offset: new Vector3(-Math.sin(heading) * 6, 1.8, Math.cos(heading) * 6).multiplyScalar(assistance),
   };
 }
+
+/** Bound the movement of the visual aid independently of aircraft movement. */
+export function advanceFlightView(current, target, dt) {
+  if (!current) return { ...target, orientation: target.orientation.clone(), offset: target.offset.clone() };
+  const seconds = Math.max(0, finite(dt));
+  const orientation = current.orientation.clone().rotateTowards(target.orientation, Math.PI / 6 * seconds);
+  const offset = current.offset.clone();
+  const distance = offset.distanceTo(target.offset);
+  if (distance > 0) offset.lerp(target.offset, Math.min(1, 3 * seconds / distance));
+  const direction = new Vector3(0, 0, -1).applyQuaternion(orientation);
+  return { ...target, orientation, offset,
+    pitch: Math.atan2(direction.y, Math.hypot(direction.x, direction.z)) };
+}

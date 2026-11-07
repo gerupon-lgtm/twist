@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Euler, Quaternion } from 'three';
-import { computeFlightView } from '../src/flight-view.js';
+import { computeFlightView, advanceFlightView } from '../src/flight-view.js';
 
 const pose = (pitch, yaw = 0, roll = 0) => new Quaternion().setFromEuler(new Euler(pitch, yaw, roll, 'YXZ'));
 const down = { x: 1, y: -5.8, z: -3 };
@@ -66,5 +66,32 @@ test('descent assistance starts and finishes continuously at its rate thresholds
     const before = computeFlightView({ ...args, velocity: { x: 0, y: -speed + 1e-5, z: -6 } });
     const after = computeFlightView({ ...args, velocity: { x: 0, y: -speed - 1e-5, z: -6 } });
     assert.ok(Math.abs(before.orientation.dot(after.orientation)) > 1 - 1e-9);
+  }
+});
+
+test('assisted view rotation and offset have independent per-second movement limits', () => {
+  const current = computeFlightView({orientation:pose(1),altitude:25,velocity:{x:0,y:1,z:-6}});
+  const target = computeFlightView({orientation:pose(1),altitude:25,velocity:down});
+  const beforeQ=current.orientation.toArray(), beforeOffset=current.offset.toArray();
+  for (const dt of [1/120,1/60,.05,.5]) {
+    const next=advanceFlightView(current,target,dt);
+    assert.ok(current.orientation.angleTo(next.orientation)<=Math.PI/6*dt+1e-9);
+    assert.ok(current.offset.distanceTo(next.offset)<=3*dt+1e-9);
+    assert.ok(next.orientation.angleTo(target.orientation)<current.orientation.angleTo(target.orientation));
+  }
+  assert.deepEqual(current.orientation.toArray(),beforeQ);
+  assert.deepEqual(current.offset.toArray(),beforeOffset);
+});
+
+test('view initialization snaps only at initialization and invalid time never advances it', () => {
+  const target=computeFlightView({altitude:0,velocity:down});
+  const initial=advanceFlightView(null,target,0);
+  assert.ok(initial.orientation.angleTo(target.orientation)<1e-9);
+  assert.notEqual(initial.orientation,target.orientation);
+  const current=computeFlightView({altitude:20,orientation:pose(1)});
+  for(const dt of [0,-1,NaN,Infinity]) {
+    const next=advanceFlightView(current,target,dt);
+    assert.ok(next.orientation.angleTo(current.orientation)<1e-9);
+    assert.equal(next.offset.distanceTo(current.offset),0);
   }
 });
