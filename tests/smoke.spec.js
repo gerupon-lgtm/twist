@@ -179,14 +179,14 @@ test('practice turns the phone first and keyboard and brake stay craft-relative'
   await page.keyboard.up('s');
 });
 
-test('an edge-on craft stops rather than guessing a nose direction', async ({ page }) => {
+test('an edge-on craft keeps its last usable input and recovers without pausing', async ({ page }) => {
   await startFakeSensor(page);
   await sensor(page, { alpha: 0, beta: -22, gamma: 0 });
   await expect.poll(() => speed(page)).toBeGreaterThan(0.5);
   await sensor(page, { alpha: 0, beta: 90, gamma: 0 });
-  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused');
-  await expect(page.locator('#dialog-description')).toContainText('先端が見えにくい');
-  await expect(page.locator('#speed-value')).toHaveText('0.0');
+  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
+  await expect(page.locator('#app')).toHaveAttribute('data-input-held','true');
+  await sensor(page,{alpha:0,beta:0,gamma:0});await expect(page.locator('#app')).toHaveAttribute('data-input-held','false');
 });
 
 test('twist turns vertically without accelerating and keyboard follows the new controls', async ({ page }) => {

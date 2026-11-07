@@ -31,6 +31,9 @@ export function normalizeFlightSettings(value) {
   result.steerTwistDeadzone = Math.min(result.steerTwistDeadzone, result.maxSteerTwist - 1);
   return result;
 }
+export function resetFlightSetting(value,key) {
+  return normalizeFlightSettings(Object.hasOwn(FLIGHT_SETTING_FIELDS,key)?{...value,[key]:FLIGHT_SETTING_FIELDS[key].initial}:value);
+}
 
 export function loadFlightSettings(storage) {
   try { return normalizeFlightSettings(JSON.parse(storage.getItem(FLIGHT_SETTINGS_KEY))); }

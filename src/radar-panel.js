@@ -31,7 +31,7 @@ export function updateRadar(state, { visibility, phase, range }) {
     const x = point.x * 36, y = point.y * 36;
     const group = svg('g', { class: `radar-target${target.next ? ' radar-next' : ''}${target.kind === 'exit' ? ' radar-exit' : ''}`,
       'data-id': target.id, 'data-next': target.next, 'data-outside': point.outside, 'data-x': x, 'data-y': y });
-    const mark = target.kind === 'exit' ? svg('path', { d: `M${x},${y-5}l5,5 -5,5 -5,-5Z` })
+    const mark = target.kind === 'exit' ? svg('path', { d: `M${x},${y-7}l7,7 -7,7 -7,-7Z` })
       : svg('circle', { cx: x, cy: y, r: target.next ? 4.5 : 2.5 });
     const sign = point.elevation === 'above' ? '▲' : point.elevation === 'below' ? '▼' : '＝';
     const caption = target.kind === 'exit' ? `出口${sign}` : `${target.number}${sign}${target.next ? Math.round(Math.abs(point.height))+'m' : ''}`;

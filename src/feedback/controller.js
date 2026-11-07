@@ -6,6 +6,8 @@ import { createSensorJitter } from './jitter.js';
 import { isIPhone } from '../device-platform.js';
 import { createMusicPlayer } from '../music/player.js';
 import { createRangeEditor } from '../range-editor.js';
+import { changedSettings,initialSettingText } from '../setting-differences.js';
+import { FEEDBACK_HELP } from '../settings-help.js';
 
 export function createFeedbackController(){
   let storage;try{storage=localStorage;}catch{/* Defaults work without storage. */}
@@ -30,6 +32,8 @@ export function createFeedbackController(){
     label.dataset.feedbackSetting=key;label.append(caption,output,input);fields.append(label);
     input.value=settings[key];
     if(input.type==='range')rangeEditors[key]=createRangeEditor(input,{name:field.label,unit:field.unit,initial:field.initial});
+    const help=document.createElement('small');help.className='setting-explanation';help.textContent=FEEDBACK_HELP[key];help.id=`feedback-help-${key}`;input.setAttribute('aria-describedby',help.id);
+    const initial=document.createElement('small');initial.dataset.feedbackInitial=key;initial.className='setting-initial';label.append(help,initial);
     if(field.group==='vibration')label.hidden=!supported;
     input.addEventListener('input',()=>{
       settings=normalizeFeedbackSettings({...settings,[key]:field.options?input.value:input.type==='checkbox'?input.checked:Number(input.value)});
@@ -50,6 +54,7 @@ export function createFeedbackController(){
       const el=document.getElementById(`feedback-${key}`);if(el.type==='checkbox')el.checked=settings[key];else el.value=settings[key];
       el.closest('label').querySelector('output').textContent=field.options||el.type==='checkbox'?'':`${settings[key]}${field.unit||''}`;
       rangeEditors[key]?.sync();
+      const initial=fields.querySelector(`[data-feedback-initial="${key}"]`);initial.hidden=settings[key]===field.initial;initial.textContent=`● 初期値 ${initialSettingText(field)}`;
     }
   }
   refresh();
@@ -69,7 +74,8 @@ export function createFeedbackController(){
     },
     frameTiming(ms){if(active&&Number.isFinite(ms)){frames++;frameSum+=ms;frameMax=Math.max(frameMax,ms);}},
     reset(){jitter.reset();music.reset();audio.resetMetrics();frames=0;frameSum=0;frameMax=0;},
-    report(){return {settings:{...settings},vibrationSupported:supported,sensorJitter:jitter.snapshot(),
+    exitOpened(){if(active)audio.event('exitOpen',settings);},
+    report(){return {settings:{...settings},changedSettings:changedSettings(FEEDBACK_FIELDS,settings),vibrationSupported:supported,sensorJitter:jitter.snapshot(),
       audio:audio.snapshot(),music:music.snapshot(),frameCpu:{meanMs:frames?frameSum/frames:0,maxMs:frameMax}};},
     updateDiagnostics(){
       const s=audio.snapshot(),j=jitter.snapshot();

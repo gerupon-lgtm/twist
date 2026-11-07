@@ -6,6 +6,7 @@ import { advanceDisplayRoll, flightDisplayPose, withoutViewRoll } from './flight
 import { advanceChaseAngles, bodyViewAngles, chaseView, normalizeCameraMode } from './flight-camera.js';
 import { createAircraft } from './aircraft.js';
 import { createScenery } from './scenery.js';
+import { createExitBeacon } from './exit-beacon.js';
 
 const START = new THREE.Vector3(0, 7, 26);
 const BEACONS = [
@@ -424,6 +425,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   exitGroup.position.copy(EXIT);
   const exitRing = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.15, 8, 48), dimGuide);
   exitGroup.add(exitRing);
+  const exitVisual=createExitBeacon();exitGroup.add(exitVisual.group);
   world.add(exitGroup);
   box(world, -4.7, 6, -62, 1.5, 12, 2);
   box(world, 4.7, 6, -62, 1.5, 12, 2);
@@ -527,10 +529,11 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   let displayedFlightView = null;
   let displayedFixedFlightView = null;
   let chaseAngles = null, chaseTimeConstant = .15;
-  let phoneRoll = 0, displayScreenOffset = 0, displayRoll = 0;
+  let phoneRoll = 0, displayScreenOffset = 0, displayRoll = 0, visualTime=0;
   const displayCameraInverse = new THREE.Quaternion();
 
   function syncWorld(dt = 0) {
+    visualTime+=Math.max(0,dt);
     orientation.copy(baseOrientation);
     if (mode === 'flight') {
       // Positive bank lowers the craft's right wing; its inverse tilts scenery.
@@ -641,6 +644,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     // With sizeAttenuation disabled, this scale gives a 24px quad (the opaque ring spans at least 22px).
     const hintSize = 24 * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / height;
     beaconVisuals.forEach(visual => visual.hint.scale.set(hintSize, hintSize, 1));
+    exitVisual.update({visible:visibility==='assisted',unlocked:collected===BEACONS.length,time:visualTime,fov:camera.fov,height});
     renderer.clear();
     renderer.render(scene, camera);
     renderer.clearDepth();
@@ -664,6 +668,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       visual.halo.scale.setScalar(index === collected ? 1.25 : 0.85);
     });
     exitRing.material = collected === BEACONS.length ? guide : dimGuide;
+    exitRing.visible=visibility!=='assisted';
   }
 
   // Check a full movement segment so a target cannot be skipped by a long frame.
@@ -897,6 +902,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         ring: `#${(visibility === 'assisted' ? brightRing : gold).color.getHexString()}`,
         minPixels: visibility === 'assisted' ? 22 : 0, columnTarget: visibility === 'assisted' && collected < BEACONS.length ? collected + 1 : null },
       targetLabel: collected < BEACONS.length ? `光 ${collected + 1}` : '出口',
+      exitAppearance:{...exitVisual.snapshot(),position:{x:EXIT.x,y:EXIT.y,z:EXIT.z},radius:EXIT_RADIUS},
       distance: relative.length(),
       bearing: Math.atan2(localRelative.x, -localRelative.z),
       elevation: Math.atan2(localRelative.y, Math.hypot(localRelative.x, localRelative.z)),
@@ -990,6 +996,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     geometries.forEach((geometry) => geometry.dispose());
     materials.forEach((material) => material.dispose());
     hintTexture.dispose();
+    exitVisual.dispose();
     renderer.dispose();
   }
 

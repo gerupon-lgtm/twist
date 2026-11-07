@@ -155,11 +155,48 @@ function braveSong() {
 }
 export function generateMusic(){
   const legacy=generateLegacyMusic();
-  return Object.fromEntries([...HARD_SONGS.map(song=>[song.id,hardSong(song)]),['brave',braveSong()],['clear',hardClear()],['flight-legacy',legacy.flight]]);
+  return Object.fromEntries([...HARD_SONGS.map(song=>[song.id,hardSong(song)]),['brave',braveSong()],['rock',rockSong()],['clear',hardClear()],['flight-legacy',legacy.flight]]);
+}
+export const ROCK_SONG={id:'rock',title:'黒曜の翼',bpm:156,beats:192};
+function rockSong(){
+  // Original D-minor rock: fewer attacks, sustained lead with small pitch bends, power chords.
+  const tracks=Array.from({length:6},()=>[]),{bpm,beats,title}=ROCK_SONG;
+  const hit=(part,at,pitch,length,velocity)=>{if(at<beats)note(tracks[part],part===5?9:part,at,pitch,Math.min(length,beats-at),velocity);};
+  const cc=(part,at,value)=>tracks[part].push({t:Math.round(at*PPQ),b:[176+part,7,value]});
+  const bend=(at,value)=>tracks[0].push({t:Math.round(at*PPQ),b:[224,value&127,(value>>7)&127]});
+  const roots=[38,34,43,45,38,41,43,45];
+  const themes=[[0,7,5,3,2,0],[3,5,7,10,7,5],[7,12,10,7,5,3],[5,7,8,7,5,2],
+    [12,10,7,10,14,12],[10,12,15,14,12,7],[7,5,3,0,2,-2],[3,7,5,2,0,-2]];
+  const rhythms=[[[0,.65],[1,.4],[1.75,.65],[2.75,.2],[3.25,.65]],[[0,1.25],[1.5,.4],[2.25,.65],[3.25,.65]],
+    [[0,.4],[.75,.65],[1.75,.4],[2.5,1.3]],[[0,.65],[1,.4],[1.5,.65],[2.5,.4],[3.25,.65]]];
+  for(let bar=0;bar<48;bar++){
+    const at=bar*4,chorus=bar>=24&&bar<40,bridge=bar>=16&&bar<24,root=roots[(bar+(bridge?2:0))%8];
+    const theme=themes[(Math.floor(bar/2)+(chorus?4:0))%8];
+    const rhythm=bar<4?[[0,.4],[1,.65],[2,.4],[3,.65]]:rhythms[bar%4];
+    rhythm.forEach(([time,length],i)=>{
+      const pitch=62+theme[i%theme.length]+(chorus?12:0);hit(0,at+time,pitch,length,119);cc(0,at+time,127);cc(0,at+time+.09,95);cc(0,at+time+Math.min(.3,length*.65),78);
+      bend(at+time,8192);
+      if(length>=.6){bend(at+time+.2,8704);bend(at+time+.35,7936);bend(at+time+.5,8576);bend(at+time+length-.02,8192);}
+      if(chorus&&i%2===0)hit(4,at+time,pitch-12,length*.85,56);
+    });
+    // Guitar rhythm uses two simultaneous notes (root/fifth); no running arpeggio.
+    for(const time of bridge?[0,2]:[0,.75,1.5,2.5,3.25]){
+      const gate=bridge?1.3:.3;hit(1,at+time,root+12,gate,96);hit(2,at+time,root+19,gate,87);
+    }
+    for(let i=0;i<8;i++)hit(3,at+i*.5,root+(i===7&&bar%4===3?12:0),.38,i%2?92:108);
+    for(let i=0;i<8;i++)hit(5,at+i*.5,42,.05,i%2?46:61);
+    for(const time of [0,2,chorus?2.75:2.5])hit(5,at+time,36,.08,121);
+    for(const time of [1,3])hit(5,at+time,38,.08,119);
+    if(bar%8===7)for(let i=0;i<4;i++)hit(5,at+3+i*.25,[38,45,47,38][i],.08,105+i*6);
+    if([0,4,16,24,40].includes(bar))hit(5,at,49,.12,108);
+  }
+  tracks.forEach((track,i)=>track.push({t:beats*PPQ,b:[176+(i===5?9:i),123,0]}));
+  return midi(tracks,bpm,beats,`Twist original - ${title}`);
 }
 export function generatedTracks(){
   const parts={'1':{waveform:1,volume:94},'2':{waveform:4,volume:74},'3':{waveform:0,volume:68},'4':{waveform:1,volume:92},'5':{waveform:1,volume:54},'10':{volume:100}};
-  return {flightPlaylist:['flight','flight2'],flightSets:{brave:['brave'],all:['flight','flight2','brave']},
+  return {flightPlaylist:['flight','flight2'],flightSets:{brave:['brave'],rock:['rock'],all:['flight','flight2','brave','rock']},
+    rock:{title:ROCK_SONG.title,file:'rock.mid',loop:{start:0,end:Math.round(60000000/ROCK_SONG.bpm)/1000000*ROCK_SONG.beats},parts:{'1':{waveform:1,volume:111},'2':{waveform:0,volume:55},'3':{waveform:0,volume:49},'4':{waveform:1,volume:88},'5':{waveform:1,volume:43},'10':{volume:104}}},
     brave:{title:BRAVE_SONG.title,file:'brave.mid',loop:{start:0,end:Math.round(60000000/BRAVE_SONG.bpm)/1000000*BRAVE_SONG.beats},parts:{'1':{waveform:4,volume:101},'2':{waveform:1,volume:66},'3':{waveform:0,volume:64},'4':{waveform:1,volume:96},'5':{waveform:1,volume:44},'10':{volume:105}}},
     ...Object.fromEntries(HARD_SONGS.map(song=>[song.id,{title:song.title,file:`${song.id}.mid`,loop:{start:0,end:Math.round(60000000/song.bpm)/1000000*192},parts}])),
     clear:{title:'突破の凱歌',file:'clear.mid',parts:{'1':{waveform:4,volume:96},'2':{waveform:1,volume:78},'3':{waveform:1,volume:88},'4':{waveform:1,volume:50},'10':{volume:98}}},
@@ -168,5 +205,5 @@ export function generatedTracks(){
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   await mkdir('public/music',{recursive:true});for(const [name,bytes]of Object.entries(generateMusic()))await writeFile(`public/music/${name}.mid`,bytes);
   await writeFile('public/music/tracks.json',JSON.stringify(generatedTracks(),null,2)+'\n');
-  console.log('Generated originals: retained 160/168 BPM tracks and goal; added E-minor 170 BPM brave / 67.764672 s.');
+  console.log('Generated originals: preserved preceding five MIDI tracks; added D-minor rock / 156 BPM / 73.84608 s.');
 }

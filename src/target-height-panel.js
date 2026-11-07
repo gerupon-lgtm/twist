@@ -13,12 +13,13 @@ export function updateTargetHeightPanel(state,{phase,visibility,enabled,cockpit}
   inline.hidden=!guide||cockpit;badge.hidden=!guide||!cockpit;
   $('app').dataset.targetHeight=JSON.stringify(guide);
   if(!guide)return null;
-  const delta=Math.abs(guide.delta)<.05?'±0m':`${guide.delta>0?'▲+':'▼−'}${Math.abs(guide.delta).toFixed(1)}m`;
+  const delta=Math.abs(guide.delta)<.05?'高さ同じ':`${guide.delta>0?'▲上に':'▼下に'}${Math.abs(guide.delta).toFixed(1)}m`;
   const status=guide.inside?'高さOK':guide.urgent?`${guide.direction==='up'?'▲ 早めに上へ':'▼ 早めに下へ'}`:delta;
   for(const el of [inline,badge]) {
     el.dataset.heightState=guide.inside?'inside':guide.urgent?'urgent':'outside';
-    el.setAttribute('aria-label',`目標高度 ${number(guide.target)}m、取得できる高さの範囲 ${number(guide.lower)}〜${number(guide.upper)}m、差 ${delta}。${status}。進路も目標へ合わせてください。`);
-    el.innerHTML=`${el===inline?heightBandSvg(guide,true):''}<span><b>目標 ${number(guide.target)}m</b><small>${delta}${guide.inside?'　高さOK':guide.urgent?`　早めに${guide.direction==='up'?'▲':'▼'}`:''}</small></span>`;
+    el.setAttribute('aria-label',`現在高度 ${guide.altitude.toFixed(1)}m、目標高度 ${number(guide.target)}m、取得できる高さの範囲 ${number(guide.lower)}〜${number(guide.upper)}m、差 ${delta}。${status}。進路も目標へ合わせてください。`);
+    const markup=`${el===inline?heightBandSvg(guide,true):''}<span><b><strong class="current-height">現在${guide.altitude.toFixed(1)}m</strong>　目標 ${number(guide.target)}m</b><small>${delta}${guide.inside?'　高さOK':guide.urgent?`　早めに${guide.direction==='up'?'▲':'▼'}`:''}</small></span>`;
+    if(el._heightMarkup!==markup){el.innerHTML=markup;el._heightMarkup=markup;}
   }
   return guide;
 }

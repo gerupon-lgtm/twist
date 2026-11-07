@@ -1,11 +1,11 @@
 {
   "name": "twist-prototype",
   "private": true,
-  "version": "0.1.22",
+  "version": "0.1.23",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "node tools/build-pwa.mjs && vite build --base=./",
+    "build": "node tools/build-settings-guide.mjs && node tools/build-pwa.mjs && vite build --base=./",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.js"
   },

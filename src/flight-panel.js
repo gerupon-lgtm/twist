@@ -1,8 +1,10 @@
 import { APP_VERSION } from './version.js';
-import { FLIGHT_SETTING_FIELDS, DEFAULT_FLIGHT_SETTINGS, normalizeFlightSettings, loadFlightSettings, saveFlightSettings } from './flight-settings.js';
+import { FLIGHT_SETTING_FIELDS, DEFAULT_FLIGHT_SETTINGS, normalizeFlightSettings, loadFlightSettings, saveFlightSettings,resetFlightSetting } from './flight-settings.js';
 import { flightReport, copyableFlightReport } from './flight-session.js';
 import { computeFieldOfView } from './visibility.js';
 import { createRangeEditor } from './range-editor.js';
+import { FLIGHT_HELP,SETTINGS_TROUBLES } from './settings-help.js';
+import { initialSettingText } from './setting-differences.js';
 
 const $ = id => document.getElementById(id);
 const describeSettings = report => Object.entries(FLIGHT_SETTING_FIELDS)
@@ -35,7 +37,7 @@ export function createFlightPanel(getModes) {
         canUndo:()=>getModes().mode==='flight'&&getModes().camera==='cockpit',
         isRestorable:value=>value===0||(value>=field.min&&value<=field.max),
       }:{}),onReset:()=>{
-      settings=normalizeFlightSettings({...settings,[key]:field.initial});persist();
+      settings=resetFlightSetting(settings,key);persist();
     }});
     if(key==='cockpitFov') {
       const autoLabel=document.createElement('label');autoLabel.className='cockpit-fov-auto';autoLabel.dataset.settingKey=key;
@@ -45,6 +47,11 @@ export function createFlightPanel(getModes) {
       settings = normalizeFlightSettings({ ...settings, [key]: input.type==='checkbox'?input.checked:Number(input.value) });
       persist();
     });
+    const help=document.createElement('small');help.textContent=FLIGHT_HELP[key];help.className='setting-explanation';help.id=`setting-help-${key}`;input.setAttribute('aria-describedby',help.id);
+    const initial=document.createElement('small');initial.className='setting-initial';initial.id=`setting-initial-${key}`;label.append(help,initial);
+    if(input.type==='checkbox'){
+      const reset=document.createElement('button');reset.type='button';reset.className='setting-checkbox-reset';reset.textContent='この項目だけ初期値へ';reset.dataset.checkboxReset=key;reset.addEventListener('click',()=>{settings=resetFlightSetting(settings,key);persist();});label.append(reset);
+    }
   }
   function refreshLayout() {
     const modes=getModes(),maximum=computeFieldOfView(innerWidth,innerHeight,modes.view).vertical;
@@ -66,8 +73,25 @@ export function createFlightPanel(getModes) {
     for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
       if(typeof field.initial==='boolean')$(`setting-${key}`).checked=settings[key];else $(`setting-${key}`).value = settings[key];
       $(`setting-value-${key}`).textContent = typeof field.initial==='boolean'?'':`${settings[key]}${field.unit}`;
+      const different=settings[key]!==field.initial,initial=$(`setting-initial-${key}`);initial.hidden=!different;initial.textContent=`● 初期値 ${initialSettingText(field)}`;
+      $(`setting-${key}`).closest('label').dataset.changed=String(different);
+      const reset=document.querySelector(`[data-checkbox-reset="${key}"]`);if(reset)reset.hidden=!different;
     }
     refreshLayout();
+  }
+  function refreshTroubles(){
+    const modes=getModes(),list=$('settings-troubles-list');list.replaceChildren();
+    for(const item of SETTINGS_TROUBLES){
+      if((item.flight||item.angle||item.fixed||item.cockpit)&&modes.mode!=='flight'||item.angle&&modes.pitch!=='angle'||item.fixed&&modes.display!=='fixed'||item.cockpit&&modes.camera!=='cockpit'||item.assisted&&modes.view!=='assisted')continue;
+      const key=item.key==='steerMaximum'?(modes.steer==='twist'?'maxSteerTwist':'maxSteerTilt'):item.key;
+      const button=document.createElement('button');button.type='button';button.textContent=item.label;button.dataset.jumpSetting=key;
+      button.addEventListener('click',()=>{
+        const input=$(`setting-${key}`),row=input.closest('label');
+        for(const previous of document.querySelectorAll('.setting-highlight'))previous.classList.remove('setting-highlight');
+        row.classList.add('setting-highlight');row.scrollIntoView({block:'center',behavior:'instant'});
+        if(key==='cockpitFov'&&input.disabled)fovAuto.focus({preventScroll:true});else input.focus({preventScroll:true});
+      });list.append(button);
+    }
   }
   function persist() {
     const saved = saveFlightSettings(storage, settings);
@@ -117,6 +141,11 @@ export function createFlightPanel(getModes) {
       $('result-outcome').textContent = report.result === 'clear' ? 'クリア' : '墜落';
       $('result-modes').textContent = `pitch=${report.pitch} / steer=${report.steer} / display=${report.display} / camera=${report.camera}`;
       $('result-settings').textContent = describeSettings(report);
+      $('result-segments').replaceChildren(...(report.segments??[]).map(segment=>{
+        const row=document.createElement('div');row.dataset.segmentId=segment.id;
+        const label=document.createElement('dt');label.textContent=segment.label;
+        const value=document.createElement('dd');value.textContent=segment.seconds===null?'未完了':`${segment.seconds.toFixed(1)}秒`;row.append(label,value);return row;
+      }));
     },
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = phase !== 'paused';
@@ -125,6 +154,7 @@ export function createFlightPanel(getModes) {
         || inactiveSteering.includes(label.dataset.settingKey);
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       refreshLayout();
+      refreshTroubles();
       $('flight-settings-help').hidden = mode !== 'flight';
       $('settings-reset').textContent = mode === 'flight' ? '操縦をすべて初期値へ' : '目印をすべて初期値へ';
       $('adjustment-scope-note').textContent = mode === 'flight'

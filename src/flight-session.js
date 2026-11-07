@@ -1,4 +1,6 @@
 import { normalizeFlightSettings } from './flight-settings.js';
+import { FLIGHT_SETTING_FIELDS } from './flight-settings.js';
+import { changedSettings } from './setting-differences.js';
 
 /** Counts simulated flying time; menus and waiting for sensors never advance it. */
 export function createFlightSession() {
@@ -26,7 +28,8 @@ export function createFlightSession() {
   };
 }
 
-export function flightReport({ version, pitch, steer, display = 'bank', camera = 'overlay', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted', feedback, input, launch = 'browser', fullscreen = false }) {
+export function flightReport({ version, pitch, steer, display = 'bank', camera = 'overlay', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted', feedback, input, segments, launch = 'browser', fullscreen = false }) {
+  const normalized=normalizeFlightSettings(settings);
   const inactiveSettings = [...(pitch === 'rate' ? ['maxPitch', 'timeConstant'] : []),
     ...(display !== 'fixed' ? ['displayTimeConstant'] : []), ...(view !== 'assisted' ? ['radarRange'] : []),
     ...(camera !== 'chase' || mode !== 'flight' ? ['chaseTimeConstant'] : [])];
@@ -36,9 +39,10 @@ export function flightReport({ version, pitch, steer, display = 'bank', camera =
   if (mode === 'explore') for (const key of ['deadzone','maxTilt','maxPitch','timeConstant','maxBank','displayTimeConstant','maxSteerTilt','maxSteerTwist','steerTiltDeadzone','steerTwistDeadzone','steerCurve']) if (!inactiveSettings.includes(key)) inactiveSettings.push(key);
   return { version, mode, view, pitch, steer, launch: launch === 'installed' ? 'installed' : 'browser', fullscreen: Boolean(fullscreen), camera: mode === 'flight' && ['chase','cockpit'].includes(camera) ? camera : 'overlay', display: display === 'fixed' ? 'fixed' : 'bank',
     ...(['clear', 'grounded'].includes(result) ? { result } : {}),
-    settings: normalizeFlightSettings(settings), inactiveSettings,
+    settings: normalized, changedSettings:changedSettings(FLIGHT_SETTING_FIELDS,normalized), inactiveSettings,
     ...(feedback ? {feedback:structuredClone(feedback)} : {}),
     ...(input ? {input:structuredClone(input)} : {}),
+    ...(segments ? {segments:structuredClone(segments)} : {}),
     ...(stats ? { stats: { ...stats } } : {}), ...(lastLeg ? { lastLeg: { ...lastLeg } } : {}) };
 }
 

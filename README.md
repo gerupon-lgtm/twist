@@ -2,17 +2,31 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.22 / 2026-11-07**
+**操作検証 v0.1.23 / 2026-11-08**
 
 公開先URL（機首angle、左右端を倒す旋回。視点の未指定は従来表示、機体表示はbank/fixedを残します）:
 
-- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.22)
-- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.22)
-- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.22)
-- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.22)
-- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.22)
+- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.23)
+- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.23)
+- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.23)
+- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.23)
+- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.23)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.23の目的物HUD・出口・調整説明・区間時間・ロック曲
+
+目的物を見失っても方向と高さを読めるよう、操縦席の見失い対策HUDに中空の目標印、名前、距離、高さの差を追加しました。印は景色と同じ位置を追い、HUD表示域の外・後ろは端の矢印になります。現在高度の数字と目標高度も並べて表示します。ほかの視点の目標カードと従来表示は継続します。
+
+出口は見失い対策で黄色と白の交差する3つの輪、遠くでも小さくなりすぎない目印、地面からの柱に変更。3つの光がそろうと明るく脈打ち、出口開放の表示と短い音で知らせます。位置/半径4mと従来表示の出口は変更しません。
+
+調整には各項目の説明、「こう感じたら」の逆引き、変更済みの印と初期値を追加。逆引きから使う項目へ移動できます。記録/コピーのchangedSettingsで変更した項目を確認し、項目ごとの履歴/初期化も引き続き使えます。[早見表](docs/settings-guide.md)はゲーム内からも読めます。
+
+開始→光1、光1→光2、光2→光3、光3→出口の時間をルートごとに記録し、結果とコピーへ追加。停止やセンサー待ちを除いた時間で、未完了は未完了と表示します。
+
+大きく倒すと止まる制限も外しました。読める角度では従来の最大操作量に制限し、画面が裏向きに近いときは直前の操作を保ちます。戻せばそのまま追従します。画面が隠れた場合、画面の向きが切り替わった場合、無効なセンサー値の場合は停止を継続します。
+
+既存の曲を残し、「黒曜の翼」（ニ短調・156BPM・約74秒）を追加。細かな刻みを減らし、ギター風リードの伸ばし/音程の揺れ、太い伴奏とドラムを前に出したオリジナルです。[ロック曲で試す](https://twist.sikumilab.com/?mode=flight&camera=cockpit&music=rock&v=0.1.23)。従来2曲/勇進/ロック/全4曲を選べます。実機での見つけやすさ・曲の印象・操作感は未確認です。[確認記録](docs/verification-v0123.md)。
 
 ## v0.1.22の振動・別案BGM・目標高度の目印
 

@@ -10,7 +10,7 @@ export function flightTrackSets(config) {
   if(config.flightSets===undefined)return {current};
   if(!config.flightSets||typeof config.flightSets!=='object'||Array.isArray(config.flightSets))throw Error('Invalid flight sets');
   return Object.fromEntries(Object.entries(config.flightSets).map(([key,ids])=>{
-    if(!['brave','all'].includes(key))throw Error('Invalid flight set');
+    if(!['brave','rock','all'].includes(key))throw Error('Invalid flight set');
     return [key,flightTrackOrder({...config,flightPlaylist:ids})];
   }).concat([['current',current]]));
 }

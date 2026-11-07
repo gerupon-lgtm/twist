@@ -4,6 +4,7 @@ import workletUrl from './audio-worklet.js?worker&url';
 export function createGameAudio(){
   let context=null,node=null,pending=null,poll=null,status='idle',lastState=null,wanted=false,eventTimer=null,generation=0;
   let load=0,maxLoad=0,peak=0,musicActive=false,varioActive=false;
+  let lastEvent=null;
   let musicPending=[],musicFlush=false,scheduleTime=null;
   const post=m=>node?.port.postMessage(m);
   async function unlock(){
@@ -49,11 +50,11 @@ export function createGameAudio(){
     event(kind,settings){
       if(!node||!settings.sound||!settings.sfx)return;
       const token=generation;
-      clearTimeout(eventTimer);context.resume().then(()=>{if(token===generation)post({type:'event',kind,settings});}).catch(()=>{});
+      clearTimeout(eventTimer);context.resume().then(()=>{if(token===generation){lastEvent=kind;post({type:'event',kind,settings});}}).catch(()=>{});
       if(!wanted)eventTimer=setTimeout(()=>{post({type:'stop'});context.suspend().catch(()=>{});},1400);
     },
     stop(){generation++;musicPending=[];wanted=false;varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop'});context?.suspend().catch(()=>{});},
-    snapshot:()=>({status,load,maxLoad,peak,musicActive,varioActive,contextState:context?.state||'none',workletReady:Boolean(node)}),
+    snapshot:()=>({status,load,maxLoad,peak,musicActive,varioActive,lastEvent,contextState:context?.state||'none',workletReady:Boolean(node)}),
     resetMetrics(){load=0;maxLoad=0;peak=0;post({type:'resetMetrics'});},
     dispose(){clearInterval(poll);clearTimeout(eventTimer);node?.disconnect();context?.close();},
   };

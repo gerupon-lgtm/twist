@@ -6,6 +6,7 @@ export const FEEDBACK_TUNING = Object.freeze({ buffetStart: 14, stallStart: 20, 
   fineCycle: 60, finePulses: 4, strongStallPattern: [180,30,120,40,260,50] });
 export const EVENT_FEEDBACK = Object.freeze({
   collect: { priority: 2, duration: 300, pattern: [30,80,70] },
+  exitOpen: { priority: 2, duration: 650, pattern: [] },
   clear: { priority: 3, duration: 1300, pattern: [90,90,160,100,260] },
   crash: { priority: 3, duration: 800, pattern: [320] },
 });
@@ -63,8 +64,8 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
   }
   if(eventActive) {
     if(event==='crash'){regs[6]=18;mixer=voice(regs,2,0,13*(1-eventMs/800),true,mixer);}
-    else {const notes=event==='collect'?COLLECT_NOTES:CLEAR_NOTES;
-      mixer=voice(regs,2,notes[Math.min(notes.length-1,Math.floor(eventMs/(event==='collect'?85:180)))],12*(1-eventMs/EVENT_FEEDBACK[event].duration),false,mixer);}
+    else {const notes=event==='exitOpen'?[659,988,1319,1568]:event==='collect'?COLLECT_NOTES:CLEAR_NOTES;
+      mixer=voice(regs,2,notes[Math.min(notes.length-1,Math.floor(eventMs/(event==='exitOpen'?155:event==='collect'?85:180)))],12*(1-eventMs/EVENT_FEEDBACK[event].duration),false,mixer);}
   }
   if(varioMaySound(model,eventActive)
     &&varioMs%model.vario.periodMs<model.vario.onMs) {

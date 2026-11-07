@@ -6,7 +6,7 @@ export const FEEDBACK_FIELDS = Object.freeze({
   vario: { label: '上昇・下降の音（バリオ）', initial: true },
   bgm: { label: 'BGM', initial: true },
   bgmVolume: { label: 'BGMの音量', initial: 50, min: 0, max: 100, step: 1, unit: '%' },
-  musicSet: { label: '飛行中の曲', initial: 'current', options: { current: 'これまでの2曲', brave: '別案：勇進の航路', all: '3曲を順番に' } },
+  musicSet: { label: '飛行中の曲', initial: 'current', options: { current: 'これまでの2曲', brave: '勇進の航路', rock: 'ロック：黒曜の翼', all: '4曲を順番に' } },
   vibration: { label: '振動', initial: true, group: 'vibration' },
   vibrationScale: { label: '振動の強さ（振動する時間の倍率）', initial: 1, min: 0, max: 2, step: .1, unit: '倍', group: 'vibration' },
   engineVibration: { label: '通常飛行の震え', initial: true, group: 'vibration' },

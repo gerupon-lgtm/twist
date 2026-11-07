@@ -25,7 +25,7 @@ test('new E-minor brave track drives all 48 bars, uses note envelopes and stays 
 });
 test('optional sets preserve old configs, validate entries and select each new alternative by leg',()=>{
   assert.deepEqual(flightTrackSets({flight:{}}),{current:['flight']});
-  const sets=flightTrackSets(config);assert.deepEqual(sets.brave,['brave']);assert.deepEqual([1,2,3,4].map(n=>trackForFlight(sets.all,n)),['flight','flight2','brave','flight']);
+  const sets=flightTrackSets(config);assert.deepEqual(sets.brave,['brave']);assert.deepEqual([1,2,3,4,5].map(n=>trackForFlight(sets.all,n)),['flight','flight2','brave','rock','flight']);
   assert.deepEqual(flightTrackSets({...config,flightPlaylist:['comparison']}).current,['comparison']);
   for(const value of [[],null,{brave:['missing']},{other:['flight']}])assert.throws(()=>flightTrackSets({...config,flightSets:value}));
 });

@@ -13,6 +13,9 @@ import { normalizeCameraMode } from './flight-camera.js';
 import { layoutCockpitHud, updateCockpitHud } from './cockpit-hud.js';
 import { updateTargetHeightPanel } from './target-height-panel.js';
 import { createRangeEditor } from './range-editor.js';
+import { preserveTiltInput } from './controls.js';
+import { createRouteTiming } from './route-timing.js';
+import { layoutCockpitObjective,updateCockpitObjective } from './cockpit-objective-panel.js';
 import { createFeedbackController } from './feedback/controller.js';
 import { createPwaController } from './pwa.js';
 
@@ -29,11 +32,14 @@ let pitchMode = new URLSearchParams(location.search).get('pitch') === 'rate' ? '
 let flightDisplay = new URLSearchParams(location.search).get('display') === 'fixed' ? 'fixed' : 'bank';
 let cameraMode = normalizeCameraMode(new URLSearchParams(location.search).get('camera'));
 const flightSession = createFlightSession();
+const routeTiming=createRouteTiming();
 const feedback = createFeedbackController();
 const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dialog });
 let inputMode = null;
+let inputHeld=false,lastPauseReason='',exitNoticeUntil=0,activeFrameAt=0;
 const inputTransitions=[];
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {current:inputMode,transitions:inputTransitions}, ...pwa.report() }));
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:routeTiming.snapshot(), ...pwa.report() }));
+function resetRoute(){stage.reset();routeTiming.reset();exitNoticeUntil=0;}
 function setInputMode(next,reason) {
   if(inputMode!==next){inputTransitions.push({from:inputMode,to:next,reason,phase,at:new Date().toISOString()});if(inputTransitions.length>8)inputTransitions.shift();}
   inputMode=next;app.dataset.input=next??'';
@@ -261,7 +267,7 @@ function selectMode(next) {
   permissionAttempt++;
   halt();
   pwa.clearOrientation();
-  stage.reset();
+  resetRoute();
   reference = null;
   previousCollected = 0;
   $('toast').hidden = true;
@@ -326,6 +332,7 @@ function zeroPractice() {
 }
 
 function halt() {
+  inputHeld=false;
   feedback.stop();
   pendingCalibration = false;
   clearTimeout(waitingTimer);
@@ -341,6 +348,7 @@ function halt() {
 
 function pause(message = '止まっています。スマホを楽な持ち方に戻してから再開してください。') {
   if (!['running', 'ready', 'waiting'].includes(phase)) return;
+  lastPauseReason=message;
   permissionAttempt++;
   pendingCalibration = false;
   clearTimeout(waitingTimer);
@@ -373,6 +381,7 @@ function run(mode,reason) {
   if (mode === 'sensor' && craftReference && latestQuaternion) craftQuaternion.copy(compensationQuaternion(craftReference, latestQuaternion));
   else craftQuaternion.identity();
   setPhase('running');
+  activeFrameAt=performance.now();
   feedback.start({flightNumber:flightSession.snapshot().legs});
   $('pause-button').focus({ preventScroll: true });
   keepAwake();
@@ -530,7 +539,7 @@ $('practice-button').addEventListener('click', async () => {
     pwa.clearOrientation();
     if (phase === 'complete') { flightSession.reset(); feedback.reset(); }
     else flightSession.restartLeg();
-    stage.reset(); previousCollected = 0; craftReference = null;
+    resetRoute(); previousCollected = 0; craftReference = null;
   }
   inputMode === 'practice' ? requestSensors() : startPractice('screen-button-confirmed');
 });
@@ -579,7 +588,7 @@ function resetStage({ preserveSession = false } = {}) {
   halt();
   reference = null;
   craftReference = null;
-  stage.reset();
+  resetRoute();
   previousCollected = 0;
   $('toast').hidden = true;
   if (inputMode === 'practice') startPractice();
@@ -647,6 +656,10 @@ function updateGroundProximity(state) {
 
 function updateEdgeMarker(state) {
   const marker = $('target-edge-marker');
+  marker.dataset.target=state.collected===state.total?'exit':'light';
+  if(playMode==='flight'&&cameraMode==='cockpit'&&visibility==='assisted'&&phase==='running'){
+    marker.hidden=true;app.dataset.edgeStatus='hud';return;
+  }
   if (visibility !== 'assisted' || phase !== 'running' || state.complete || !state.targetLocal) {
     marker.hidden = true;
     app.dataset.edgeStatus = 'hidden';
@@ -748,12 +761,17 @@ function updateHud(now, state) {
   app.dataset.viewPosition = JSON.stringify(state.viewPosition);
   app.dataset.verticalFov = String(state.fieldOfView.vertical);
   app.dataset.navigationTargets = JSON.stringify(state.navigationTargets);
+  app.dataset.exitAppearance=JSON.stringify(state.exitAppearance);
+  app.dataset.inputHeld=String(inputHeld);
+  app.dataset.segments=JSON.stringify(routeTiming.snapshot());
   const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
+  $('cockpit-exit-notice').hidden=!(cockpitActive&&visibility==='assisted'&&state.collected===state.total&&now<exitNoticeUntil);
   const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive});
   updateRadar(state, { phase, visibility, range: settings.radarRange });
   const cockpitLayout = layoutCockpitHud(cockpitActive);
   updateEdgeMarker(state);
-  updateCockpitHud(state, cockpitActive, cockpitLayout, settings, heightGuide);
+  updateCockpitHud({...state,inputHeld}, cockpitActive, cockpitLayout, settings, heightGuide);
+  layoutCockpitObjective(cockpitLayout);
 }
 
 let previousFrame = performance.now();
@@ -767,7 +785,7 @@ function frame(now) {
         // An unchanged held pose may produce no new events. Keep its last valid value while visible.
         if (reference && craftReference && latestOrientationSample) {
           refreshOrientations();
-          angles = readPose(latestQuaternion, latestInputQuaternion, reference, craftReference);
+          angles = preserveTiltInput(angles,readPose(latestQuaternion, latestInputQuaternion, reference, craftReference));inputHeld=angles.held;
         }
       } else {
         if (keyboardActive) {
@@ -783,12 +801,11 @@ function frame(now) {
           pointPracticeTilt(pitch, steer, wrappedTurn);
         }
         const pose = composeDevicePose(practiceAngles);
-        angles = readPose(pose, pose, neutralQuaternion, neutralQuaternion);
+        angles = preserveTiltInput(angles,readPose(pose, pose, neutralQuaternion, neutralQuaternion));inputHeld=angles.held;
       }
-      if (phase === 'running' && angles.valid === false) pause(playMode === 'flight' ? '中立の持ち方から大きく倒れたため停止しました。画面が見やすい角度に戻して、持ち方を合わせ直してください。' : '自機の先端が見えにくい角度になったため停止しました。画面を少し戻して、操作の中立を合わせ直してください。');
     }
     rates = phase === 'running' ? (playMode === 'flight' ? flightCommands(angles, { pitchMode, steering: flightSteering, settings: flightPanel.getSettings(), currentPitch: stage.getStatus().controlPitch, dt }) : controlRates(angles)) : { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };
-    const wasFlying = phase === 'running' && playMode === 'flight';
+    const wasRunning=phase==='running',wasFlying = wasRunning && playMode === 'flight';
     if (phase === 'running') {
       if (playMode === 'explore') speed = advanceSpeed(speed, dt, rates);
       stage.update(dt, { ...rates, mode: playMode, speed, throttle, craftQuaternion,
@@ -799,14 +816,20 @@ function frame(now) {
           cockpitFov: flightPanel.getSettings().cockpitFov } : {}) });
     }
     const state = stage.getStatus();
-    if (wasFlying) flightSession.advance(dt, state);
+    const activeSeconds=wasRunning?Math.max(0,(now-activeFrameAt)/1000):0;
+    if(wasRunning){routeTiming.advance(activeSeconds,state);activeFrameAt=now;}
+    if (wasFlying) flightSession.advance(activeSeconds, state);
     if (phase === 'running' && playMode === 'flight' && !state.grounded) {
       lastFlightSnapshot = { throttle: state.throttle, pitch: state.pitch,
         verticalSpeed: state.verticalSpeed, inputPitch: angles.pitch,
         deadzone: flightPanel.getSettings().deadzone };
     }
     feedback.update(state,angles,inputMode,flightSteering,now);
-    if (state.collected > previousCollected) { previousCollected = state.collected; feedback.event('collect'); showToast(state.collected === state.total ? '3つの光がそろいました。出口へ向かいましょう。' : `光を集めました。あと${state.total - state.collected}つ。`); }
+    if (state.collected > previousCollected) {
+      previousCollected = state.collected; feedback.event('collect');
+      if(state.collected===state.total&&visibility==='assisted'){exitNoticeUntil=now+3500;feedback.exitOpened();showToast('出口が開きました。黄色と白の門へ向かいましょう。');}
+      else showToast(state.collected===state.total?'3つの光がそろいました。出口へ向かいましょう。':`光を集めました。あと${state.total-state.collected}つ。`);
+    }
     if (state.complete && phase === 'running') {
       halt();
       setPhase('complete');
@@ -830,6 +853,7 @@ function frame(now) {
       flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'grounded', flightSession.lastLegSnapshot()));
     }
     updateHud(now, state);
+    updateCockpitObjective(state,playMode==='flight'&&cameraMode==='cockpit'&&phase==='running');
   }
   feedback.frameTiming(performance.now()-frameStart);
   if (now > toastUntil) $('toast').hidden = true;

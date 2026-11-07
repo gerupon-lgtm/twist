@@ -29,6 +29,7 @@ export function layoutCockpitHud(active) {
   headingX=Math.max(insets.left+12,Math.min(w-insets.right-192,headingX));
   box($('cockpit-heading'),headingX,compassY,180,28);
   box($('cockpit-target-height'),headingX,compassY+32,180,32);
+  box($('cockpit-exit-notice'),headingX,compassY+68,180,24);
   box($('cockpit-speed'),insets.left+12,tapeY,58,tapeHeight);
   box($('cockpit-altitude'),w-insets.right-92,tapeY,58,tapeHeight);
   box($('cockpit-vario'),w-insets.right-28,tapeY,16,tapeHeight);
@@ -47,8 +48,8 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   };
   $('cockpit-speed').innerHTML = tape(readings.speed,2,'速度','m/s');
   $('cockpit-altitude').innerHTML = heightGuide
-    ? `<span>地面まで m</span><div class="height-tape-scale">${heightBandSvg(heightGuide)}<strong style="top:${Math.max(16,Math.min(84,heightGuide.scale.currentY))}%">${format(readings.altitude)}</strong></div>`
-    : tape(readings.altitude,5,'地面まで','m');
+    ? `<span>現在高度 m</span><div class="height-tape-scale">${heightBandSvg(heightGuide)}<strong style="top:${Math.max(16,Math.min(84,heightGuide.scale.currentY))}%">${format(readings.altitude)}</strong></div>`
+    : tape(readings.altitude,5,'現在高度','m');
   $('cockpit-altitude').dataset.heightState=heightGuide?.inside?'inside':heightGuide?.urgent?'urgent':'outside';
   const vario=verticalSpeedIndicator(readings.verticalSpeed),center=50,tip=center+(vario.direction==='up'?-vario.length:vario.length);
   const bar=vario.length?`<path class="vario-bar" d="M8,${center}V${tip}"/><path d="M3,${tip+(vario.direction==='up'?6:-6)}L8,${tip}L13,${tip+(vario.direction==='up'?6:-6)}"/>`:'';
@@ -61,14 +62,15 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   const warning = state.grounded ? '地面に接触・停止' : [
     ['danger','low'].includes(ground.level) ? '地面注意' : '',
     state.recoveryAssist > 0 ? '失速から復帰補助中' : '',
+    state.inputHeld&&ground.level==='clear'&&!state.recoveryAssist?'入力保持中・傾きを戻すと追従':'',
   ].filter(Boolean).join(' / ') || '機首 ┼　進行方向 ⊙';
   $('cockpit-power').innerHTML = `<span>${warning}</span>`;
   const projection = cockpitProjection(state,w,h,settings);
   const horizon = horizonSegment(projection.horizon,w,h);
   const left = insets.left+82, right = w-insets.right-102;
-  const top = compassY+($('cockpit-target-height').hidden?38:70), low = Math.max(top+20,powerY-8);
+  const top = compassY+(!$('cockpit-exit-notice').hidden?98:$('cockpit-target-height').hidden?38:70), low = Math.max(top+20,powerY-8);
   let clip = `M${left},${top}H${right}V${low}H${left}Z`;
-  for(const marker of [$('target-edge-marker'),$('practice-panel')].filter(e=>!e.hidden&&e.getClientRects().length)) {
+  for(const marker of [$('target-edge-marker'),$('cockpit-objective-label'),$('practice-panel')].filter(e=>!e.hidden&&e.getClientRects().length)) {
     const r=marker.getBoundingClientRect();
     const holeLeft=Math.max(left,r.left-4),holeRight=Math.min(right,r.right+4);
     const holeTop=Math.max(top,r.top-4),holeBottom=Math.min(low,r.bottom+4);

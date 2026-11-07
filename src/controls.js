@@ -104,6 +104,12 @@ export function deviceTiltAngles(referenceQuaternion, currentQuaternion) {
     valid: true,
   };
 }
+/** Large/back-facing poses retain the last usable command rather than pausing the game. */
+export function preserveTiltInput(previous,candidate) {
+  if(candidate?.valid!==false&&['pitch','steer','twist'].every(k=>Number.isFinite(candidate?.[k])))return {...candidate,held:false};
+  return {pitch:Number.isFinite(previous?.pitch)?previous.pitch:0,steer:Number.isFinite(previous?.steer)?previous.steer:0,
+    twist:Number.isFinite(previous?.twist)?previous.twist:0,valid:true,held:true};
+}
 
 /**
  * Measure the screen plane's slope along the craft's visible nose and right.

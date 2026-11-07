@@ -54,7 +54,7 @@ test('iPhone toast and install advice are visible without covering version or co
     await page.setViewportSize(size);await page.goto('/?mode=flight&camera=cockpit');
     await expect(page.locator('#orientation-notice')).toBeVisible();
     await expect(page.locator('#orientation-notice')).toContainText(size.width>size.height ? '縦向き用' : '画面縦向きのロック');
-    await expect(page.locator('#intro-version')).toContainText('v0.1.22');
+    await expect(page.locator('#intro-version')).toContainText('v0.1.23');
     await expect(page.locator('#intro-version')).toBeInViewport();
     await expect(page.locator('#installation-advice')).toContainText('共有メニュー');
     const overlap=await page.evaluate(()=>{

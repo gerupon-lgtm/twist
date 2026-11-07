@@ -7,11 +7,48 @@
     "brave": [
       "brave"
     ],
+    "rock": [
+      "rock"
+    ],
     "all": [
       "flight",
       "flight2",
-      "brave"
+      "brave",
+      "rock"
     ]
+  },
+  "rock": {
+    "title": "黒曜の翼",
+    "file": "rock.mid",
+    "loop": {
+      "start": 0,
+      "end": 73.84608
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 111
+      },
+      "2": {
+        "waveform": 0,
+        "volume": 55
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 49
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 88
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 43
+      },
+      "10": {
+        "volume": 104
+      }
+    }
   },
   "brave": {
     "title": "勇進の航路",
