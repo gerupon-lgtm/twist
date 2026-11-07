@@ -1,3 +1,4 @@
+import {COURSE} from '../src/course.js';
 import { test, expect } from '@playwright/test';
 const data=(page,key)=>page.locator('#app').getAttribute(`data-${key}`).then(Number);
 const slider=(page,id,value)=>page.locator(`#${id}`).evaluate((el,value)=>{el.value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}));},value);
@@ -15,7 +16,7 @@ async function clipboard(page) {
 test('opening version and pitch choice are visible on three phone layouts',async({page})=>{
   for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
     await page.setViewportSize(size); await page.goto('/?mode=flight');
-    await expect(page.locator('#intro-version')).toContainText('v0.1.23');
+    await expect(page.locator('#intro-version')).toContainText('v0.1.24');
     await expect(page.locator('#intro-version')).toBeInViewport();
     await expect(page.locator('#pitch-angle')).toBeInViewport();
     await expect(page.locator('#start-button')).toBeInViewport();
@@ -77,7 +78,7 @@ test('tuning persists all flight fields, affects pitch and bank, copies and rese
   for(const [key,value] of Object.entries(values)) await slider(page,`setting-${key}`,value);
   await page.locator('#settings-copy').click();
   const copied=await page.evaluate(()=>JSON.parse(window.copied));
-  expect(copied).toEqual({version:'0.1.23',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',launch:'browser',fullscreen:false,settings:{...values,ladderRange:10,cockpitFov:0,targetHeightGuide:true},inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov'],feedback:expect.any(Object),input:expect.any(Object),changedSettings:expect.any(Array),segments:expect.any(Array)});
+  expect(copied).toEqual({version:'0.1.24',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',launch:'browser',fullscreen:false,settings:{...values,ladderRange:10,cockpitFov:0,targetHeightGuide:true},inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov'],feedback:expect.any(Object),input:expect.any(Object),changedSettings:expect.any(Array),segments:expect.any(Array),exitDiscovery:expect.any(Object)});
   await page.reload(); await page.clock.runFor(100); await page.locator('#practice-button').click(); await page.clock.runFor(100);
   await slider(page,'practice-pitch',10); await slider(page,'practice-steer',10); await page.clock.runFor(3200);
   expect(await data(page,'flight-pitch')).toBeCloseTo(25*Math.PI/180,2);
@@ -145,7 +146,7 @@ for(const display of ['bank','fixed']) test(`angle input can fly the full course
     for(let i=0;i<200&&await page.locator('#app').getAttribute('data-phase')==='running';i++)await page.clock.runFor(100);
     await expect(page.locator('#result-contacts')).toHaveText('1回');await page.locator('#start-button').click();await page.clock.runFor(100);
   }
-  const targets=[{x:0,y:10,z:0},{x:16,y:18,z:-24},{x:-14,y:12,z:-44},{x:0,y:7,z:-62}];
+  const targets=[...COURSE.lights,COURSE.exit];
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const tilt=d=>Math.sign(d)*(3+Math.abs(d)*22);
   let heading=0, previous=null, sawExit=false;
@@ -153,7 +154,7 @@ for(const display of ['bank','fixed']) test(`angle input can fly the full course
     const state=await page.locator('#app').evaluate(el=>({phase:el.dataset.phase,position:JSON.parse(el.dataset.position),pitch:Number(el.dataset.flightPitch),speed:Number(el.dataset.speed)}));
     if(state.phase!=='running') break;
     const collected=Number(await page.locator('#collection-count').textContent());
-    if(collected===3&&!sawExit){await expect(page.locator('.radar-exit')).toHaveCount(1);await expect(page.locator('.radar-target[data-id^=light]')).toHaveCount(0);expect(JSON.parse(await page.locator('#app').getAttribute('data-target-height'))).toMatchObject({target:7,radius:4,lower:3,upper:11});await expect(page.locator('#target-height-inline')).toContainText('目標 7m');sawExit=true;}
+    if(collected===3&&!sawExit){await expect(page.locator('.radar-exit')).toHaveCount(1);await expect(page.locator('.radar-target[data-id^=light]')).toHaveCount(0);expect(JSON.parse(await page.locator('#app').getAttribute('data-target-height'))).toMatchObject({target:COURSE.exit.y,radius:4,lower:COURSE.exit.y-4,upper:COURSE.exit.y+4});await expect(page.locator('#target-height-inline')).toContainText(`目標 ${COURSE.exit.y}m`);sawExit=true;}
     const target=targets[collected],p=state.position;
     if(previous && Math.hypot(p.x-previous.x,p.z-previous.z)>.001) heading=Math.atan2(p.x-previous.x,-(p.z-previous.z));
     previous=p;

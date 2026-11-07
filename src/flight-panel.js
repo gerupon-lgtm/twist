@@ -130,6 +130,8 @@ export function createFlightPanel(getModes) {
       $('result-copy-text').hidden = true; $('result-copy-status').textContent = '';
       if (!report) return;
       const { stats } = report;
+      const discovery=report.exitDiscovery;
+      $('result-exit-discovery').textContent=!discovery?.opened?'出口未開放':discovery.firstVisibleSeconds===null?'未表示':`${discovery.firstVisibleSeconds.toFixed(1)}秒`; 
       const last = report.lastLeg || stats;
       $('result-legs').textContent = `${stats.legs || 1}回`;
       $('result-last-elapsed').textContent = `${last.elapsedSeconds.toFixed(1)}秒`;

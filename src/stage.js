@@ -7,14 +7,11 @@ import { advanceChaseAngles, bodyViewAngles, chaseView, normalizeCameraMode } fr
 import { createAircraft } from './aircraft.js';
 import { createScenery } from './scenery.js';
 import { createExitBeacon } from './exit-beacon.js';
+import { COURSE } from './course.js';
 
-const START = new THREE.Vector3(0, 7, 26);
-const BEACONS = [
-  new THREE.Vector3(0, 10, 0),
-  new THREE.Vector3(16, 18, -24),
-  new THREE.Vector3(-14, 12, -44),
-];
-const EXIT = new THREE.Vector3(0, 7, -62);
+const START = new THREE.Vector3(COURSE.start.x,COURSE.start.y,COURSE.start.z);
+const BEACONS = COURSE.lights.map(p => new THREE.Vector3(p.x,p.y,p.z));
+const EXIT = new THREE.Vector3(COURSE.exit.x,COURSE.exit.y,COURSE.exit.z);
 const COLLECT_RADIUS = 3.2;
 const EXIT_RADIUS = 4;
 const SKY = 0xdcebf1;
@@ -425,12 +422,14 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   exitGroup.position.copy(EXIT);
   const exitRing = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.15, 8, 48), dimGuide);
   exitGroup.add(exitRing);
-  const exitVisual=createExitBeacon();exitGroup.add(exitVisual.group);
+  const exitVisual=createExitBeacon({altitude:EXIT.y});exitGroup.add(exitVisual.group);
   world.add(exitGroup);
-  box(world, -4.7, 6, -62, 1.5, 12, 2);
-  box(world, 4.7, 6, -62, 1.5, 12, 2);
-  box(world, 0, 12.7, -62, 11, 1.5, 2.2);
-  box(world, 0, 0.3, -62, 12, 0.6, 7, blueStone);
+  // Legacy shape is translated with the shared course, and never surrounds the assisted portal.
+  const legacyExitFrame=new THREE.Group();legacyExitFrame.position.copy(EXIT);world.add(legacyExitFrame);
+  box(legacyExitFrame,-4.7,-1,0,1.5,12,2);
+  box(legacyExitFrame,4.7,-1,0,1.5,12,2);
+  box(legacyExitFrame,0,5.7,0,11,1.5,2.2);
+  box(legacyExitFrame,0,-6.7,0,12,.6,7,blueStone);
 
   // Separate orthographic scene: its unit is one CSS pixel. The craft pivot
   // stays centered. Its orientation only follows inverse sensor compensation,
@@ -668,7 +667,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       visual.halo.scale.setScalar(index === collected ? 1.25 : 0.85);
     });
     exitRing.material = collected === BEACONS.length ? guide : dimGuide;
-    exitRing.visible=visibility!=='assisted';
+    exitRing.visible=visibility!=='assisted';legacyExitFrame.visible=visibility!=='assisted';
   }
 
   // Check a full movement segment so a target cannot be skipped by a long frame.
@@ -902,7 +901,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         ring: `#${(visibility === 'assisted' ? brightRing : gold).color.getHexString()}`,
         minPixels: visibility === 'assisted' ? 22 : 0, columnTarget: visibility === 'assisted' && collected < BEACONS.length ? collected + 1 : null },
       targetLabel: collected < BEACONS.length ? `光 ${collected + 1}` : '出口',
-      exitAppearance:{...exitVisual.snapshot(),position:{x:EXIT.x,y:EXIT.y,z:EXIT.z},radius:EXIT_RADIUS},
+      exitAppearance:{...exitVisual.snapshot(),position:{x:EXIT.x,y:EXIT.y,z:EXIT.z},radius:EXIT_RADIUS,stoneFrame:legacyExitFrame.visible},
       distance: relative.length(),
       bearing: Math.atan2(localRelative.x, -localRelative.z),
       elevation: Math.atan2(localRelative.y, Math.hypot(localRelative.x, localRelative.z)),
@@ -952,6 +951,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       targetRadius: collected < BEACONS.length ? COLLECT_RADIUS : EXIT_RADIUS,
       visibility,
       fieldOfView: { ...fieldOfView },
+      cameraClipping:{near:camera.near,far:camera.far},
       scenery:{visible:scenery.group.visible,...scenery.details},
       targetLocal: { x: localRelative.x, y: localRelative.y, z: localRelative.z },
       landmarks: visibility === 'assisted' ? DIRECTION_LANDMARKS.map((landmark) => ({

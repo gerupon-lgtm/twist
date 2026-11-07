@@ -1,10 +1,11 @@
+import {COURSE} from '../src/course.js';
 import {test,expect} from '@playwright/test';
 import {flyRoute} from './helpers/fly-route.js';
 test('exit opening is visible in all cameras, legacy is preserved and all four route times are copied',async({page})=>{
  test.setTimeout(90000);await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>window.copied=text},configurable:true}));
  await page.clock.install();await page.goto('/?mode=flight');await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));await page.locator('#practice-button').click();await page.clock.runFor(100);
  let sawApproach=false;const saw=await flyRoute(page,async()=>{
-  expect(JSON.parse(await page.locator('#app').getAttribute('data-exit-appearance'))).toMatchObject({assisted:true,open:true,rings:3,minPixels:30,column:true,position:{x:0,y:7,z:-62},radius:4});
+  expect(JSON.parse(await page.locator('#app').getAttribute('data-exit-appearance'))).toMatchObject({assisted:true,open:true,rings:3,minPixels:68,column:true,position:COURSE.exit,radius:4,stoneFrame:false});
   await expect.poll(async()=>{await page.clock.runFor(50);return JSON.parse(await page.locator('#feedback-diagnostics').getAttribute('data-audio')).lastEvent;}).toBe('exitOpen');await expect(page.locator('#toast')).toContainText('出口が開きました');
   for(const camera of ['chase','cockpit','overlay']){
    await page.locator('#pause-button').click();await page.locator('#camera-'+camera).click();await page.locator('#start-button').click();await page.clock.runFor(100);
@@ -13,7 +14,7 @@ test('exit opening is visible in all cameras, legacy is preserved and all four r
    await page.screenshot({path:`test-results/v0123-exit-${camera}.png`});
   }
   await page.locator('#pause-button').click();const before=await page.locator('#app').getAttribute('data-segments');await page.clock.runFor(5000);expect(await page.locator('#app').getAttribute('data-segments')).toBe(before);
-  await page.locator('#view-classic').click();await page.clock.runFor(100);expect(JSON.parse(await page.locator('#app').getAttribute('data-exit-appearance'))).toMatchObject({assisted:false,rings:1,column:false,minPixels:0});
+  await page.locator('#view-classic').click();await page.clock.runFor(100);expect(JSON.parse(await page.locator('#app').getAttribute('data-exit-appearance'))).toMatchObject({assisted:false,rings:1,column:false,minPixels:0,stoneFrame:true});
   await page.locator('#view-assisted').click();await page.locator('#start-button').click();await page.clock.runFor(100);
  },async()=>{
   sawApproach=true;
@@ -25,6 +26,7 @@ test('exit opening is visible in all cameras, legacy is preserved and all four r
  });
  expect(saw).toBe(true);expect(sawApproach).toBe(true);await expect(page.locator('#dialog-title')).toHaveText('出口に到着しました');await page.locator('#result-copy').click();
  const report=await page.evaluate(()=>JSON.parse(window.copied));expect(report.segments.map(s=>s.id)).toEqual(['start-light1','light1-light2','light2-light3','light3-exit']);expect(report.segments.every(s=>s.seconds>0)).toBe(true);
+ expect(report.exitDiscovery).toMatchObject({opened:true,firstVisibleSeconds:expect.any(Number)});expect(report.exitDiscovery.firstVisibleSeconds).toBeGreaterThanOrEqual(0);await expect(page.locator('#result-exit-discovery')).toContainText('秒');
  expect(report.segments.reduce((sum,s)=>sum+s.seconds,0)).toBeCloseTo(report.lastLeg.elapsedSeconds,5);await expect(page.locator('#result-segments > div')).toHaveCount(4);await expect(page.locator('#result-segments')).not.toContainText('未完了');
 });
 test('exit beacon renders from the side, diagonally and far away with a real minimum-size ring',async({page})=>{
@@ -39,5 +41,5 @@ test('exit beacon renders from the side, diagonally and far away with a real min
   }
   beacon.update({visible:false,unlocked:true});out.push({hidden:!beacon.group.visible});beacon.dispose();renderer.dispose();return out;
  });
- for(const r of readings.slice(0,4)){expect(r.count,r.name).toBeGreaterThan(80);expect(r.width,r.name).toBeGreaterThanOrEqual(30);}expect(readings[4].hidden).toBe(true);
+ for(const r of readings.slice(0,4)){expect(r.count,r.name).toBeGreaterThan(80);expect(r.width,r.name).toBeGreaterThanOrEqual(60);}expect(readings[4].hidden).toBe(true);
 });

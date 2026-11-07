@@ -23,9 +23,10 @@ const finiteResult = (result) => {
   }
   near(result.speed, length(result.velocity));
   near(result.verticalSpeed, result.velocity.y);
-  assert.ok(result.speed <= 18 + 1e-10);
+  assert.ok(result.speed <= FLIGHT_MODEL.maxSpeed + 1e-10);
 };
-function simulate(seconds, dt, input, initial = { x: 0, y: 0, z: -6 }) {
+const cruiseVelocity = () => ({ x: 0, y: 0, z: -FLIGHT_MODEL.cruiseSpeed });
+function simulate(seconds, dt, input, initial = cruiseVelocity()) {
   let velocity = { ...initial };
   const position = { x: 0, y: 0, z: 0 };
   let result;
@@ -38,19 +39,30 @@ function simulate(seconds, dt, input, initial = { x: 0, y: 0, z: -6 }) {
   return { ...result, position };
 }
 
-test('50-percent level cruise balances thrust, drag, lift, and gravity at 6 m/s', () => {
-  near(FLIGHT_MODEL.cruiseSpeed, 6);
+test('50-percent level cruise balances thrust, drag, lift, and gravity at 8 m/s', () => {
+  near(FLIGHT_MODEL.cruiseSpeed, 8);
   near(FLIGHT_MODEL.defaultThrottle, 0.5);
   near(FLIGHT_MODEL.gravity, 3);
   near(FLIGHT_MODEL.maxThrust, 1.8);
   near(FLIGHT_MODEL.cruiseDrag, 0.9);
-  near(FLIGHT_MODEL.maxSpeed, 18);
+  near(FLIGHT_MODEL.maxSpeed, 24);
   const result = simulate(10, 1 / 60, { ...pose(), throttle: 0.5 });
-  near(result.speed, 6);
+  near(result.speed, 8);
   near(result.velocity.y, 0);
   near(result.position.y, 0);
   near(result.angleOfAttack, 0);
   near(result.lift, 3);
+});
+
+test('the 24 m/s speed cap preserves direction and bounds accelerated steps', () => {
+  const limited = stepFlightVelocity({ x: 30, y: 40, z: 0 }, 0, { ...pose(), throttle: 1 });
+  near(limited.speed, 24);
+  near(limited.velocity.x, 24 * .6);
+  near(limited.velocity.y, 24 * .8);
+  near(limited.velocity.z, 0);
+  const accelerated = stepFlightVelocity({ x: 0, y: 0, z: -24 }, .05,
+    { ...pose(-30), throttle: 1 });
+  finiteResult(accelerated);
 });
 
 test('the same engine setting climbs and slows with a 10-degree nose raise, descends and speeds up with a lower nose', () => {
@@ -58,10 +70,10 @@ test('the same engine setting climbs and slows with a 10-degree nose raise, desc
   const descent = simulate(2, 1 / 60, { ...pose(-10), throttle: 0.5 });
   assert.ok(climb.position.y > 0.25, `climb height ${climb.position.y}`);
   assert.ok(climb.verticalSpeed > 0);
-  assert.ok(climb.speed < 5.95, `climb speed ${climb.speed}`);
+  assert.ok(climb.speed < FLIGHT_MODEL.cruiseSpeed - 0.05, `climb speed ${climb.speed}`);
   assert.ok(descent.position.y < -0.25, `descent height ${descent.position.y}`);
   assert.ok(descent.verticalSpeed < 0);
-  assert.ok(descent.speed > 6.05, `descent speed ${descent.speed}`);
+  assert.ok(descent.speed > FLIGHT_MODEL.cruiseSpeed + 0.05, `descent speed ${descent.speed}`);
 });
 
 test('screen throttle changes thrust and zero output gradually sinks instead of holding speed', () => {
@@ -69,10 +81,11 @@ test('screen throttle changes thrust and zero output gradually sinks instead of 
   const high = simulate(1, 1 / 60, { ...pose(), throttle: 1 });
   assert.ok(low.position.y < -0.1);
   assert.ok(low.verticalSpeed < 0);
-  assert.ok(low.speed < 6);
-  assert.ok(high.speed > 6);
-  const initial = stepFlightVelocity({ x: 0, y: 0, z: -6 }, 0.05, { ...pose(), throttle: 0 });
-  assert.ok(initial.speed < 6 && initial.speed > 5.9, 'power off slows gradually');
+  assert.ok(low.speed < FLIGHT_MODEL.cruiseSpeed);
+  assert.ok(high.speed > FLIGHT_MODEL.cruiseSpeed);
+  const initial = stepFlightVelocity(cruiseVelocity(), 0.05, { ...pose(), throttle: 0 });
+  assert.ok(initial.speed < FLIGHT_MODEL.cruiseSpeed && initial.speed > FLIGHT_MODEL.cruiseSpeed - 0.1,
+    'power off slows gradually');
 });
 
 test('zero-speed aircraft falls under gravity and has no static lift', () => {
@@ -86,7 +99,7 @@ test('zero-speed aircraft falls under gravity and has no static lift', () => {
 
 test('banked lift curves velocity toward the lowered wing and loses vertical support', () => {
   for (const bank of [-30, 30]) {
-    const result = stepFlightVelocity({ x: 0, y: 0, z: -6 }, 0.01, { ...pose(0, bank), throttle: 0.5 });
+    const result = stepFlightVelocity(cruiseVelocity(), 0.01, { ...pose(0, bank), throttle: 0.5 });
     assert.ok(result.velocity.x * bank > 0);
     assert.ok(result.verticalSpeed < 0);
     near(result.velocity.x / 0.01, Math.sign(bank) * 1.5, 0.02);
@@ -99,7 +112,8 @@ test('lift preserves mechanical energy except for independently measured engine 
   let velocity = { x: 0, y: 0, z: -6 };
   let altitude = 0;
   let work = 0;
-  const power = (v) => 1.8 * 0.5 * dot(v, input.forward) - 0.9 * (length(v) / 6) ** 2 * length(v);
+  const power = (v) => 1.8 * 0.5 * dot(v, input.forward)
+    - 0.9 * (length(v) / FLIGHT_MODEL.cruiseSpeed) ** 2 * length(v);
   for (let i = 0; i < 720; i += 1) {
     const next = stepFlightVelocity(velocity, dt, input).velocity;
     work += (power(velocity) + power(next)) * 0.5 * dt;
@@ -111,18 +125,18 @@ test('lift preserves mechanical energy except for independently measured engine 
 });
 
 test('angle of attack affects lift, with bounded continuous stall reduction through steep and reversed flight', () => {
-  const level = stepFlightVelocity({ x: 0, y: 0, z: -6 }, 0, { ...pose(), throttle: 0.5 });
-  const raised = stepFlightVelocity({ x: 0, y: 0, z: -6 }, 0, { ...pose(10), throttle: 0.5 });
+  const level = stepFlightVelocity(cruiseVelocity(), 0, { ...pose(), throttle: 0.5 });
+  const raised = stepFlightVelocity(cruiseVelocity(), 0, { ...pose(10), throttle: 0.5 });
   near(raised.angleOfAttack, rad(10));
   near(raised.lift, 3 * (1 + 4.5 * rad(10)));
   assert.ok(raised.lift > level.lift);
   for (const center of [20, 70, -20, -70]) {
-    const left = stepFlightVelocity({ x: 0, y: 0, z: -6 }, 0, { ...pose(center - 0.00001), throttle: 0.5 });
-    const right = stepFlightVelocity({ x: 0, y: 0, z: -6 }, 0, { ...pose(center + 0.00001), throttle: 0.5 });
+    const left = stepFlightVelocity(cruiseVelocity(), 0, { ...pose(center - 0.00001), throttle: 0.5 });
+    const right = stepFlightVelocity(cruiseVelocity(), 0, { ...pose(center + 0.00001), throttle: 0.5 });
     near(left.lift, right.lift, 0.0001);
   }
   for (const angle of [-180, -100, -90, -70, 70, 90, 100, 180]) {
-    const result = stepFlightVelocity({ x: 0, y: 0, z: -6 }, 0, { ...pose(angle), throttle: 0.5 });
+    const result = stepFlightVelocity(cruiseVelocity(), 0, { ...pose(angle), throttle: 0.5 });
     near(result.lift, 0);
     finiteResult(result);
   }
@@ -170,10 +184,16 @@ test('invalid state, directions, and output stay finite without mutating caller 
   near(stepFlightVelocity(velocity, 0, { ...pose(), throttle: 2 }).throttle, 1);
 });
 
-test('powered level recovery regains forward flight after zero airspeed and vertical stalls within game-scale altitude', () => {
+test('powered level recovery regains forward flight within eight seconds and game-scale altitude', () => {
+  // Cruise is now 8 rather than 6 m/s, while all acceleration formulas remain
+  // unchanged. Allow the same proportional 6 * (8 / 6) seconds to build speed.
+  const recoverySeconds = 8;
+  // With the new speed normalization, the measured worst loss is 6.705 m.
+  // A 7 m drop budget reserves more than 3 m above the 10 m course start.
+  const maxRecoveryDrop = 7;
   for (const down of [0, 3, 6]) for (const throttle of [.5, 1]) {
     let velocity = { x: 0, y: -down, z: 0 }, height = 0, minimum = 0;
-    for (let i = 0; i < 360; i++) {
+    for (let i = 0; i < recoverySeconds * 60; i++) {
       const next = stepFlightVelocity(velocity, 1 / 60, { ...pose(), throttle });
       height += (velocity.y + next.velocity.y) / 120;
       minimum = Math.min(minimum, height);
@@ -181,7 +201,7 @@ test('powered level recovery regains forward flight after zero airspeed and vert
     }
     assert.ok(-velocity.z > 4.5, `down=${down}, power=${throttle}: forward ${-velocity.z}`);
     assert.ok(velocity.y > -.15, `down=${down}, power=${throttle}: descent ${velocity.y}`);
-    assert.ok(minimum > -6.5, `down=${down}, power=${throttle}: height loss ${-minimum}`);
+    assert.ok(minimum > -maxRecoveryDrop, `down=${down}, power=${throttle}: height loss ${-minimum}`);
   }
 });
 

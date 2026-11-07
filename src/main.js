@@ -15,6 +15,7 @@ import { updateTargetHeightPanel } from './target-height-panel.js';
 import { createRangeEditor } from './range-editor.js';
 import { preserveTiltInput } from './controls.js';
 import { createRouteTiming } from './route-timing.js';
+import { exitCenterVisible } from './exit-visibility.js';
 import { layoutCockpitObjective,updateCockpitObjective } from './cockpit-objective-panel.js';
 import { createFeedbackController } from './feedback/controller.js';
 import { createPwaController } from './pwa.js';
@@ -38,7 +39,7 @@ const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dial
 let inputMode = null;
 let inputHeld=false,lastPauseReason='',exitNoticeUntil=0,activeFrameAt=0;
 const inputTransitions=[];
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:routeTiming.snapshot(), ...pwa.report() }));
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:routeTiming.snapshot(), exitDiscovery:routeTiming.exitSnapshot(), ...pwa.report() }));
 function resetRoute(){stage.reset();routeTiming.reset();exitNoticeUntil=0;}
 function setInputMode(next,reason) {
   if(inputMode!==next){inputTransitions.push({from:inputMode,to:next,reason,phase,at:new Date().toISOString()});if(inputTransitions.length>8)inputTransitions.shift();}
@@ -766,6 +767,7 @@ function updateHud(now, state) {
   app.dataset.exitAppearance=JSON.stringify(state.exitAppearance);
   app.dataset.inputHeld=String(inputHeld);
   app.dataset.segments=JSON.stringify(routeTiming.snapshot());
+  app.dataset.exitDiscovery=JSON.stringify(routeTiming.exitSnapshot());
   const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
   $('cockpit-exit-notice').hidden=!(cockpitActive&&visibility==='assisted'&&state.collected===state.total&&now<exitNoticeUntil);
   const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive});
@@ -819,7 +821,13 @@ function frame(now) {
     }
     const state = stage.getStatus();
     const activeSeconds=wasRunning?Math.max(0,(now-activeFrameAt)/1000):0;
-    if(wasRunning){routeTiming.advance(activeSeconds,state);activeFrameAt=now;}
+    if(wasRunning){
+      const needsFirstView=state.collected===state.total&&routeTiming.exitSnapshot().firstVisibleSeconds===null;
+      const exitVisible=needsFirstView&&exitCenterVisible({target:state.targetLocal,verticalFov:state.fieldOfView.vertical,
+        near:state.cameraClipping.near,far:state.cameraClipping.far,width:innerWidth,height:innerHeight,
+        bounds:{left:0,right:innerWidth,top:document.querySelector('.navigation').getBoundingClientRect().bottom,bottom:$('bottom-panel').getBoundingClientRect().top}});
+      routeTiming.advance(activeSeconds,{...state,exitVisible});activeFrameAt=now;
+    }
     if (wasFlying) flightSession.advance(activeSeconds, state);
     if (phase === 'running' && playMode === 'flight' && !state.grounded) {
       lastFlightSnapshot = { throttle: state.throttle, pitch: state.pitch,

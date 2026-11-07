@@ -30,8 +30,8 @@ for(const camera of ['overlay','chase','cockpit'])for(const size of sizes)test(`
 });
 for(const camera of ['overlay','chase','cockpit'])test(`next light changes the height band and warns early in ${camera}`,async({page})=>{
  await launch(page,'mode=flight&camera='+camera);await page.clock.runFor(4400);
- expect(await guide(page)).toMatchObject({target:18,lower:14.8,upper:21.2,inside:false,direction:'up'});
- const selector=camera==='cockpit'?'#cockpit-target-height':'#target-height-inline';await expect(page.locator(selector)).toContainText('目標 18m');
+ expect(await guide(page)).toMatchObject({target:14,lower:10.8,upper:17.2,inside:false,direction:'up'});
+ const selector=camera==='cockpit'?'#cockpit-target-height':'#target-height-inline';await expect(page.locator(selector)).toContainText('目標 14m');
  // Turn toward the second light; approaching it horizontally makes the early cue eligible.
  await slider(page,'practice-steer',15);await page.clock.runFor(1300);await slider(page,'practice-steer',0);await page.clock.runFor(200);
  expect((await guide(page)).urgent).toBe(true);await expect(page.locator(selector)).toContainText('早めに▲');

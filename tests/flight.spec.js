@@ -107,7 +107,7 @@ test('phone twist does not change flight power or speed in level cruise', async 
     await angle(page, 'twist', twist);
     await page.waitForTimeout(150);
     await expect(page.locator('#throttle-value')).toHaveText('50%');
-    expect(await speed(page)).toBeCloseTo(6, 1);
+    expect(await speed(page)).toBeCloseTo(8, 1);
     expect(await data(page, 'flight-pitch')).toBeCloseTo(0, 5);
   }
   await expect(page.locator('#twist-control-meter')).toBeHidden();

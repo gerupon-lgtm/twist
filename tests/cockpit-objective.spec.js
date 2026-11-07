@@ -5,7 +5,7 @@ async function launch(page,query=''){
 }
 for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}])test(`cockpit objective and current/target heights fit ${size.width}x${size.height}`,async({page})=>{
  await page.setViewportSize(size);await launch(page);await expect(page.locator('#cockpit-objective')).toBeVisible();await expect(page.locator('#cockpit-objective')).toHaveAttribute('data-kind','point');await expect(page.locator('#cockpit-objective-label')).toContainText('光 1');
- await expect(page.locator('#cockpit-target-height')).toContainText('現在7.0m');await expect(page.locator('#cockpit-target-height')).toContainText('目標 10m');
+ await expect(page.locator('#cockpit-target-height')).toContainText('現在10.0m');await expect(page.locator('#cockpit-target-height')).toContainText('目標 10m');
  const state=await page.locator('#app').evaluate(el=>({target:JSON.parse(el.dataset.targetLocal),fov:Number(el.dataset.verticalFov)})),mark=await page.locator('#cockpit-objective').evaluate(el=>({x:Number(el.dataset.x),y:Number(el.dataset.y)}));
  const f=size.height/2/Math.tan(state.fov*Math.PI/360);expect(Math.abs(mark.x-(size.width/2+f*state.target.x/-state.target.z))).toBeLessThan(2);expect(Math.abs(mark.y-(size.height/2-f*state.target.y/-state.target.z))).toBeLessThan(2);
  const label=await page.locator('#cockpit-objective-label').boundingBox();for(const id of ['cockpit-heading','cockpit-target-height','cockpit-altitude','cockpit-speed','radar','bottom-panel']){const r=await page.locator('#'+id).boundingBox();expect(label.x<r.x+r.width&&label.x+label.width>r.x&&label.y<r.y+r.height&&label.y+label.height>r.y,id).toBe(false);}
