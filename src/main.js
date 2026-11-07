@@ -366,7 +366,7 @@ function run(mode) {
   if (mode === 'sensor' && craftReference && latestQuaternion) craftQuaternion.copy(compensationQuaternion(craftReference, latestQuaternion));
   else craftQuaternion.identity();
   setPhase('running');
-  feedback.start();
+  feedback.start({flightNumber:flightSession.snapshot().legs});
   $('pause-button').focus({ preventScroll: true });
   keepAwake();
 }

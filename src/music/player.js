@@ -3,27 +3,31 @@ import { SmfPlayer } from '../vendor/scc/engine/smf-player.js';
 import { PRESET_NAMES } from '../vendor/scc/core/presets.js';
 import { validateTrack,prepareScore,createLoopStream } from './score.js';
 import { APP_VERSION } from '../version.js';
+import { flightTrackOrder,trackForFlight } from './playlist.js';
 
 export function createMusicPlayer(audio,{fetchFile=fetch,base=new URL('./music/',document.baseURI)}={}){
   let loading=null,tracks=null,player=null,expander=null,generation=0,current=null,status='idle',lastTrack=null;
-  let settings={},playedTracks=[];
+  let settings={},playedTracks=[],flightNumber=1,currentScoreDuration=0,currentTrackId=null;
   async function preload(){
     if(tracks)return tracks;
     if(!loading)loading=(async()=>{
       const url=new URL('tracks.json',base);url.searchParams.set('v',APP_VERSION);
       const response=await fetchFile(url);if(!response.ok)throw Error('No track config');
-      const data=await response.json(),loaded={};
-      for(const id of ['flight','clear']){
-        const track=validateTrack(data[id]),file=new URL(track.file,base);
-        if(file.origin!==base.origin||!file.pathname.startsWith(base.pathname))throw Error('MIDI must be local');
-        file.searchParams.set('v',APP_VERSION);const r=await fetchFile(file);if(!r.ok)throw Error('No MIDI');
-        loaded[id]={track,score:prepareScore(new Uint8Array(await r.arrayBuffer()),track)};
+      const data=await response.json(),ids=flightTrackOrder(data),entries=Object.create(null);
+      for(const id of [...ids,'clear']){
+        try {
+          const track=validateTrack(data[id]),file=new URL(track.file,base);
+          if(file.origin!==base.origin||!file.pathname.startsWith(base.pathname))throw Error('MIDI must be local');
+          file.searchParams.set('v',APP_VERSION);const r=await fetchFile(file);if(!r.ok)throw Error('No MIDI');
+          entries[id]={track,score:prepareScore(new Uint8Array(await r.arrayBuffer()),track)};
+        } catch { /* One missing alternate must not silence the other usable tracks. */ }
       }
-      tracks=loaded;status='ready';return tracks;
+      if(!Object.keys(entries).length)throw Error('No usable MIDI');
+      tracks={entries,flightIds:ids.filter(id=>entries[id])};status='ready';return tracks;
     })().catch(()=>{status='unavailable';loading=null;return null;});
     return loading;
   }
-  function stop(){generation++;clearInterval(expander);expander=null;player?.stop();player=null;audio.stopMusic();current=null;if(status==='playing')status='ready';}
+  function stop(){generation++;clearInterval(expander);expander=null;player?.stop();player=null;audio.stopMusic();current=null;currentTrackId=null;currentScoreDuration=0;if(status==='playing')status='ready';}
   async function play(id){
     if(!settings.sound||(id==='flight'?!settings.bgm:!settings.sfx))return 'cancelled';
     if(current===id&&player?.playing)return 'played';
@@ -31,10 +35,11 @@ export function createMusicPlayer(audio,{fetchFile=fetch,base=new URL('./music/'
     const library=await preload();
     if(token!==generation)return 'cancelled';
     const ready=await audio.waitForReady();if(token!==generation)return 'cancelled';
-    if(!library?.[id]||!ready)return 'unavailable';
+    const trackId=id==='flight'?trackForFlight(library?.flightIds??[],flightNumber):id;
+    if(!library?.entries[trackId]||!ready)return 'unavailable';
     try{await audio.resume();}catch{if(token!==generation)return 'cancelled';status='unavailable';return 'unavailable';}
     if(token!==generation)return 'cancelled';
-    const {track,score}=library[id],sink=audio.musicClock;
+    const {track,score}=library.entries[trackId],sink=audio.musicClock;
     audio.stopMusic();audio.configure(settings);audio.setMusicGain((settings.bgmVolume??50)/100);
     const synth=new Synth(sink,{drums:true});synth.init();
     for(const [channel,part]of Object.entries(track.parts))if(Number(channel)<=8)synth.setWave(PRESET_NAMES[part.waveform],Number(channel)-1);
@@ -54,14 +59,16 @@ export function createMusicPlayer(audio,{fetchFile=fetch,base=new URL('./music/'
       if(token!==generation||!player?.playing)return;
       player.duration=stream.extend(Math.max(score.duration*2,sink.now()-player.startTime+score.duration));stream.trim(player);
     },100);
-    current=id;lastTrack=track.title;if(!playedTracks.includes(track.title))playedTracks.push(track.title);status='playing';return 'played';
+    current=id;currentTrackId=trackId;currentScoreDuration=stream?score.duration:0;lastTrack=track.title;if(!playedTracks.includes(track.title))playedTracks.push(track.title);status='playing';return 'played';
   }
   return {
     preload,play,stop,
+    setFlightNumber(value){flightNumber=Number.isFinite(value)?Math.max(1,Math.floor(value)):1;},
     setSettings(value){settings=value;audio.setMusicGain((settings.bgmVolume??50)/100);if(!settings.sound||(current==='flight'&&!settings.bgm)||(current==='clear'&&!settings.sfx))stop();},
-    reset(){playedTracks=[];lastTrack=null;},
+    reset(){playedTracks=[];lastTrack=null;flightNumber=1;},
     snapshot:()=>({status,playing:Boolean(player?.playing),track:lastTrack,playedTracks:[...playedTracks],current,
-      clearTrack:tracks?.clear.track.title??null,position:player?.position??0,
-      loopCount:current==='flight'&&tracks?.flight.track.loop?Math.floor((player?.position||0)/tracks.flight.score.duration):0}),
+      clearTrack:tracks?.entries.clear?.track.title??null,position:player?.position??0,flightNumber,trackId:currentTrackId,
+      flightTracks:tracks?.flightIds.map(id=>tracks.entries[id].track.title)??[],
+      loopCount:current==='flight'&&currentScoreDuration?Math.floor((player?.position||0)/currentScoreDuration):0}),
   };
 }

@@ -1,13 +1,122 @@
 {
+  "flightPlaylist": [
+    "flight",
+    "flight2"
+  ],
   "flight": {
-    "title": "ひかりの航路（仮）",
+    "title": "蒼穹突破",
     "file": "flight.mid",
-    "loop": {"start": 0, "end": 45},
-    "parts": {"1":{"waveform":4,"volume":96},"2":{"waveform":2,"volume":78},"3":{"waveform":0,"volume":96},"10":{"volume":85}}
+    "loop": {
+      "start": 0,
+      "end": 72
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 94
+      },
+      "2": {
+        "waveform": 4,
+        "volume": 74
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 68
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 92
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 54
+      },
+      "10": {
+        "volume": 100
+      }
+    }
+  },
+  "flight2": {
+    "title": "遺跡の閃光",
+    "file": "flight2.mid",
+    "loop": {
+      "start": 0,
+      "end": 68.571456
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 94
+      },
+      "2": {
+        "waveform": 4,
+        "volume": 74
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 68
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 92
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 54
+      },
+      "10": {
+        "volume": 100
+      }
+    }
   },
   "clear": {
-    "title": "光の到着（仮）",
+    "title": "突破の凱歌",
     "file": "clear.mid",
-    "parts": {"1":{"waveform":4,"volume":100},"2":{"waveform":2,"volume":84},"3":{"waveform":0,"volume":96},"10":{"volume":90}}
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 96
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 78
+      },
+      "3": {
+        "waveform": 1,
+        "volume": 88
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 50
+      },
+      "10": {
+        "volume": 98
+      }
+    }
+  },
+  "comparison": {
+    "title": "ひかりの航路（比較）",
+    "file": "flight-legacy.mid",
+    "loop": {
+      "start": 0,
+      "end": 45
+    },
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 96
+      },
+      "2": {
+        "waveform": 2,
+        "volume": 78
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 96
+      },
+      "10": {
+        "volume": 85
+      }
+    }
   }
 }

@@ -43,7 +43,7 @@ export function createFeedbackController(){
   refresh();
   return {
     unlock(){haptics.arm();if(settings.sound){void audio.unlock();void music.preload();}},
-    start(){active=true;audio.start();audio.configure(settings);void music.play('flight');},
+    start({flightNumber=1}={}){active=true;music.setFlightNumber(flightNumber);audio.start();audio.configure(settings);void music.play('flight');},
     stop(){active=false;music.stop();audio.stop();haptics.stop();jitter.clearWindow();},
     event(kind){haptics.event(kind,settings,performance.now());
       if(kind==='clear')void music.play('clear').then(result=>{if(result==='unavailable')audio.event(kind,settings);});

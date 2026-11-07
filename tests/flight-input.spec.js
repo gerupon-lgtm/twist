@@ -15,7 +15,7 @@ async function clipboard(page) {
 test('opening version and pitch choice are visible on three phone layouts',async({page})=>{
   for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
     await page.setViewportSize(size); await page.goto('/?mode=flight');
-    await expect(page.locator('#intro-version')).toContainText('v0.1.19');
+    await expect(page.locator('#intro-version')).toContainText('v0.1.20');
     await expect(page.locator('#intro-version')).toBeInViewport();
     await expect(page.locator('#pitch-angle')).toBeInViewport();
     await expect(page.locator('#start-button')).toBeInViewport();
@@ -77,7 +77,7 @@ test('tuning persists all flight fields, affects pitch and bank, copies and rese
   for(const [key,value] of Object.entries(values)) await slider(page,`setting-${key}`,value);
   await page.locator('#settings-copy').click();
   const copied=await page.evaluate(()=>JSON.parse(window.copied));
-  expect(copied).toEqual({version:'0.1.19',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',launch:'browser',fullscreen:false,settings:values,inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone'],feedback:expect.any(Object)});
+  expect(copied).toEqual({version:'0.1.20',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',launch:'browser',fullscreen:false,settings:values,inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone'],feedback:expect.any(Object)});
   await page.reload(); await page.clock.runFor(100); await page.locator('#practice-button').click(); await page.clock.runFor(100);
   await slider(page,'practice-pitch',10); await slider(page,'practice-steer',10); await page.clock.runFor(3200);
   expect(await data(page,'flight-pitch')).toBeCloseTo(25*Math.PI/180,2);
@@ -174,6 +174,7 @@ for(const display of ['bank','fixed']) test(`angle input can fly the full course
   const report=await page.evaluate(()=>JSON.parse(window.copied));
   expect(report.result).toBe('clear');expect(report.display).toBe(display);await expect(page.locator('#result-outcome')).toHaveText('クリア');
   await expect.poll(async()=>{await page.clock.runFor(50);return JSON.parse(await page.locator('#feedback-diagnostics').getAttribute('data-music')).current;}).toBe('clear');
+  expect(JSON.parse(await page.locator('#feedback-diagnostics').getAttribute('data-music')).track).toBe('突破の凱歌');
   expect(report.stats.elapsedSeconds).toBeGreaterThan(10);expect(report.stats.groundContacts).toBe(display==='bank'?1:0);expect(report.stats.legs).toBe(display==='bank'?2:1);expect(report.lastLeg.groundContacts).toBe(0);
   await expect(page.locator('#result-last-contacts')).toHaveText('0回');
   await page.screenshot({path:'test-results/v0113-clear-record.png'});

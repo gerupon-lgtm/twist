@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { generateMusic } from '../tools/generate-music.mjs';
+import { generateLegacyMusic as generateMusic } from '../tools/generate-music.mjs';
 import { validateTrack,prepareScore,createLoopStream } from '../src/music/score.js';
 import { createMusicPlayer } from '../src/music/player.js';
 import { parseSmf } from '../src/vendor/scc/midi/smf.js';

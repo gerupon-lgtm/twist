@@ -2,17 +2,23 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.19 / 2026-11-07**
+**操作検証 v0.1.20 / 2026-11-07**
 
 公開先URL（機首angle、左右端を倒す旋回。視点の未指定は従来表示、機体表示はbank/fixedを残します）:
 
-- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.19)
-- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.19)
-- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.19)
-- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.19)
-- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.19)
+- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.20)
+- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.20)
+- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.20)
+- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.20)
+- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.20)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.20のBGM改訂（追加資料A）
+
+単調さを減らすため、イントロ・主題・展開・サビ・静かな区間のある2曲へ作り直しました。「蒼穹突破」は160BPM/72秒、「遺跡の閃光」は168BPM/約69秒、どちらも短調を基調にしたオリジナル曲です。飛び直すたびに交互に切り替わり、一時停止や合わせ直しでは同じ曲の先頭へ戻ります。ゴールも3秒の「突破の凱歌」に変更。SCCは最大5音、PSGドラムと効果音の分離・チップの計算は維持します。
+
+旧曲も比較用に残し、tracks.jsonのflightPlaylistで選択できます。自作MIDIへの差し替え条件も継続。[曲/差し替え手順](docs/music.md)、[検証と負荷比較](docs/verification-v0120.md)。曲の聞こえ方とPixel 9aの負荷は未確認です。追加資料Bの操縦席改善は次の版で扱います。
 
 ## v0.1.19のホーム画面起動と画面の向き
 
@@ -193,6 +199,8 @@ npm run build
 ブラウザー検証はWindowsでは既存のEdgeを使用します。CI環境で実行する場合は `npx playwright install --with-deps chromium` が必要です。
 
 ## 記録
+
+- [v0.1.20のハードBGM改訂・曲切替・負荷比較](docs/verification-v0120.md)
 
 - [v0.1.19のPWA・向き固定・iPhone案内と実機手順](docs/verification-v0119.md)
 - [v0.1.18のMIDI BGMと検証](docs/verification-v0118.md)
