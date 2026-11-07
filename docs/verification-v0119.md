@@ -50,3 +50,12 @@ v0.1.17の振動/効果音、v0.1.18のMIDI BGMをそれぞれ公開確認して
 5. 次の版が公開されたらホームアイコンからの新規起動/既存画面復帰で新版になるか確認。オフライン対応はなく、通信できない場合の起動は保証しない。
 
 実装の参考：[画面の向きの仕様](https://www.w3.org/TR/screen-orientation/)、[Chromeのインストール条件の変更](https://developer.chrome.com/blog/update-install-criteria)、[Appleの画面回転案内](https://support.apple.com/ja-jp/118226)、[Appleのホーム追加手順](https://support.apple.com/ja-jp/guide/iphone/iphea86e5236/ios)。端末/OSによる違いを残し、ホーム追加/ロック/実際の音を確認済みとは記載しない。
+
+
+## 公開確認
+
+コミット0e52ff46c43b5d08c2d0f7efbda6620908ff37b5、[Pages処理42365242300](https://github.com/gerupon-lgtm/twist/actions/runs/42365242300)が成功。CIの単体148件とビルドも成功。最終ビルドの配信試験5件は12.5秒、終了コード0。
+
+公開版50件/5ファイル（既存の視点・音・調整・記録30件＋端末/PWA20件）をEdge・1workerで2.5分、終了コード0。PWA処理を伴う別の実通信確認でも、HTML/版番号/公開15ファイルのHTTP200・型・SHA-256・バイト数をビルドと照合し一致、実行/読込エラー0。workerの登録は独自ドメイン直下のsw.js?v=0.1.19、scopeは直下、CacheStorageは空、再読込後もゲーム開始成功。旧GitHub URLから新ドメインへ版付きURLが保たれて転送される。API再現のブラウザー試験は通信差し替えのためSWを無効にし、実通信確認ではSWを有効にして分けた。
+
+Pixel 9a/iPhone XRのホーム追加・全画面・物理的な固定・実際の音/振動/負荷は未確認のまま、上の手順へ残す。PWA版の公開確認が終わったため、追加資料のBGM/操縦席の改修へ進む。
