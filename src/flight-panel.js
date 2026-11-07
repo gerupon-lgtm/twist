@@ -48,7 +48,12 @@ export function createFlightPanel(getModes) {
       status.textContent = '自動コピーできません。下の文字列を選択してコピーしてください。';
     }
   }
-  $('settings-reset').addEventListener('click', () => { settings = { ...DEFAULT_FLIGHT_SETTINGS }; persist(); });
+  $('settings-reset').addEventListener('click', () => {
+    settings = getModes().mode === 'explore'
+      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange }
+      : { ...DEFAULT_FLIGHT_SETTINGS };
+    persist();
+  });
   $('settings-copy').addEventListener('click', () => copy(flightReport({ version: APP_VERSION, ...getModes(), settings, result: result?.result }), 'settings'));
   $('result-copy').addEventListener('click', () => { if (result) copy(result, 'result'); });
   refresh();
@@ -77,6 +82,7 @@ export function createFlightPanel(getModes) {
       $('flight-adjustments').hidden = phase !== 'paused';
       for (const label of $('flight-settings-fields').children) label.hidden = mode !== 'flight' && label.dataset.settingKey !== 'radarRange';
       $('flight-settings-help').hidden = mode !== 'flight';
+      $('settings-reset').textContent = mode === 'flight' ? '初期値に戻す' : 'レーダーを初期値へ';
       $('adjustment-scope-note').textContent = mode === 'flight'
         ? 'レーダーと飛行機の操作を調整します。前後・左右のひねりで中立範囲と最大傾きを共用します。'
         : 'レーダーの表示範囲を調整します。探索の操縦には影響しません。';
