@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 async function open(page,camera='cockpit'){
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>window.copied=text},configurable:true}));await page.goto('/?mode=flight&camera='+camera);await page.locator('#practice-button').click();await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();
@@ -9,7 +10,7 @@ test('descriptions, problem lookup, changed flags and single-field defaults are 
 });
 for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}])test(`settings explanations and packaged guide are readable at ${size.width}x${size.height}`,async({page})=>{
  await page.setViewportSize(size);await open(page);await page.locator('#setting-help-maxPitch').scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect(page.locator('#setting-help-maxPitch')).toBeVisible();await page.screenshot({path:`test-results/v0123-settings-${size.width}.png`});
- await page.goto('/settings-guide.html?v=0.1.25');await expect(page.locator('header')).toContainText('v0.1.25');await expect(page.locator('h1')).toContainText('早見表');await expect(page.locator('table')).toHaveCount(6);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.goto('/settings-guide.html?v=0.1.26');await expect(page.locator('header')).toContainText('v0.1.26');await expect(page.locator('h1')).toContainText('早見表');await expect(page.locator('table')).toHaveCount(6);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 test('problem lookup follows pitch/display/visibility changes made while adjustments stay open',async({page})=>{
  await open(page);await page.locator('#settings-troubles > summary').click();await expect(page.locator('[data-jump-setting=timeConstant]')).toHaveCount(2);
@@ -17,3 +18,5 @@ test('problem lookup follows pitch/display/visibility changes made while adjustm
  await page.locator('#display-fixed').click();await expect(page.locator('[data-jump-setting=displayTimeConstant]')).toHaveCount(2);await page.locator('#display-bank').click();await expect(page.locator('[data-jump-setting=displayTimeConstant]')).toHaveCount(0);
  await page.locator('#view-classic').click();await expect(page.locator('[data-jump-setting=radarRange]')).toHaveCount(0);await page.locator('#view-assisted').click();await expect(page.locator('[data-jump-setting=radarRange]')).toHaveCount(2);
 });
+
+useLegacyCourse(test);

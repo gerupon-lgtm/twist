@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 // This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
 test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja"});});
@@ -49,3 +50,5 @@ test('guide setting survives reload, is copied, is hidden in legacy, and also wo
  await page.locator('#start-button').click();await page.clock.runFor(100);await expect(page.locator('#target-height-inline')).toBeHidden();
  await page.locator('#pause-button').click();await page.locator('#view-assisted').click();await page.locator('#mode-explore').click();await page.locator('#start-button').click();await page.clock.runFor(100);await expect(page.locator('.flight-line #target-height-inline')).toBeVisible();
 });
+
+useLegacyCourse(test);

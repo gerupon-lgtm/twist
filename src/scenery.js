@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
 /** Static instancing keeps a whole compass of silhouettes inexpensive to render. */
-export function createScenery() {
+export function createScenery({halfExtent=350}={}) {
+  const cloudSpread=Number.isFinite(halfExtent)?Math.max(1,halfExtent/110):350/110;
   const group=new THREE.Group();group.name='assisted-scenery';
   const matrix=new THREE.Matrix4(),rotation=new THREE.Quaternion(),position=new THREE.Vector3(),scale=new THREE.Vector3();
   const batch=(geometry,material,items)=>{
@@ -44,7 +45,7 @@ export function createScenery() {
   const clouds=[];
   const centers=[[-55,12,26],[38,22,4],[-48,34,-48],[48,46,-72],[15,18,65],[-58,55,62],[65,8,-36],[-70,72,-10],[12,68,-82],[66,30,58],[-15,40,-80],[-60,22,-85]];
   centers.forEach(([x,y,z],i)=>{
-    for(let j=0;j<3;j++)clouds.push({p:[x+(j-1)*4,y+(j===1?1.2:0),z+(i%2?1:-1)*j],s:[5+j%2,1.7+j%2*.7,3.5],turn:i*.7});
+    for(let j=0;j<3;j++)clouds.push({p:[x*cloudSpread+(j-1)*4,y+(j===1?1.2:0),z*cloudSpread+(i%2?1:-1)*j],s:[5+j%2,1.7+j%2*.7,3.5],turn:i*.7});
   });
   batch(new THREE.IcosahedronGeometry(1,1),new THREE.MeshBasicMaterial({color:0xf5faf6,fog:false,transparent:true,opacity:.42,depthWrite:false}),clouds);
   const details={islands:12,towerHeight:116,clouds:centers.length,suns:1,fogless:true,collisions:false,batches:8};

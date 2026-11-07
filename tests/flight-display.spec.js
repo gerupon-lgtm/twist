@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 import {Euler,Quaternion,Vector3} from 'three';
 import {readFile} from 'node:fs/promises';
@@ -40,7 +41,7 @@ test('bank is the default and both display choices fit the opening phone layouts
  for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
   await page.setViewportSize(size);await page.goto('/?mode=flight');
   await expect(page.locator('#app')).toHaveAttribute('data-display','bank');
-  await expect(page.locator('#intro-version')).toContainText('v0.1.25');await expect(page.locator('#intro-version')).toBeInViewport();
+  await expect(page.locator('#intro-version')).toContainText('v0.1.26');await expect(page.locator('#intro-version')).toBeInViewport();
   for(const id of ['display-bank','display-fixed','start-button'])await expect(page.locator('#'+id)).toBeInViewport();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:`test-results/v0114-intro-${size.width}.png`});
@@ -119,7 +120,7 @@ test('legacy conditions retain the v0.1.13 trace and both displays retain curren
  const capture=()=>page.evaluate(async data=>{
   const {createStage}=await import('/src/stage.js');const rows=[];
   for(const display of ['bank','fixed']){
-   const stage=createStage(document.createElement('canvas'),{display});stage.resize(390,844,1);stage.launchFlight();const initial=stage.getStatus(),samples=[];
+   const stage=createStage(document.createElement('canvas'),{display,turnGravity:3});stage.resize(390,844,1);stage.launchFlight();const initial=stage.getStatus(),samples=[];
    for(const row of data.samples){for(let i=0;i<row.frames;i++)stage.update(data.dt,{mode:'flight',...row.input,displayTwist:30});samples.push(stage.getStatus());}
    rows.push({initial,samples});stage.dispose();
   }return rows;
@@ -128,8 +129,9 @@ test('legacy conditions retain the v0.1.13 trace and both displays retain curren
  expect(current[0].initial.speed).toBe(10);expect(current[0].initial.position).toEqual(COURSE.start);
  // Supply only the approved pre-v24 constants in HTTP responses; production files stay untouched.
  const physics=(await readFile('src/flight-physics.js','utf8')).replace(/cruiseSpeed:\s*[\d.]+/,'cruiseSpeed: 6').replace(/maxSpeed:\s*[\d.]+/,'maxSpeed: 18');
- const course=(await readFile('src/course.js','utf8')).replace(/export const COURSE = Object\.freeze\(\{[\s\S]*?\n\}\);/,`export const COURSE = Object.freeze({
-  start: {x:0,y:7,z:26}, lights: [{x:0,y:10,z:0},{x:16,y:18,z:-24},{x:-14,y:12,z:-44}], exit: {x:0,y:7,z:-62}
+ // Reproduce the published comparison through the retained legacy course API.
+ const course=(await readFile('src/course.js','utf8')).replace(/export const LEGACY_COURSE=course\('legacy',[\s\S]*?\],point\([^;]+\)\);/,`export const LEGACY_COURSE=Object.freeze({id:'legacy',name:'v0.1.13 fixture',
+  start:{x:0,y:7,z:26},lights:[{x:0,y:10,z:0},{x:16,y:18,z:-24},{x:-14,y:12,z:-44}],exit:{x:0,y:7,z:-62}
  });`);
  const routes=[[/\/src\/flight-physics\.js(?:\?|$)/,physics],[/\/src\/course\.js(?:\?|$)/,course]];
  for(const [url,body] of routes)await page.route(url,route=>route.fulfill({contentType:'text/javascript',body}));
@@ -137,7 +139,12 @@ test('legacy conditions retain the v0.1.13 trace and both displays retain curren
  for(const [url] of routes)await page.unroute(url);
  function compare(actual,expected){for(const[key,value]of Object.entries(expected)){if(typeof value==='number')expect(actual[key]).toBeCloseTo(value,8);else if(value&&typeof value==='object')compare(actual[key],value);else expect(actual[key]).toEqual(value);}}
  for(let i=0;i<baseline.samples.length;i++){
-  compare(legacy[0].samples[i],baseline.samples[i].state);
+  const expected=structuredClone(baseline.samples[i].state);
+  // Only these authorized scenery positions changed with the 700 m arena.
+  // Keep comparing every physical field and the landmarks' identity/shape/color.
+  const positions={north:{x:0,y:16,z:-315},east:{x:295,y:16,z:0},south:{x:0,y:16,z:315},west:{x:-295,y:16,z:0}};
+  for(const landmark of expected.landmarks)landmark.position=positions[landmark.id];
+  compare(legacy[0].samples[i],expected);
   for(const traces of [current,legacy])for(const key of ['position','velocity','orientation','speed','bank','pitch','grounded','collected','complete'])expect(traces[1].samples[i][key]).toEqual(traces[0].samples[i][key]);
  }
 });
@@ -172,3 +179,5 @@ test('fixed copies result/display and marks unused rate settings; smoothing save
  await expect(page.locator('#result-outcome')).toHaveText('墜落');await expect(page.locator('#result-settings')).toContainText('未使用');
  await page.locator('#flight-adjustments>summary').click();await page.locator('#settings-reset').click();await expect(page.locator('#setting-displayTimeConstant')).toHaveValue('0.05');
 });
+
+useLegacyCourse(test);

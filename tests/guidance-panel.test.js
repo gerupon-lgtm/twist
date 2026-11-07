@@ -93,7 +93,7 @@ test('a visible safe ring without the true FPM cannot expose follow-driver data'
  assert.equal(result.directorReason,null);
 });
 test('panel applies held turn state before safety and crosses boundary reversals through zero',()=>{
- setup();const bearing=34*Math.PI/180,threshold=2*(100/(3*Math.tan(40*Math.PI/180)))*Math.sin(bearing);
+ setup();const bearing=34*Math.PI/180,threshold=2*(100/(9.8*Math.tan(40*Math.PI/180)))*Math.sin(bearing);
  const frame=(ratio,now,dt=1/60)=>{const distance=threshold*ratio,x=distance*Math.sin(bearing),z=-distance*Math.cos(bearing);
    return updateGuidancePanel({...base,targetPosition:{x,y:10,z},targetLocal:{x,y:0,z}},{now,dt});};
  let result=frame(1.2,0,0);assert.equal(result.mode,'target');assert.equal(result.yawErrorDegrees,15);
@@ -105,6 +105,44 @@ test('panel applies held turn state before safety and crosses boundary reversals
  assert.equal(previous,-15);result=frame(1.2,1300);assert.equal(result.mode,'target');assert.equal(result.yawErrorDegrees,-12.5);
  const crossing=[];for(let i=1;i<=12;i++){result=frame(1.2,1300+i*1000/60);crossing.push(result.yawErrorDegrees);}
  assert.ok(crossing.some(value=>Math.abs(value)<1e-8));assert.equal(crossing.at(-1),15);
+});
+
+test('five and eight lights keep guidance on lights after number three and switch to EXIT only at total',()=>{
+  for(const total of [5,8]){
+    const elements=setup(),state={...base,total,collected:3,targetLabel:'光 4',targetLocal:{x:0,y:0,z:10}};
+    const before=JSON.stringify(state);updateGuidancePanel(state,{now:0,dt:0});
+    assert.equal(elements.get('guidance-panel').dataset.target,'light');
+    assert.equal(elements.get('guidance-target-diamond').hasAttribute('hidden'),false);
+    assert.equal(elements.get('guidance-exit-gate').hasAttribute('hidden'),true);
+    assert.equal(elements.get('guidance-edge-title').textContent,'TGT 4');
+    updateGuidancePanel({...state,collected:total,targetLabel:'出口'},{now:100,dt:.1});
+    assert.equal(elements.get('guidance-panel').dataset.target,'exit');
+    assert.equal(elements.get('guidance-target-diamond').hasAttribute('hidden'),true);
+    assert.equal(elements.get('guidance-exit-gate').hasAttribute('hidden'),false);
+    assert.equal(elements.get('guidance-edge-title').textContent,'EXIT');
+    assert.equal(JSON.stringify(state),before);
+  }
+});
+
+test('course changes clear old next-target notices and later collection uses the new total',()=>{
+  const elements=setup();
+  updateGuidancePanel({...base,courseId:'normal',total:5},{now:0,dt:0});
+  updateGuidancePanel({...base,courseId:'normal',total:5,collected:1,targetLabel:'光 2'},{now:100,dt:.1});
+  assert.equal(elements.get('guidance-next-notice').hasAttribute('hidden'),false);
+  updateGuidancePanel({...base,courseId:'hard',total:8,collected:3,targetLabel:'光 4'},{now:200,dt:.1});
+  assert.equal(elements.get('guidance-next-notice').hasAttribute('hidden'),true);
+  updateGuidancePanel({...base,courseId:'hard',total:8,collected:4,targetLabel:'光 5'},{now:300,dt:.1});
+  assert.equal(elements.get('guidance-notice-target').textContent,'NEXT TGT 5');
+});
+
+test('guidance uses the configured shared turn strength and rejects invalid total',()=>{
+  const elements=setup();
+  const weak=updateGuidancePanel(base,{now:0,dt:0,settings:{turnGravity:3}});
+  updateGuidancePanel(base,{phase:'paused'});
+  const strong=updateGuidancePanel(base,{now:100,dt:0,settings:{turnGravity:9.8}});
+  assert.ok(Math.abs(weak.turnRadius/strong.turnRadius-9.8/3)<1e-9);
+  assert.equal(updateGuidancePanel({...base,total:9},{now:200,dt:.1}),null);
+  assert.equal(elements.get('guidance-panel').hasAttribute('hidden'),true);
 });
 test('English is default for target/next notice/reasons and Japanese switches back without mutating state',()=>{
  const elements=setup();updateGuidancePanel(base,{now:0,dt:0});

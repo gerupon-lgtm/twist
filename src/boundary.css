@@ -1,0 +1,8 @@
+/* A warning only; all flight/practice controls retain their pointer events. */
+.boundary-warning{position:absolute;display:flex;align-items:center;gap:9px;padding:6px 9px;z-index:3;pointer-events:none!important;color:#ffedb7;background:#382d40ee;border:1.5px solid #edc770;border-radius:7px;box-shadow:0 2px 8px #18263445;font-family:"Aptos","Yu Gothic UI","Meiryo",sans-serif;font-variant-numeric:tabular-nums}
+.boundary-warning *{pointer-events:none!important}.boundary-warning svg{width:32px;height:32px;flex:none;overflow:visible;transform-origin:50% 50%}
+.boundary-warning svg path{fill:currentColor;stroke:#30233b;stroke-width:1.2;stroke-linejoin:round}
+.boundary-warning strong{display:block;font-size:14px;line-height:19px;white-space:nowrap;letter-spacing:.02em}
+.boundary-warning span{display:block;font-size:10px;line-height:16px;white-space:nowrap}
+.boundary-warning[data-level=outside]{color:#ffd3b7;border-color:#ffac8b;background:#4a2a35f0}
+.boundary-warning[data-compact=true]{padding:4px 6px;gap:6px}.boundary-warning[data-compact=true] svg{width:27px;height:27px}.boundary-warning[data-compact=true] strong{font-size:11px;line-height:15px}.boundary-warning[data-compact=true] span{font-size:8px;line-height:13px}

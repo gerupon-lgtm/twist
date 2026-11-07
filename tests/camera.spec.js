@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test,expect } from '@playwright/test';
 // This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
 test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja", "flightDirector": false, "edgeGuidance": false, "targetHeadingCue": false, "nextTargetNotice": false});});
@@ -114,6 +115,14 @@ for(const size of [{width:390,height:844},{width:360,height:640},{width:844,heig
 });
 
 test('rendered cockpit ground horizon meets the conformal HUD horizon in actual WebGL pixels',async({page})=>{
+ // Isolate the background horizon: the new visible storm legitimately occludes
+ // the sampled three-pixel strip. Live storm + low-ground visibility are covered
+ // separately by boundary.spec and ground-proximity.spec, without this fixture.
+ await page.route(/\/src\/stage-boundary\.js(?:\?|$)/,async route=>{
+  const response=await route.fetch(),body=await response.text();
+  expect(body).toContain('group.add(mesh)');
+  await route.fulfill({response,body:body.replace('group.add(mesh)','mesh.visible=false;group.add(mesh)')});
+ });
  await page.goto('/?mode=flight');
  const result=await page.evaluate(async()=>{
   const {createStage}=await import('/src/stage.js');const {cockpitProjection}=await import('/src/cockpit-projection.js');
@@ -156,3 +165,5 @@ test('chase UI exposes a side in a right climb and fixed display keeps its visib
  expect(Math.abs(new Vector3(1,0,0).applyQuaternion(screen).y)).toBeLessThan(1e-6);
  await page.screenshot({path:'test-results/v0116-chase-turn-fixed.png'});
 });
+
+useLegacyCourse(test);

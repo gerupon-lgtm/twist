@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test,expect } from '@playwright/test';
 // This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
 test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja", "flightDirector": false, "edgeGuidance": false});});
@@ -98,3 +99,5 @@ test('distant islands and ruins render identically with stage fog present or abs
  });
  expect(result.changed).toBe(0);expect(result.drawn).toBeGreaterThan(500);
 });
+
+useLegacyCourse(test);

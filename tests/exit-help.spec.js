@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {COURSE} from '../src/course.js';
 import {test,expect} from '@playwright/test';
 // This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
@@ -45,3 +46,5 @@ test('exit beacon renders from the side, diagonally and far away with a real min
  });
  for(const r of readings.slice(0,4)){expect(r.count,r.name).toBeGreaterThan(80);expect(r.width,r.name).toBeGreaterThanOrEqual(60);}expect(readings[4].hidden).toBe(true);
 });
+
+useLegacyCourse(test);

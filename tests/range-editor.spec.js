@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 test.use({hasTouch:true});
 const input=page=>page.locator('#setting-maxPitch');
@@ -79,3 +80,5 @@ test('FOV history restores automatic mode as well as the previous manual value a
  await page.locator('[data-range-reset=setting-cockpitFov]').click();await expect(page.locator('#cockpit-fov-auto')).toBeChecked();await expect(page.locator('[data-range-undo=setting-cockpitFov]')).toBeEnabled();
  await page.locator('[data-range-undo=setting-cockpitFov]').click();await expect(page.locator('#cockpit-fov-auto')).not.toBeChecked();await expect(page.locator('#setting-cockpitFov')).toHaveValue('60');
 });
+
+useLegacyCourse(test);

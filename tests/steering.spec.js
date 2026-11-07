@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 const slider=(p,id,value)=>p.locator('#'+id).evaluate((el,v)=>{el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}));},value);
 const numeric=(p,k)=>p.locator('#app').getAttribute('data-'+k).then(Number);
@@ -22,3 +23,5 @@ for(const steer of ['tilt','twist'])test(`${steer} small-angle steering is indep
  await expect(page.locator('#setting-'+active)).toHaveValue(steer==='tilt'?'15':'20');await expect(page.locator('#setting-'+neutral)).toHaveValue(steer==='tilt'?'3':'5');await expect(page.locator('#setting-steerCurve')).toHaveValue('1');
  await page.locator('#settings-copy').click();copied=await page.evaluate(()=>JSON.parse(window.copied));expect(copied.settings[active]).toBe(steer==='tilt'?15:20);
 });
+
+useLegacyCourse(test);

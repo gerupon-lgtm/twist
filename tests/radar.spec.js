@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test,expect } from '@playwright/test';
 const data=(p,k)=>p.locator('#app').getAttribute('data-'+k).then(Number);
 const slider=(p,id,value)=>p.locator('#'+id).evaluate((el,v)=>{el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}));},value);
@@ -75,6 +76,8 @@ test('resetting exploration radar preserves saved flight tuning',async({page})=>
  await slider(page,'setting-maxPitch',25);await page.locator('#mode-explore').click();await page.locator('#start-button').click();await page.clock.runFor(100);
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments>summary').click();await slider(page,'setting-radarRange',20);
  await expect(page.locator('#settings-reset')).toHaveText('目印をすべて初期値へ');await page.locator('#settings-reset').click();
- await expect(page.locator('#setting-radarRange')).toHaveValue('60');await expect(page.locator('#setting-maxPitch')).toHaveValue('25');
+ await expect(page.locator('#setting-radarRange')).toHaveValue('180');await expect(page.locator('#setting-maxPitch')).toHaveValue('25');
  await page.locator('#mode-flight').click();await expect(page.locator('#setting-maxPitch')).toHaveValue('25');
 });
+
+useLegacyCourse(test);

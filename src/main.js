@@ -1,5 +1,10 @@
 import './style.css';
 import './guidance.css';
+import './boundary.css';
+import {getCourse,COURSE_CRITERIA} from './course.js';
+import {loadCourseChoice,saveCourseChoice} from './course-choice.js';
+import {STAGE_HALF_EXTENT} from './boundary.js';
+import {updateBoundaryPanel} from './boundary-panel.js';
 import {updateGuidancePanel} from './guidance-panel.js';
 import { Quaternion, MathUtils } from 'three';
 import { CONTROL_LIMITS, orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, deviceTiltAngles, composeDevicePose, controlRates, advanceSpeed } from './controls.js';
@@ -27,6 +32,8 @@ const $ = (id) => document.getElementById(id);
 const app = $('app');
 const canvas = $('world');
 let stage;
+let courseStorage;try{courseStorage=localStorage;}catch{}
+let selectedCourse=getCourse(loadCourseChoice(courseStorage,location.search));
 let phase = 'intro';
 let playMode = new URLSearchParams(location.search).get('mode') === 'flight' ? 'flight' : 'explore';
 let visibility = normalizeVisibility(new URLSearchParams(location.search).get('view'));
@@ -36,14 +43,14 @@ let pitchMode = new URLSearchParams(location.search).get('pitch') === 'rate' ? '
 let flightDisplay = new URLSearchParams(location.search).get('display') === 'fixed' ? 'fixed' : 'bank';
 let cameraMode = normalizeCameraMode(new URLSearchParams(location.search).get('camera'));
 const flightSession = createFlightSession();
-const routeTiming=createRouteTiming();
+const routeTiming=createRouteTiming(selectedCourse.lights.length);
 const feedback = createFeedbackController();
 const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dialog });
 let inputMode = null;
 let inputHeld=false,lastPauseReason='',exitNoticeUntil=0,activeFrameAt=0;
 const inputTransitions=[];
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:routeTiming.snapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), ...pwa.report() }));
-function resetRoute(){stage.reset();routeTiming.reset();exitNoticeUntil=0;}
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:routeTiming.snapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length}, stageSize:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2}, ...pwa.report() }));
+function resetRoute(){stage.reset();routeTiming.reset(selectedCourse.lights.length);exitNoticeUntil=0;}
 function setInputMode(next,reason) {
   if(inputMode!==next){inputTransitions.push({from:inputMode,to:next,reason,phase,at:new Date().toISOString()});if(inputTransitions.length>8)inputTransitions.shift();}
   inputMode=next;app.dataset.input=next??'';
@@ -92,6 +99,7 @@ function setPhase(next) {
   for (const view of ['assisted', 'classic']) $(`view-${view}`).disabled = ['waiting', 'ready'].includes(next);
   for (const pitch of ['angle', 'rate']) $(`pitch-${pitch}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   for (const steering of ['twist', 'tilt']) $(`steering-${steering}`).disabled = ['waiting', 'ready', 'running'].includes(next);
+  $('course-select').disabled=['waiting','ready','running'].includes(next);
   pwa.render();
 }
 
@@ -100,8 +108,8 @@ const modeNote = () => playMode === 'flight'
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
 const lightColor = () => visibility === 'assisted' ? 'ピンクの' : '金色の';
 const modeIntroduction = () => playMode === 'flight'
-  ? `${flightPanel.getSettings().flightDirector ? '白い進行方向の印を輪へ近づけます。重なると輪が緑になります。' : flightDisplay === 'fixed' ? '自機の上向きを保ち、景色が回ります。' : '自機は画面中央。右へ曲がると機体も右へ傾きます。'}${lightColor()}光を3つ集めて出口へ。`
-  : `自機はスマホと一緒に傾かず、最初の上向きを保ちます。${lightColor()}光を3つ集めて出口へ。`;
+  ? `${flightPanel.getSettings().flightDirector ? '白い進行方向の印を輪へ近づけます。重なると輪が緑になります。' : flightDisplay === 'fixed' ? '自機の上向きを保ち、景色が回ります。' : '自機は画面中央。右へ曲がると機体も右へ傾きます。'}${lightColor()}光を${selectedCourse.lights.length}つ集めて出口へ。`
+  : `自機はスマホと一緒に傾かず、最初の上向きを保ちます。${lightColor()}光を${selectedCourse.lights.length}つ集めて出口へ。`;
 
 function setThrottle(value) {
   throttle = Number.isFinite(value) ? MathUtils.clamp(value, 0, 1) : 0;
@@ -124,7 +132,7 @@ function applyVisibilityUI() {
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? 'レーダー、ピンクの光と白い輪、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&pitch=${pitchMode}&display=${flightDisplay}&camera=${cameraMode}&music=${feedback.report().settings.musicSet}&v=${APP_VERSION}`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&pitch=${pitchMode}&display=${flightDisplay}&camera=${cameraMode}&course=${selectedCourse.id}&music=${feedback.report().settings.musicSet}&v=${APP_VERSION}`;
 }
 
 function selectVisibility(next) {
@@ -170,7 +178,17 @@ function selectCamera(next) {
 }
 for (const value of ['overlay','chase','cockpit']) $(`camera-${value}`).addEventListener('click',()=>selectCamera(value));
 
+function applyCourseUI(){
+  const select=$('course-select');
+  if(selectedCourse.id==='legacy'&&!select.querySelector('option[value="legacy"]')){
+    const option=document.createElement('option');option.value='legacy';option.hidden=true;option.textContent='比較用（旧配置）';select.append(option);
+  }
+  select.value=selectedCourse.id;
+  const range=COURSE_CRITERIA.difficulties?.[selectedCourse.id]?.cruiseTimeRange;
+  $('course-note').textContent=selectedCourse.id==='legacy'?'v0.1.25 比較用（旧配置）':`光${selectedCourse.lights.length}個${range?`・約${range[0]}〜${range[1]}秒`:''}`;
+}
 function applyModeUI() {
+  applyCourseUI();
   const flight = playMode === 'flight';
   const twistSteering = flightSteering === 'twist';
   const basics = $('basic-controls'), guide = $('control-guide');
@@ -301,6 +319,23 @@ function selectMode(next) {
     dialog({ title: '自分はそのまま。世界を動かそう。', description: modeIntroduction(), note: modeNote(), action: 'スマホの傾きで始める', guide: true });
   }
 }
+function selectCourse(id){
+  const next=getCourse(id);
+  if(!stage||next.id===selectedCourse.id||['waiting','ready','running'].includes(phase))return;
+  const resume=Boolean(inputMode)&&phase!=='error';
+  permissionAttempt++;halt();pwa.clearOrientation();
+  selectedCourse=next;saveCourseChoice(courseStorage,next.id);
+  stage.dispose();
+  try{stage=createStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,turnGravity:flightPanel.getSettings().turnGravity});}
+  catch(error){stage=null;setPhase('error');dialog({title:'コースを開けませんでした',description:'ページを再読み込みして、もう一度お試しください。',action:'再読み込みする',error:error.message});return;}
+  reference=null;previousCollected=0;exitNoticeUntil=0;routeTiming.reset(next.lights.length);flightSession.reset();feedback.reset();
+  $('toast').hidden=true;flightPanel.showResult(null);resize();stage.update(0,{mode:playMode,speed:0,craftQuaternion});
+  const url=new URL(location.href);url.searchParams.set('course',next.id);url.searchParams.set('v',APP_VERSION);history.replaceState(null,'',url);
+  applyModeUI();
+  if(resume){setPhase('paused');dialog({title:'コースを変更しました',description:`${next.name}。光${next.lights.length}個を集めて出口へ。最初から始めます。`,note:modeNote(),action:inputMode==='sensor'?'この持ち方で再開する':'画面操作を再開する',guide:true});}
+  else{setInputMode(null,'course-reset');setPhase('intro');dialog({title:'自分はそのまま。世界を動かそう。',description:modeIntroduction(),note:modeNote(),action:'スマホの傾きで始める',guide:true});}
+}
+$('course-select').addEventListener('change',event=>selectCourse(event.target.value));
 $('mode-explore').addEventListener('click', () => selectMode('explore'));
 $('mode-flight').addEventListener('click', () => selectMode('flight'));
 
@@ -519,7 +554,8 @@ function startPractice(reason='resume-screen') {
 }
 
 $('start-button').addEventListener('click', async () => {
-  if (!stage || !pwa.canResume()) return;
+  if (!stage) { location.reload(); return; }
+  if (!pwa.canResume()) return;
   feedback.unlock();
   if (['ready','paused','complete'].includes(phase)) {
     const attempt = permissionAttempt, startAttempt = ++platformStartAttempt;
@@ -599,7 +635,7 @@ function resetStage({ preserveSession = false } = {}) {
   previousCollected = 0;
   $('toast').hidden = true;
   if (inputMode === 'practice') startPractice();
-  else { setPhase('paused'); dialog({ title: 'もう一度、出発しましょう', description: '持ち方を決めて、3つの光を集めに行きましょう。', note: modeNote(), action: playMode === 'flight' ? 'この持ち方で飛ぶ' : 'この持ち方で始める' }); }
+  else { setPhase('paused'); dialog({ title: 'もう一度、出発しましょう', description: `持ち方を決めて、${selectedCourse.lights.length}つの光を集めに行きましょう。`, note: modeNote(), action: playMode === 'flight' ? 'この持ち方で飛ぶ' : 'この持ち方で始める' }); }
 }
 $('reset-button').addEventListener('click', () => resetStage());
 
@@ -758,6 +794,7 @@ function updateHud(now, state) {
   $('target-label').textContent = state.complete ? hudText(language,'arrived') : hudTargetLabel(state,language);
   $('target-distance').textContent = `${Math.round(state.distance)} m`;
   $('collection-count').textContent = state.collected;
+  $('collection-total').textContent='/ '+state.total;
   $('objective').textContent = hudObjectiveText(state,language);
   $('nav-arrow').style.transform = `rotate(${state.bearing * 180 / Math.PI}deg)`;
   $('target-direction').textContent = hudDirectionText(state,language,{assisted:visibility==='assisted'});
@@ -798,6 +835,7 @@ function updateHud(now, state) {
   app.dataset.segments=JSON.stringify(routeTiming.snapshot());
   app.dataset.exitDiscovery=JSON.stringify(routeTiming.exitSnapshot());
   app.dataset.targetViews=JSON.stringify(routeTiming.targetViewsSnapshot());
+  app.dataset.course=JSON.stringify(state.course);app.dataset.stageSize=JSON.stringify(state.stageSize);app.dataset.turnGravity=String(state.turnGravity);app.dataset.boundary=JSON.stringify(state.boundary);
   const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
   $('cockpit-exit-notice').hidden=!(cockpitActive&&visibility==='assisted'&&state.collected===state.total&&now<exitNoticeUntil);
   $('cockpit-exit-notice').textContent=hudText(language,'exitOpen');
@@ -848,7 +886,7 @@ function frame(now) {
           displayScreenOffset: inputMode === 'sensor' ? screenAngle() - referenceScreenAngle : 0,
           displayTimeConstant: flightPanel.getSettings().displayTimeConstant,
           chaseTimeConstant: flightPanel.getSettings().chaseTimeConstant,
-          cockpitFov: flightPanel.getSettings().cockpitFov } : {}) });
+          cockpitFov: flightPanel.getSettings().cockpitFov, turnGravity:flightPanel.getSettings().turnGravity, maxBank:flightPanel.getSettings().maxBank } : {}) });
     }
     const state = stage.getStatus();
     const activeSeconds=wasRunning?Math.max(0,(now-activeFrameAt)/1000):0;
@@ -873,7 +911,7 @@ function frame(now) {
       halt();
       setPhase('complete');
       feedback.event('clear');
-      dialog({ title: '出口に到着しました', description: playMode === 'flight' ? '3つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？' : '3つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？', note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
+      dialog({ title: '出口に到着しました', description: playMode === 'flight' ? `${state.total}つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？` : `${state.total}つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？`, note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
       if (playMode === 'flight') flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'clear', flightSession.lastLegSnapshot()));
     }
     if (state.grounded && phase === 'running') {
@@ -894,6 +932,7 @@ function frame(now) {
     updateHud(now, state);
     updateCockpitObjective(state,playMode==='flight'&&cameraMode==='cockpit'&&phase==='running',{language:phase==='running'?flightPanel.getSettings().hudLanguage:'ja'});
     const guidance=updateGuidancePanel(state,{phase,camera:cameraMode,settings:flightPanel.getSettings(),now,dt});
+    updateBoundaryPanel(state,{phase,settings:flightPanel.getSettings()});
     feedback.update(state,angles,inputMode,flightSteering,now,{enabled:phase==='running'&&playMode==='flight'&&flightPanel.getSettings().audioGuidance,bearingDeg:guidance?.bearingDeg});
   }
   feedback.frameTiming(performance.now()-frameStart);
@@ -903,7 +942,7 @@ function frame(now) {
 
 applyModeUI();
 try {
-  stage = createStage(canvas, { visibility, display: flightDisplay, cameraMode });
+  stage = createStage(canvas, { visibility, display: flightDisplay, cameraMode, course:selectedCourse, turnGravity:flightPanel.getSettings().turnGravity });
   stage.update(0, { mode: playMode, speed: 0, craftQuaternion });
   resize();
   pwa.initialize();
@@ -912,5 +951,4 @@ try {
   setPhase('error');
   dialog({ title: '3D画面を表示できません', description: 'WebGLに対応したSafariやChromeで開き直してください。', action: '再読み込みする', error: error.message || '3D描画の開始に失敗しました。' });
   $('practice-button').hidden = true;
-  $('start-button').addEventListener('click', () => location.reload());
 }

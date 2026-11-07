@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 
 // Real wall time is intentional: AudioWorklet.currentTime must advance with the
@@ -115,3 +116,5 @@ test('real worklet reserves vario quiet gaps and warning/event priority above na
   await expect.poll(async()=>(await probe(page)).contextState,pollOptions).toBe('suspended');
   await page.evaluate(()=>window.__v0125AudioProbe.audio.dispose());
 });
+
+useLegacyCourse(test);

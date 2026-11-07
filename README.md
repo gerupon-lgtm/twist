@@ -2,17 +2,33 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.25 / 2026-11-08**
+**操作検証 v0.1.26（公開準備中） / 2026-11-08**
 
-公開先URL（機首angle、左右端を倒す旋回。視点の未指定は従来表示、機体表示はbank/fixedを残します）:
+v0.1.26の公開予定URLです。**公開先がこの版になったことの確認はPENDING（未完了）**です。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
 
-- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.25)
-- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.25)
-- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.25)
-- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.25)
-- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.25)
+- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.26)
+- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.26)
+- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.26)
+- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.26)
+- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.26)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.26の旋回・広いステージ・3コース
+
+速度が上がると、同じ翼の傾きで曲がる円も大きくなります。前版で維持した旋回の計算を、今回は発案者の指示で変更します。「旋回の強さ」を初期9.8、調整範囲3〜15として独立させ、機首と実際の進路に反映しました。揚力・落下・失速に使う重力3、巡航10m/s・最高30m/s、光3.2m・出口4mの取得範囲は維持します。
+
+遊ぶ領域は前後左右350m（700m四方）です。端を嵐の雲で見せ、近づくと戻る向きの矢印を出します。境界を越えても急に速度を消さず、操縦を続けて内側へ戻れます。レーダーの初期半径は180m、調整上限は500m。保存済みの値は引き継ぎます。
+
+| コース | 光 | 巡航時の目安 | 幾何計算による時間 |
+|---|---:|---|---:|
+| やさしい・おおきな半周 | 3 | 30〜45秒 | 41.54秒 |
+| ふつう・右から左へ | 5 | 45〜75秒 | 62.11秒 |
+| むずかしい・二つのうず | 8 | 60〜90秒 | 74.48秒 |
+
+開始・一時停止画面で選び、端末に保存できます。初期選択は「やさしい」。停止中にコースを変えると、そのコースの最初からになり、時間と取得数もリセットします。HUD・レーダー・案内・区間時間・目標の初回表示時間は光の数に合わせて変わります。記録にコース名、旋回の強さ、ステージの広さを追加しました。`course=legacy`では旧配置で現在版の旋回を比べられます。
+
+PCの自動検証では、約10m/s・最大翼角30度で3コースを実際の入力から完走しました。10/20m/sの配置の計算と、約10m/sの実飛行の結果は分けて記録しています。**既存ブラウザー全回帰・処理負荷比較・公開確認はPENDING、Pixel 9aの曲がりやすさ・面白さ・重さは未確認**です。[座標と計算](docs/courses-v0126.md)、[検証状況](docs/verification-v0126.md)、[版別比較の保存状況](docs/release-archives.md)を参照してください。保存版のURLは公開確認後に案内します。
 
 ## v0.1.25の案内とHUD
 
@@ -254,6 +270,10 @@ npm run build
 
 ## 記録
 
+- [v0.1.26の旋回・3コース・広いステージと確認状況](docs/verification-v0126.md)
+- [v0.1.26の座標・曲がり角・時間の計算](docs/courses-v0126.md)
+- [版別比較URLの保存・公開確認状況](docs/release-archives.md)
+- [v0.1.25の案内・英語HUDと公開確認](docs/verification-v0125.md)
 - [v0.1.21の操縦席・遠景・バリオ・視野と負荷比較](docs/verification-v0121.md)
 
 - [v0.1.20のハードBGM改訂・曲切替・負荷比較](docs/verification-v0120.md)

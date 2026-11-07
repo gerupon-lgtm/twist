@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 for(const size of [[390,844],[360,640],[844,390]])test(`off-screen guidance is on the real edge ${size}`,async({page})=>{
  await page.setViewportSize({width:size[0],height:size[1]});await page.clock.install();await page.goto('/?mode=flight&camera=cockpit');await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));await page.locator('#practice-button').click();await page.clock.runFor(100);
@@ -17,3 +18,5 @@ test('guided header respects a simulated 44px left cutout and restores when the 
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await page.locator('#setting-flightDirector').uncheck();await page.locator('#start-button').click();await page.clock.runFor(150);
  await expect(page.locator('#app')).toHaveAttribute('data-guidance-director','off');expect(await page.locator('#home-link').evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThan(18);
 });
+
+useLegacyCourse(test);

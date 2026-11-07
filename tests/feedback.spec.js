@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test,expect } from '@playwright/test';
 const slider=(p,id,value)=>p.locator('#'+id).evaluate((el,v)=>{el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}));},value);
 const audio=p=>p.locator('#feedback-diagnostics').getAttribute('data-audio').then(s=>JSON.parse(s||'{}'));
@@ -52,3 +53,5 @@ test('real crash notification interrupts the flight pulse and hidden pages cance
  await page.evaluate(()=>{Object.defineProperty(document,'hidden',{value:true,configurable:true});document.dispatchEvent(new Event('visibilitychange'));});
  expect((await page.evaluate(()=>window.vibrations)).at(-1)).toBe(0);
 });
+
+useLegacyCourse(test);

@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {COURSE} from '../src/course.js';
 import { test, expect } from '@playwright/test';
 const data=(page,key)=>page.locator('#app').getAttribute(`data-${key}`).then(Number);
@@ -16,7 +17,7 @@ async function clipboard(page) {
 test('opening version and pitch choice are visible on three phone layouts',async({page})=>{
   for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
     await page.setViewportSize(size); await page.goto('/?mode=flight');
-    await expect(page.locator('#intro-version')).toContainText('v0.1.25');
+    await expect(page.locator('#intro-version')).toContainText('v0.1.26');
     await expect(page.locator('#intro-version')).toBeInViewport();
     await expect(page.locator('#pitch-angle')).toBeInViewport();
     await expect(page.locator('#start-button')).toBeInViewport();
@@ -78,7 +79,7 @@ test('tuning persists all flight fields, affects pitch and bank, copies and rese
   for(const [key,value] of Object.entries(values)) await slider(page,`setting-${key}`,value);
   await page.locator('#settings-copy').click();
   const copied=await page.evaluate(()=>JSON.parse(window.copied));
-  expect(copied).toEqual({version:'0.1.25',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',launch:'browser',fullscreen:false,settings:{...values,ladderRange:10,cockpitFov:0,targetHeightGuide:true,flightDirector:true,targetHeadingCue:true,edgeGuidance:true,nextTargetNotice:true,audioGuidance:true,hudLanguage:'en'},inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov'],feedback:expect.any(Object),input:expect.any(Object),changedSettings:expect.any(Array),segments:expect.any(Array),exitDiscovery:expect.any(Object),targetViews:expect.any(Array)});
+  expect(copied).toEqual({version:'0.1.26',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',launch:'browser',fullscreen:false,settings:{...values,ladderRange:10,cockpitFov:0,targetHeightGuide:true,turnGravity:3,flightDirector:true,targetHeadingCue:true,edgeGuidance:true,nextTargetNotice:true,audioGuidance:true,hudLanguage:'en'},inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov'],feedback:expect.any(Object),input:expect.any(Object),changedSettings:expect.any(Array),segments:expect.any(Array),exitDiscovery:expect.any(Object),targetViews:expect.any(Array),course:expect.any(Object),stageSize:expect.any(Object)});
   await page.reload(); await page.clock.runFor(100); await page.locator('#practice-button').click(); await page.clock.runFor(100);
   await slider(page,'practice-pitch',10); await slider(page,'practice-steer',10); await page.clock.runFor(3200);
   expect(await data(page,'flight-pitch')).toBeCloseTo(25*Math.PI/180,2);
@@ -87,7 +88,7 @@ test('tuning persists all flight fields, affects pitch and bank, copies and rese
   for(const [key,value] of Object.entries(values)) await expect(page.locator(`#setting-${key}`)).toHaveValue(String(value));
   await page.screenshot({path:'test-results/v0113-adjustments.png'});
   await page.locator('#settings-reset').click();
-  for(const [key,value] of Object.entries({deadzone:3,maxTilt:25,maxPitch:15,timeConstant:.3,maxBank:40,displayTimeConstant:.05,radarRange:60})) await expect(page.locator(`#setting-${key}`)).toHaveValue(String(value));
+  for(const [key,value] of Object.entries({deadzone:3,maxTilt:25,maxPitch:15,timeConstant:.3,maxBank:40,displayTimeConstant:.05,radarRange:180})) await expect(page.locator(`#setting-${key}`)).toHaveValue(String(value));
 });
 
 test('denied storage and clipboard keep flight usable and offer manually selectable copy text',async({page})=>{
@@ -198,3 +199,5 @@ test('contact explanation uses the tuned deadzone and exploration retains its or
   await expect(page.locator('#flight-adjustments')).toBeVisible();
   await expect(page.locator('label[for=setting-maxPitch]')).toBeHidden();
 });
+
+useLegacyCourse(test);

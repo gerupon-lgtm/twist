@@ -61,3 +61,18 @@ test('live warnings and notices use aviation terms while Japanese records and so
   assert.equal(hudCollectedNotice({collected:1,total:3},'en'),'TGT COLLECTED · 2 REM');
   assert.equal(hudCollectedNotice({collected:3,total:3},'ja'),'3つの光がそろいました。出口へ向かいましょう。');
 });
+
+test('Japanese and English HUD copy follows five and eight light totals without changing source labels',()=>{
+  for(const total of [5,8]){
+    const state={total,collected:total-1,targetLabel:`光 ${total}`},before=JSON.stringify(state);
+    assert.equal(hudTargetLabel(state,'en'),`TGT ${total}`);
+    assert.equal(hudTargetLabel(state,'ja'),`光 ${total}`);
+    assert.equal(hudObjectiveText(state,'ja'),`${total}つの光を集めて、出口へ`);
+    assert.equal(hudObjectiveText(state,'en'),`TGT ${total-1}/${total} → EXIT`);
+    assert.equal(hudCollectedNotice(state,'ja'),'光を集めました。あと1つ。');
+    assert.equal(hudCollectedNotice({...state,collected:total},'ja'),`${total}つの光がそろいました。出口へ向かいましょう。`);
+    assert.equal(hudTargetLabel({...state,collected:total,targetLabel:'出口'},'en'),'EXIT');
+    assert.equal(JSON.stringify(state),before);
+  }
+  assert.equal(hudObjectiveText({total:NaN,collected:Infinity},'ja'),'3つの光を集めて、出口へ');
+});

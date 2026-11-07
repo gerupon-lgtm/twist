@@ -1,127 +1,135 @@
-/** One route is shared by exploration, flight, and the legacy drawing. */
-export const COURSE = Object.freeze({
-  start: Object.freeze({ x: 0, y: 14, z: 26 }),
-  lights: Object.freeze([
-    Object.freeze({ x: 0, y: 14, z: 0 }),
-    Object.freeze({ x: 4, y: 16, z: -34 }),
-    Object.freeze({ x: 4, y: 18, z: -68 }),
-  ]),
-  exit: Object.freeze({ x: 8, y: 20, z: -96 }),
-});
+import {FLIGHT_TURN,flightTurnRadius} from './flight-turn.js';
 
-const LIMITS = Object.freeze({ horizontal: 110, minHeight: 2, maxHeight: 45, heightChange: 10 });
-const COLLECT_RADIUS = 3.2;
-const EPSILON = 1e-9;
-const degrees = radians => radians * 180 / Math.PI;
-const isPoint = point => point !== null && typeof point === 'object' && !Array.isArray(point)
-  && ['x', 'y', 'z'].every(axis => Number.isFinite(point[axis]));
+const point=(x,y,z)=>Object.freeze({x,y,z});
+const course=(id,name,start,lights,exit)=>Object.freeze({id,name,start:Object.freeze(start),
+  lights:Object.freeze(lights.map(Object.freeze)),exit:Object.freeze(exit)});
+/** The released short route remains an explicit comparison, not the default. */
+export const LEGACY_COURSE=course('legacy','v0.1.25 比較用',point(0,14,26),[
+  point(0,14,0),point(4,16,-34),point(4,18,-68),
+],point(8,20,-96));
+export const COURSE=LEGACY_COURSE;
+export const DEFAULT_COURSE_ID='easy';
+export const COURSES=Object.freeze({
+  easy:course('easy','やさしい・おおきな半周',point(-125,22,160),[
+    point(-125,24,120),point(-62.5,30,11.747),point(62.5,24,11.747),
+  ],point(125,28,120)),
+  normal:course('normal','ふつう・右から左へ',point(-140,22,240),[
+    point(-140,24,170),point(-85,30,74.737),point(25,24,74.737),point(135,32,74.737),point(190,24,-20.526),
+  ],point(135,30,-115.788)),
+  hard:course('hard','むずかしい・二つのうず',point(-190,24,80),[
+    point(-190,28,20),point(-147.5,38,-53.612),point(-62.5,28,-53.612),point(-20,38,20),
+    point(-62.5,28,93.612),point(-105,38,167.224),point(-62.5,28,240.836),point(22.5,38,240.836),
+  ],point(65,28,167.224)),
+});
+export function normalizeCourseId(id){
+  return typeof id==='string'&&(id==='legacy'||Object.hasOwn(COURSES,id))?id:DEFAULT_COURSE_ID;
+}
+export function getCourse(id){const key=normalizeCourseId(id);return key==='legacy'?LEGACY_COURSE:COURSES[key];}
+
+const difficulty=(lightCountRange,utilizationBand,minSignificantTurns,cruiseTimeRange)=>Object.freeze({
+  lightCountRange:Object.freeze(lightCountRange),utilizationBand:Object.freeze(utilizationBand),
+  minSignificantTurns,cruiseTimeRange:Object.freeze(cruiseTimeRange),
+});
+/** All acceptance numbers are here. Difficulty bands apply at 20 m/s only. */
+export const COURSE_CRITERIA=Object.freeze({
+  speeds:Object.freeze([10,20]),difficultySpeed:20,cruiseSpeed:10,bankDegrees:30,turnGravity:FLIGHT_TURN.defaultGravity,
+  minimumTurnDegrees:45,maximumUtilization:1,
+  limits:Object.freeze({horizontal:350,minHeight:2,maxHeight:45,heightChange:10,minLights:3,maxLights:8}),
+  difficulties:Object.freeze({easy:difficulty([3,4],[.3,.6],2,[30,45]),
+    normal:difficulty([5,6],[.4,.8],3,[45,75]),hard:difficulty([7,8],[.6,.9],6,[60,90])}),
+});
+const EPSILON=1e-8;
+const degrees=radians=>radians*180/Math.PI;
+const isPoint=p=>p&&typeof p==='object'&&!Array.isArray(p)&&[p.x,p.y,p.z].every(Number.isFinite);
 
 /**
- * Certifies a horizontal, constant-radius rounding of the waypoint lines.
- * R = v * max(v, 6) / (g * tan(bank)), with stage.js's 0.8 rad/s yaw cap.
- * At a corner of angle a, each adjoining line needs R * tan(|a| / 2).
- * Both corners spend distance on their shared line; checking either alone
- * would accept some impossible layouts. The rounded corner must also pass
- * inside the unchanged 3.2 m light sphere, assuming its target height there.
- *
- * This model requires the first line to agree with the initial north heading.
- * It checks route geometry, not bank response, lift, pitch, or pilot behavior;
- * actual flight and exploration still need separate simulation/browser checks.
+ * Local three-point geometry, not a flight/visibility certificate. A corner's
+ * circumradius is AC/(2 sin |turn|). U=Rmin/Rcourse is checked at BOTH 10/20;
+ * U20=4*U10 in the ordinary range, so only U20 gets the difficulty lower band.
+ * The old inside-rounded-polyline/3.2 m test is deliberately replaced: the new
+ * reference curves pass through lights rather than cutting across their corners.
  */
-export function validateCourse(course, options = {}) {
-  if (options === null || typeof options !== 'object' || Array.isArray(options)) {
-    return { valid: false, turnRadius: null, initialHeadingChangeDegrees: null, segments: [], turns: [],
-      errors: ['flight conditions must be an object'] };
+export function validateCourse(input,options={}){
+  const errors=[];
+  const result={valid:false,courseId:null,turnRadius:null,turnRadii:{},initialHeadingChangeDegrees:null,
+    segments:[],turns:[],significantTurnCount:0,qualifyingTurnCount:0,length:0,cruiseTimeSeconds:null,
+    hasAscent:false,hasDescent:false,errors};
+  if(!options||typeof options!=='object'||Array.isArray(options)){
+    errors.push('flight conditions must be an object');return result;
   }
-  const { speed = 8, bankDegrees = 30, gravity = 3 } = options;
-  const errors = [];
-  const result = { valid: false, speed, bankDegrees, gravity, turnRadius: null,
-    initialHeadingChangeDegrees: null, segments: [], turns: [], errors };
-  if (!Number.isFinite(speed) || speed <= 0) errors.push('speed must be finite and greater than zero');
-  if (!Number.isFinite(bankDegrees) || bankDegrees <= 0 || bankDegrees >= 90) {
-    errors.push('bankDegrees must be finite and between zero and 90');
+  const {bankDegrees=COURSE_CRITERIA.bankDegrees,turnGravity=COURSE_CRITERIA.turnGravity}=options;
+  if(!Number.isFinite(bankDegrees)||bankDegrees<=0||bankDegrees>=90)errors.push('bankDegrees must be finite and between zero and 90');
+  if(!Number.isFinite(turnGravity)||turnGravity<FLIGHT_TURN.minGravity||turnGravity>FLIGHT_TURN.maxGravity)
+    errors.push('turnGravity must be finite and in the supported 3..15 range');
+  if(errors.length)return result;
+  result.bankDegrees=bankDegrees;result.turnGravity=turnGravity;result.speeds=[...COURSE_CRITERIA.speeds];
+  for(const speed of COURSE_CRITERIA.speeds){
+    const radius=flightTurnRadius(speed,bankDegrees*Math.PI/180,turnGravity);
+    if(!Number.isFinite(radius)||radius<=0)errors.push('flight conditions must produce finite positive turn radii');
+    result.turnRadii[speed]=radius;
   }
-  if (!Number.isFinite(gravity) || gravity <= 0) errors.push('gravity must be finite and greater than zero');
-  if (errors.length) return result;
-
-  const yawRate = Math.min(0.8, gravity * Math.tan(bankDegrees * Math.PI / 180) / Math.max(speed, 6));
-  const turnRadius = speed / yawRate;
-  if (!Number.isFinite(turnRadius) || turnRadius <= 0) {
-    errors.push('flight conditions must produce a finite positive turn radius');
-    return result;
+  result.turnRadius=result.turnRadii[COURSE_CRITERIA.difficultySpeed];
+  if(errors.length)return result;
+  const limits=COURSE_CRITERIA.limits;
+  if(!input||typeof input!=='object'||!Array.isArray(input.lights)
+    ||input.lights.length<limits.minLights||input.lights.length>limits.maxLights){
+    errors.push('course must contain start, 3..8 lights, and exit');return result;
   }
-  result.turnRadius = turnRadius;
-
-  if (!course || typeof course !== 'object' || !Array.isArray(course.lights) || course.lights.length !== 3) {
-    errors.push('course must contain start, exactly three lights, and exit');
-    return result;
-  }
-  const points = [course.start, ...course.lights, course.exit];
-  const names = ['start', 'light1', 'light2', 'light3', 'exit'];
-  points.forEach((point, index) => {
-    if (!isPoint(point)) {
-      errors.push(`${names[index]} must have finite numeric x, y, and z`);
-    } else if (Math.abs(point.x) > LIMITS.horizontal || Math.abs(point.z) > LIMITS.horizontal
-      || point.y < LIMITS.minHeight || point.y > LIMITS.maxHeight) {
-      errors.push(`${names[index]} is outside the shared exploration/flight stage bounds`);
-    }
+  const id=normalizeCourseId(options.courseId??input.id),difficultyId=id==='legacy'?'easy':id;
+  const criteria=COURSE_CRITERIA.difficulties[difficultyId];result.courseId=id;result.criteria=criteria;
+  if(input.lights.length<criteria.lightCountRange[0]||input.lights.length>criteria.lightCountRange[1])
+    errors.push(`${difficultyId} has the wrong number of lights`);
+  const points=[input.start,...input.lights,input.exit],names=['start',...input.lights.map((_,i)=>`light${i+1}`),'exit'];
+  points.forEach((p,i)=>{
+    if(!isPoint(p))errors.push(`${names[i]} must have finite numeric x, y, and z`);
+    else if(Math.abs(p.x)>limits.horizontal||Math.abs(p.z)>limits.horizontal||p.y<limits.minHeight||p.y>limits.maxHeight)
+      errors.push(`${names[i]} is outside course bounds`);
   });
-  if (errors.length) return result;
-
-  for (let i = 0; i < points.length; i += 1) {
-    for (let j = i + 1; j < points.length; j += 1) {
-      if (Math.hypot(points[j].x - points[i].x, points[j].z - points[i].z) <= EPSILON) {
-        errors.push(`${names[i]} and ${names[j]} must have distinct horizontal positions`);
-      }
-    }
-  }
-  if (errors.length) return result;
-
-  const lines = points.slice(1).map((point, index) => {
-    const dx = point.x - points[index].x;
-    const dz = point.z - points[index].z;
-    const horizontalDistance = Math.hypot(dx, dz);
-    return { dx: dx / horizontalDistance, dz: dz / horizontalDistance, horizontalDistance };
+  if(errors.length)return result;
+  for(let i=0;i<points.length;i++)for(let j=i+1;j<points.length;j++)
+    if(Math.hypot(points[j].x-points[i].x,points[j].z-points[i].z)<=EPSILON)
+      errors.push(`${names[i]} and ${names[j]} must have distinct horizontal positions`);
+  if(errors.length)return result;
+  const lines=points.slice(1).map((p,i)=>{
+    const x=p.x-points[i].x,z=p.z-points[i].z,horizontalDistance=Math.hypot(x,z);
+    return {x:x/horizontalDistance,z:z/horizontalDistance,horizontalDistance};
   });
-  result.initialHeadingChangeDegrees = degrees(Math.atan2(lines[0].dx, -lines[0].dz));
-  const initialHeadingValid = Math.abs(result.initialHeadingChangeDegrees) <= EPSILON;
-  if (!initialHeadingValid) errors.push('the first line must follow the initial north (-z) heading');
-
-  result.turns = lines.slice(1).map((outgoing, index) => {
-    const incoming = lines[index];
-    // Positive means right of north, matching stage.js's heading convention.
-    const signedAngle = Math.atan2(incoming.dx * outgoing.dz - incoming.dz * outgoing.dx,
-      incoming.dx * outgoing.dx + incoming.dz * outgoing.dz);
-    const angle = Math.abs(signedAngle);
-    const reverses = Math.PI - angle <= EPSILON;
-    const tangentDistance = reverses ? Infinity : turnRadius * Math.tan(angle / 2);
-    const closestApproach = reverses ? Infinity : turnRadius * (1 / Math.cos(angle / 2) - 1);
-    const collectable = Number.isFinite(closestApproach) && closestApproach <= COLLECT_RADIUS + EPSILON;
-    const valid = !reverses && collectable;
-    if (reverses) errors.push(`${names[index + 1]} reverses direction instead of rounding a corner`);
-    else if (!collectable) errors.push(`${names[index + 1]} rounded turn misses the unchanged light radius`);
-    return { at: names[index + 1], signedTurnDegrees: degrees(signedAngle), turnDegrees: degrees(angle),
-      tangentDistance, closestApproach, collectable, valid };
+  result.initialHeadingChangeDegrees=degrees(Math.atan2(lines[0].x,-lines[0].z));
+  const initialHeadingValid=Math.abs(result.initialHeadingChangeDegrees)<=EPSILON;
+  if(!initialHeadingValid)errors.push('the first line must follow the initial north (-z) heading');
+  result.turns=lines.slice(1).map((outgoing,i)=>{
+    const incoming=lines[i],signed=Math.atan2(incoming.x*outgoing.z-incoming.z*outgoing.x,
+      incoming.x*outgoing.x+incoming.z*outgoing.z),angle=Math.abs(signed),turnDegrees=degrees(angle);
+    const reverses=Math.PI-angle<=EPSILON,straight=angle<=EPSILON;
+    const chord=Math.hypot(points[i+2].x-points[i].x,points[i+2].z-points[i].z);
+    const circumradius=reverses?0:straight?Infinity:chord/(2*Math.sin(angle));
+    const utilizations=Object.fromEntries(COURSE_CRITERIA.speeds.map(speed=>[speed,
+      reverses?Infinity:straight?0:result.turnRadii[speed]/circumradius]));
+    const significant=turnDegrees>=COURSE_CRITERIA.minimumTurnDegrees-EPSILON;
+    const utilization20=utilizations[COURSE_CRITERIA.difficultySpeed];
+    const upperValid=Object.values(utilizations).every(u=>Number.isFinite(u)&&u<=COURSE_CRITERIA.maximumUtilization+EPSILON);
+    const bandValid=!significant||(utilization20>=criteria.utilizationBand[0]-EPSILON&&utilization20<=criteria.utilizationBand[1]+EPSILON);
+    if(reverses)errors.push(`${names[i+1]} reverses direction instead of following a course curve`);
+    else if(!upperValid)errors.push(`${names[i+1]} exceeds the turn limit at a reference speed`);
+    if(significant&&!bandValid)errors.push(`${names[i+1]} is outside the ${difficultyId} utilization band at 20 m/s`);
+    return {at:names[i+1],signedTurnDegrees:degrees(signed),turnDegrees,circumradius,utilizations,
+      utilization10:utilizations[10],utilization20,significant,upperValid,bandValid,valid:!reverses&&upperValid&&bandValid};
   });
-
-  result.segments = lines.map((line, index) => {
-    const entryTangentDistance = result.turns[index - 1]?.tangentDistance ?? 0;
-    const exitTangentDistance = result.turns[index]?.tangentDistance ?? 0;
-    const requiredDistance = entryTangentDistance + exitTangentDistance;
-    const straightMargin = line.horizontalDistance - requiredDistance;
-    const heightChange = points[index + 1].y - points[index].y;
-    const distanceValid = Number.isFinite(straightMargin) && straightMargin >= -EPSILON;
-    const heightValid = Math.abs(heightChange) <= LIMITS.heightChange;
-    const cornerValid = (result.turns[index - 1]?.valid ?? true) && (result.turns[index]?.valid ?? true);
-    const headingValid = index !== 0 || initialHeadingValid;
-    const valid = distanceValid && heightValid && cornerValid && headingValid;
-    if (!distanceValid) errors.push(`${names[index]} -> ${names[index + 1]} is too short for its adjacent turns`);
-    if (!heightValid) errors.push(`${names[index]} -> ${names[index + 1]} changes height by more than 10 m`);
-    return { from: names[index], to: names[index + 1], horizontalDistance: line.horizontalDistance,
-      distance: Math.hypot(line.horizontalDistance, heightChange), heightChange,
-      entryTangentDistance, exitTangentDistance, requiredDistance, straightMargin,
-      distanceValid, heightValid, valid };
+  result.segments=lines.map((line,i)=>{
+    const heightChange=points[i+1].y-points[i].y,distance=Math.hypot(line.horizontalDistance,heightChange);
+    const heightValid=Math.abs(heightChange)<=limits.heightChange+EPSILON;
+    if(!heightValid)errors.push(`${names[i]} -> ${names[i+1]} changes height by more than ${limits.heightChange} m`);
+    result.length+=distance;if(heightChange>EPSILON)result.hasAscent=true;if(heightChange< -EPSILON)result.hasDescent=true;
+    return {from:names[i],to:names[i+1],horizontalDistance:line.horizontalDistance,distance,heightChange,heightValid,
+      valid:heightValid&&(i!==0||initialHeadingValid)&&(result.turns[i-1]?.valid??true)&&(result.turns[i]?.valid??true)};
   });
-  result.valid = errors.length === 0 && result.segments.every(segment => segment.valid);
-  return result;
+  result.significantTurnCount=result.turns.filter(t=>t.significant).length;
+  result.qualifyingTurnCount=result.turns.filter(t=>t.significant&&t.bandValid&&t.upperValid).length;
+  if(result.qualifyingTurnCount<criteria.minSignificantTurns)
+    errors.push(`${difficultyId} needs at least ${criteria.minSignificantTurns} qualifying 45-degree turns`);
+  if(!result.hasAscent||!result.hasDescent)errors.push('course must contain both ascent and descent');
+  result.cruiseTimeSeconds=result.length/COURSE_CRITERIA.cruiseSpeed;
+  if(result.cruiseTimeSeconds<criteria.cruiseTimeRange[0]-EPSILON||result.cruiseTimeSeconds>criteria.cruiseTimeRange[1]+EPSILON)
+    errors.push(`${difficultyId} cruise time is outside ${criteria.cruiseTimeRange.join('..')} seconds`);
+  result.valid=errors.length===0;return result;
 }

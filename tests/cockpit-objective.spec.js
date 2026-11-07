@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 // This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
 test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja", "flightDirector": false, "edgeGuidance": false, "targetHeadingCue": false, "nextTargetNotice": false});});
@@ -33,3 +34,5 @@ test('an open landscape practice panel cannot cover an objective diamond',async(
  await expect(page.locator('#cockpit-objective')).toHaveAttribute('data-kind','edge');await expect(page.locator('#cockpit-objective')).toHaveAttribute('data-occluded','true');
  const r=await page.locator('#practice-panel').boundingBox(),p=await page.locator('#cockpit-objective').evaluate(e=>({x:Number(e.dataset.x),y:Number(e.dataset.y)}));expect(p.x+16>r.x&&p.x-16<r.x+r.width&&p.y+16>r.y&&p.y-16<r.y+r.height).toBe(false);
 });
+
+useLegacyCourse(test);

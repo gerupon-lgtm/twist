@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test,expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 const trackConfig=JSON.parse(await readFile('public/music/tracks.json','utf8'));
@@ -55,3 +56,5 @@ test('effects still start with BGM off when the first game frame is late',async(
  await expect.poll(async()=>(await audio(page)).peak,{timeout:8000}).toBeGreaterThan(0);
  expect((await music(page)).playing).toBe(false);expect((await audio(page)).contextState).toBe('running');
 });
+
+useLegacyCourse(test);

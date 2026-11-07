@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test, expect } from '@playwright/test';
 import { Euler, Quaternion, Vector3 } from 'three';
 
@@ -210,3 +211,5 @@ test('a held turning pose continues without sensor heartbeats, while invalid rea
  await page.evaluate(()=>window.dispatchEvent(Object.assign(new Event('devicemotion'),{rotationRate:{alpha:15,beta:0,gamma:0}})));await page.waitForTimeout(500);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
  await page.evaluate(()=>window.dispatchEvent(Object.assign(new Event('deviceorientation'),{alpha:null,beta:null,gamma:null})));await expect(page.locator('#app')).toHaveAttribute('data-phase','paused');await expect(page.locator('#dialog-description')).toContainText('読めなくなった');await expect(page.locator('#app')).toHaveAttribute('data-input','sensor');
 });
+
+useLegacyCourse(test);

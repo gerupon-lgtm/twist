@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test, expect } from '@playwright/test';
 // This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
 test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja"});});
@@ -241,3 +242,5 @@ test('low flight outside the original island still has a rendered floor and grou
   await page.screenshot({ path: 'test-results/v018-outside-floor.png' });
   await page.evaluate(() => window.disposeFloorPreview());
 });
+
+useLegacyCourse(test);

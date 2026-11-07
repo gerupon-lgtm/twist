@@ -8,28 +8,28 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="twist" />
-    <link rel="manifest" href="./manifest.webmanifest?v=0.1.25" />
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.25" />
+    <link rel="manifest" href="./manifest.webmanifest?v=0.1.26" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.26" />
     <meta name="description" content="自分はそのまま、世界を動かす。スマホの動きで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.25" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.26" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
       <div id="ground-edge-warning" class="ground-edge-warning" data-level="clear" aria-hidden="true" hidden></div>
       <header class="topbar">
-        <a class="brand" id="home-link" href="./?v=0.1.25" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <a class="brand" id="home-link" href="./?v=0.1.26" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
         <span class="mode-tag" id="play-mode-label">探索モード</span>
         <details class="feedback-metrics"><summary>計測</summary><p id="feedback-diagnostics" aria-label="操作検証の計測値"></p></details>
-        <span class="version">操作検証 <b>v0.1.25</b></span>
+        <span class="version">操作検証 <b>v0.1.26</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
         <div class="nav-compass"><svg id="nav-arrow" viewBox="0 0 40 40" aria-hidden="true"><path d="m20 5 12 27-12-6-12 6Z"/></svg></div>
         <div><p class="nav-caption" id="objective">3つの光を集めて、出口へ</p><p class="nav-target"><strong id="target-label">光 1</strong><span id="target-distance">26 m</span></p></div>
         <span class="nav-vertical" id="target-direction">正面</span>
-        <div class="collection" aria-label="集めた光"><span id="collection-count">0</span><span>/ 3</span></div>
+        <div class="collection" aria-label="集めた光"><span id="collection-count">0</span><span id="collection-total">/ 3</span></div>
       </section>
 
       <div class="center-mark" aria-hidden="true"><span></span></div>
@@ -87,6 +87,12 @@
 </section>
 
 
+<!-- Insert directly inside #app, after #guidance-panel. Import ./boundary.css. -->
+<aside id="stage-boundary-warning" class="boundary-warning" role="status" aria-live="polite" hidden>
+  <svg id="boundary-return-arrow" viewBox="0 0 40 40" aria-hidden="true"><path d="M20,3L33,24 24,20V36H16V20L7,24Z"/></svg>
+  <div><strong id="boundary-title">STORM</strong><span id="boundary-detail">TURN BACK</span></div>
+</aside>
+
       <section class="bottom-panel" aria-label="操作の状態" id="bottom-panel">
         <div class="input-line"><span class="mode" id="input-mode">まだ開始していません</span><span class="motion-state" id="motion-state">停止中</span></div>
         <div class="meters">
@@ -116,11 +122,20 @@
         <section class="intro-card" id="intro-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-description">
           <span class="card-symbol" aria-hidden="true">↝</span>
           <p class="card-kicker" id="dialog-kicker">スマホの動きで操作検証</p>
-          <p class="intro-version" id="intro-version">twist <b>v0.1.25</b><span>操作検証版</span></p>
+          <p class="intro-version" id="intro-version">twist <b>v0.1.26</b><span>操作検証版</span></p>
           <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
           <aside id="orientation-notice" class="orientation-notice" role="status" aria-live="polite" hidden><button type="button" aria-label="向き固定の案内を閉じる">×</button><strong data-notice-title></strong><p data-notice-copy></p></aside>
           <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。ピンクの光を3つ集めて出口へ。</p>
-          <div class="mode-picker" role="group" aria-label="遊び方"><button id="mode-explore" type="button" aria-pressed="true">探索</button><button id="mode-flight" type="button" aria-pressed="false">飛行機</button><small>切替はステージを最初から</small></div>
+<div class="route-options">          <div class="mode-picker" role="group" aria-label="遊び方"><button id="mode-explore" type="button" aria-pressed="true">探索</button><button id="mode-flight" type="button" aria-pressed="false">飛行機</button><small>切替は最初から</small></div><div class="course-picker" id="course-picker">
+  <label for="course-select">コース</label>
+  <select id="course-select" title="変更するとコースの最初から">
+    <option value="easy">やさしい（光3個）</option>
+    <option value="normal">ふつう（光5個）</option>
+    <option value="hard">むずかしい（光8個）</option>
+  </select>
+  <small id="course-note">一時停止中に変えると、選んだコースの最初から始まります。</small>
+</div>
+</div>
           <div class="view-picker" role="group" aria-label="見え方"><span>見え方</span><button id="view-assisted" type="button" aria-pressed="true">見失い対策</button><button id="view-classic" type="button" aria-pressed="false">従来</button><small id="view-note">視野を広く、色と形の目印、画面外の目標マーク</small></div>
           <div class="steering-picker" id="flight-steering-picker" role="group" aria-label="飛行機の旋回操作" hidden><span>旋回</span><button id="steering-tilt" type="button" aria-pressed="true">ひねる（標準）</button><button id="steering-twist" type="button" aria-pressed="false">回す（比較）</button><small id="steering-note">水平に持ち、左右の端を上げ下げして旋回</small></div>
           <div class="steering-picker" id="flight-pitch-picker" role="group" aria-label="機首の上下操作" hidden><span>機首</span><button id="pitch-angle" type="button" aria-pressed="true">傾き＝角度（標準）</button><button id="pitch-rate" type="button" aria-pressed="false">回り続ける（比較）</button><small id="pitch-note">中立へ戻すと、機首も水平へ</small></div>
@@ -157,7 +172,7 @@
           <p class="installation-advice" id="installation-advice" hidden></p>
           <button class="secondary-button pwa-action" id="install-button" type="button" hidden>ホーム画面に追加</button>
           <button class="secondary-button pwa-action" id="release-screen-button" type="button" hidden>全画面と向き固定を解除</button>
-          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.25" target="_blank" rel="noopener">ブラウザーで開く</a></p>
+          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.26" target="_blank" rel="noopener">ブラウザーで開く</a></p>
           <aside id="update-notice" class="update-notice" role="status" hidden><p>新しい版 <b id="update-version"></b> があります。</p><button id="update-button" type="button">最新版を開く</button></aside>
           <button class="primary-button" id="start-button" type="button">スマホの傾きで始める</button>
           <button class="secondary-button" id="practice-button" type="button">画面で操縦（スマホ傾きは無効）</button>
@@ -177,7 +192,7 @@
             <summary>調整</summary><p id="adjustment-scope-note">機首と旋回の入力角度を別々に調整します。</p>
             <p class="range-help">1回に変える設定は1つだけにすると、効果を比べやすくなります。</p>
             <details id="settings-troubles" class="settings-troubles"><summary>こう感じたら</summary><div id="settings-troubles-list"></div></details>
-            <p class="range-help"><a id="settings-guide-link" href="./settings-guide.html?v=0.1.25" target="_blank" rel="noopener">調整の早見表を開く</a></p>
+            <p class="range-help"><a id="settings-guide-link" href="./settings-guide.html?v=0.1.26" target="_blank" rel="noopener">調整の早見表を開く</a></p>
             <div id="flight-settings-fields"></div>
             <fieldset class="feedback-settings"><legend>音と振動</legend><div id="feedback-settings-fields"></div><p id="vibration-support"></p><p id="feedback-audio-status"></p><p id="feedback-save-status"></p></fieldset>
             <!-- 調整パネル内のヘルプへ挿入。設定項目名・操作ボタン・結果の説明文は日本語を保つ。 -->

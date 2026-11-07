@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['**/guidance-edge.spec.js','**/navigation-audio.spec.js','**/guidance.spec.js', '**/hud-language.spec.js','**/course.spec.js', '**/smoke.spec.js', '**/flight.spec.js', '**/visibility.spec.js', '**/device-flight.spec.js', '**/ground-proximity.spec.js', '**/flight-input.spec.js', '**/flight-display.spec.js', '**/radar.spec.js', '**/camera.spec.js', '**/steering.spec.js', '**/feedback.spec.js', '**/music.spec.js', '**/pwa.spec.js', '**/hard-music.spec.js', '**/cockpit-aids.spec.js', '**/exit-help.spec.js', '**/rock-music.spec.js', '**/cockpit-objective.spec.js', '**/settings-help.spec.js', '**/range-editor.spec.js', '**/target-height.spec.js', '**/feedback-variants.spec.js'],
+  testMatch: ['**/courses-ui.spec.js', '**/boundary.spec.js', '**/courses-flight.spec.js','**/guidance-edge.spec.js','**/navigation-audio.spec.js','**/guidance.spec.js', '**/hud-language.spec.js','**/course.spec.js', '**/smoke.spec.js', '**/flight.spec.js', '**/visibility.spec.js', '**/device-flight.spec.js', '**/ground-proximity.spec.js', '**/flight-input.spec.js', '**/flight-display.spec.js', '**/radar.spec.js', '**/camera.spec.js', '**/steering.spec.js', '**/feedback.spec.js', '**/music.spec.js', '**/pwa.spec.js', '**/hard-music.spec.js', '**/cockpit-aids.spec.js', '**/exit-help.spec.js', '**/rock-music.spec.js', '**/cockpit-objective.spec.js', '**/settings-help.spec.js', '**/range-editor.spec.js', '**/target-height.spec.js', '**/feedback-variants.spec.js'],
   workers: 1,
   timeout: 30000,
   use: {

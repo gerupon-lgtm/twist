@@ -83,7 +83,7 @@ test('close target inside the turning circle gives a level escape instead of end
   const g=computeDirectionGuidance(state({x:5,y:20,z:-5}));
   assert.equal(g.insideTurnCircle,true); assert.equal(g.mode,'go-around');
   near(g.commandedClimbDegrees,0); near(g.yawErrorDegrees,-15);
-  assert.ok(g.turnRadius>39 && g.turnRadius<40);
+  assert.ok(g.turnRadius>12 && g.turnRadius<13);
 });
 test('low airspeed trim, current attack margin and engine-off constrain climb advice', () => {
   const low=computeDirectionGuidance(state({x:0,y:114,z:-100},{velocity:{x:0,y:0,z:-8}}));
@@ -128,14 +128,22 @@ test('current v24 course has target advice at every normal segment launch', () =
 });
 test('optional turn state permits a bounded continuous transition across the turn-circle boundary',()=>{
   const position={x:0,y:14,z:0},targetPosition={x:20,y:14,z:-34};
-  const before=computeDirectionGuidance(state(targetPosition,{position,velocity:{x:0,y:0,z:-9.907}}));
-  const afterState=state(targetPosition,{position,velocity:{x:0,y:0,z:-9.909}});
+  const before=computeDirectionGuidance(state(targetPosition,{position,velocity:{x:0,y:0,z:-17.9058}}));
+  const afterState=state(targetPosition,{position,velocity:{x:0,y:0,z:-17.9095}});
   const after=computeDirectionGuidance(afterState,{turnState:{mode:'go-around',yawDegrees:14.25}});
   assert.equal(before.rawMode,'target');near(before.rawYawErrorDegrees,15);
   assert.equal(after.rawMode,'go-around');near(after.rawYawErrorDegrees,-15);
   assert.equal(after.mode,'go-around');near(after.yawErrorDegrees,14.25);
   assert.ok(after.turnCircleRatio>0.9 && after.turnCircleRatio<1.1);
   near(after.commandedClimbDegrees,0);
+});
+test('guidance shares the stronger turn radius and accepts the setting from either options or status',()=>{
+  const input=state({x:100,y:14,z:-100});
+  const current=computeDirectionGuidance(input),old=computeDirectionGuidance(input,{turnGravity:3});
+  assert.ok(current.turnRadius<old.turnRadius);near(current.turnRadius*9.8,old.turnRadius*3);
+  near(computeDirectionGuidance({...input,turnGravity:15}).turnRadius,
+    computeDirectionGuidance(input,{turnGravity:15}).turnRadius);
+  assert.equal(computeDirectionGuidance(input,{turnGravity:NaN}),null);
 });
 test('turn-state advice cannot override yaw limits or recovery safety',()=>{
   const above=state({x:1000,y:100,z:-1000});

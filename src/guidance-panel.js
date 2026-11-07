@@ -14,7 +14,8 @@ const transform=(element,x,y,rotation=0)=>element?.setAttribute('transform',`tra
 const vector=v=>v&&[v.x,v.y,v.z].every(Number.isFinite)?new Vector3(v.x,v.y,v.z):null;
 const plain=v=>({x:v.x,y:v.y,z:v.z});
 const wrap=degrees=>((degrees+180)%360+360)%360-180;
-const validCount=n=>Number.isInteger(n)&&n>=0&&n<=3;
+const validTotal=n=>Number.isInteger(n)&&n>=3&&n<=8;
+const validCount=(n,total)=>Number.isInteger(n)&&n>=0&&n<=total;
 const rect=element=>element&&!element.hasAttribute('hidden')&&element.getClientRects().length?element.getBoundingClientRect():null;
 const box=(point,width,height)=>({left:point.x-width/2,right:point.x+width/2,top:point.y-height/2,bottom:point.y+height/2});
 const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
@@ -82,18 +83,22 @@ function placeHeading(camera,bearing,heading,bounds,obstacles,language){
 export function updateGuidancePanel(state,{phase='running',camera='overlay',settings={},now,dt}={}){
   const root=$('guidance-panel'),app=$('app');
   if(!root||state?.mode!=='flight'||phase!=='running'){clear();return null;}
+  const total=state.total===undefined?3:state.total;
+  if(!validTotal(total)){clear();return null;}
+  const courseId=typeof state.course?.id==='string'?state.course.id:state.courseId??'';
   const width=innerWidth,height=innerHeight;
   const projection=createGuidanceProjection(state,width,height);
-  const mathOptions={maxPitch:settings?.maxPitch??15,maxBank:settings?.maxBank??40};
+  const mathOptions={maxPitch:settings?.maxPitch??15,maxBank:settings?.maxBank??40,turnGravity:settings?.turnGravity??9.8};
   const rawAdvice=computeDirectionGuidance(state,mathOptions);
   const target=projection?.target();
   if(!projection||!rawAdvice||!target){clear();return null;}
   const flags=Object.fromEntries(FLAG_NAMES.map(name=>[name,settings?.[name]!==false]));
   const language=normalizeHudLanguage(settings?.hudLanguage);
   const clock=Number.isFinite(now)?now:performance.now();
-  const count=validCount(state.collected)?state.collected:history?.count??0;
+  const sameCourse=history?.total===total&&history?.courseId===courseId;
+  const count=validCount(state.collected,total)?state.collected:sameCourse?history.count:0;
   const retried=history&&count<history.count;
-  const reset=!history||retried||history.camera!==camera||history.width!==width||history.height!==height
+  const reset=!history||!sameCourse||retried||history.camera!==camera||history.width!==width||history.height!==height
     ||Math.abs(history.rotation.dot(projection.rotation))<Math.cos(Math.PI/8);
   const seconds=Number.isFinite(dt)&&dt>=0?Math.min(dt,.25):Math.max(0,Math.min(.25,(clock-(history?.now??clock))/1000));
   const turn=advanceGuidanceTurn(rawAdvice,reset?null:history.turn,{now:clock,dt:seconds,targetChanged:Boolean(history&&count!==history.count)});
@@ -108,11 +113,11 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
   const heading=Number.isFinite(state.heading)?state.heading:0;
   let bearingDeg=wrap(absoluteBearing-heading*DEG);if(bearingDeg===-180)bearingDeg=180;
   let notice=reset?null:history.notice;
-  if(history&&!retried&&count>history.count&&flags.nextTargetNotice&&!state.complete){
-    notice={until:clock+1800,bearing:bearingDeg,height:delta,target:{collected:count,total:state.total??3,targetLabel:state.targetLabel}};
+  if(history&&sameCourse&&!retried&&count>history.count&&flags.nextTargetNotice&&!state.complete){
+    notice={until:clock+1800,bearing:bearingDeg,height:delta,target:{collected:count,total,targetLabel:state.targetLabel}};
   }
   if(!flags.nextTargetNotice||notice?.until<=clock)notice=null;
-  history={count,camera,width,height,now:clock,direction:smoothed.clone(),rotation:projection.rotation.clone(),notice,turn};
+  history={count,total,courseId,camera,width,height,now:clock,direction:smoothed.clone(),rotation:projection.rotation.clone(),notice,turn};
   const targetVisible=target.visible;
   const result={...advice,bearingDeg,travelBearingDeg:advice.targetBearingDegrees,targetVisible,flags,
     direction:plain(smoothed),rawDirection:{...advice.direction},geometricDirection:{...rawAdvice.direction},aligned:false,driverReady:false,
@@ -124,7 +129,7 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
   }
 
   show(root,!(!flags.flightDirector&&!flags.targetHeadingCue&&!flags.edgeGuidance&&!notice));
-  root.dataset.camera=camera;root.dataset.target=count===3?'exit':'light';
+  root.dataset.camera=camera;root.dataset.target=count===total?'exit':'light';
   root.dataset.hudLanguage=language;root.setAttribute('aria-label',language==='ja'?'次の目標への案内':'Flight guidance');
   text('guidance-path-caption',hudText(language,'flightPath'));
   app.dataset.guidanceEdge=flags.edgeGuidance?'on':'off';app.dataset.guidanceDirector=flags.flightDirector?'on':'off';
@@ -204,7 +209,7 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
 
   show($('guidance-target-point'),flags.edgeGuidance&&targetVisible);
   transform($('guidance-target-point'),target.x??0,target.y??0);
-  show($('guidance-target-diamond'),count!==3);show($('guidance-exit-gate'),count===3);
+  show($('guidance-target-diamond'),count!==total);show($('guidance-exit-gate'),count===total);
   const edge=flags.edgeGuidance&&!target.inViewport?trueScreenEdge(target.local,width,height,18):null;
   const edgeArrow=$('guidance-edge-arrow');show(edgeArrow,Boolean(edge));show($('guidance-edge-label'),false);
   if(edge){

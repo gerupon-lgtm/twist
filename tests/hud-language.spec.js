@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 
 const sizes=[{width:390,height:844},{width:360,height:640},{width:844,height:390}];
@@ -122,3 +123,5 @@ test('five guidance switches save individually, restore the old display and appe
  await page.locator('[data-checkbox-reset=flightDirector]').click();await expect(page.locator('#setting-flightDirector')).toBeChecked();
  for(const key of keys.slice(1))await expect(page.locator('#setting-'+key)).not.toBeChecked();
 });
+
+useLegacyCourse(test);

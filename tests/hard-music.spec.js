@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test,expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 const config=JSON.parse(await readFile('public/music/tracks.json','utf8'));
@@ -34,3 +35,5 @@ test('the complete 72-second song repeats without a restart, in stationary explo
  await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
  expect((await music(page)).playing).toBe(true);expect((await music(page)).track).toBe(config.flight.title);
 });
+
+useLegacyCourse(test);

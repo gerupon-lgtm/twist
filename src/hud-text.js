@@ -93,15 +93,17 @@ export function hudStatusLabel(label, language = 'en') {
 }
 
 export function hudObjectiveText(state, language = 'en') {
+  const total=Number.isInteger(state?.total)&&state.total>0?state.total:3;
+  const collected=Number.isInteger(state?.collected)&&state.collected>=0?Math.min(total,state.collected):0;
   return normalizeHudLanguage(language) === 'ja'
-    ? state?.collected < state?.total ? '3つの光を集めて、出口へ' : '光がそろいました。出口へ'
-    : state?.collected < state?.total ? `TGT ${state.collected}/${state.total} → EXIT` : 'EXIT OPEN';
+    ? collected < total ? `${total}つの光を集めて、出口へ` : '光がそろいました。出口へ'
+    : collected < total ? `TGT ${collected}/${total} → EXIT` : 'EXIT OPEN';
 }
 
 export function hudCollectedNotice(state, language = 'en') {
-  const remaining = Number.isFinite(state?.total) && Number.isFinite(state?.collected)
-    ? Math.max(0, Math.round(state.total - state.collected)) : 0;
+  const total=Number.isInteger(state?.total)&&state.total>0?state.total:3;
+  const remaining=Number.isInteger(state?.collected)&&state.collected>=0?Math.max(0,total-state.collected):total;
   return normalizeHudLanguage(language) === 'ja'
-    ? remaining === 0 ? '3つの光がそろいました。出口へ向かいましょう。' : `光を集めました。あと${remaining}つ。`
+    ? remaining === 0 ? `${total}つの光がそろいました。出口へ向かいましょう。` : `光を集めました。あと${remaining}つ。`
     : remaining === 0 ? 'EXIT OPEN' : `TGT COLLECTED · ${remaining} REM`;
 }

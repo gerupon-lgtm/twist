@@ -1,3 +1,4 @@
+import {FLIGHT_TURN,flightTurnRadius} from './flight-turn.js';
 const DEG = Math.PI / 180;
 const clamp = (n,low,high) => Math.min(high,Math.max(low,n));
 const validVector = v => v && [v.x,v.y,v.z].every(Number.isFinite);
@@ -69,9 +70,9 @@ function bodyForward(state) {
  */
 export function computeDirectionGuidance(state,options={}) {
   if (!options || typeof options!=='object') return null;
-  const {maxPitch=15,maxBank=40,turnState=null}=options;
+  const {maxPitch=15,maxBank=40,turnGravity=state?.turnGravity??FLIGHT_TURN.defaultGravity,turnState=null}=options;
   if (!state || !validVector(state.position) || !validVector(state.targetPosition)
-    || ![maxPitch,maxBank].every(Number.isFinite) || maxPitch<=0 || maxPitch>=90 || maxBank<=0 || maxBank>=90
+    || ![maxPitch,maxBank,turnGravity].every(Number.isFinite) || maxPitch<=0 || maxPitch>=90 || maxBank<=0 || maxBank>=90
     || (state.velocity!=null && !validVector(state.velocity))
     || ['bank','angleOfAttack','speed','throttle'].some(k=>state[k]!=null && !Number.isFinite(state[k]))
     || (turnState!=null && (typeof turnState!=='object' || !['target','go-around'].includes(turnState.mode)
@@ -96,7 +97,7 @@ export function computeDirectionGuidance(state,options={}) {
   // sign, or choose right, so sub-pixel input noise does not reverse the cue.
   if (Math.abs(bearing)>=175) bearing=(Math.abs(state.bank??0)>3*DEG?Math.sign(state.bank):1)*Math.abs(bearing);
   const turnSide=bearing<0?-1:1;
-  const radius=actualSpeed*Math.max(actualSpeed,6)/(3*Math.tan(maxBank*DEG));
+  const radius=flightTurnRadius(actualSpeed,maxBank*DEG,turnGravity);
   if (!Number.isFinite(radius)) return null;
   // A line from a target inside the turn circle has no tangent. Turning toward
   // it at the same radius would orbit forever; initially lead away, then join.

@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 const music=page=>page.locator('#feedback-diagnostics').getAttribute('data-music').then(JSON.parse);
 const slider=(page,id,value)=>page.locator('#'+id).evaluate((e,v)=>{e.value=String(v);e.dispatchEvent(new Event('input',{bubbles:true}));},value);
@@ -30,3 +31,5 @@ test('the complete brave composition loops at 67.764672 seconds without restarti
  await expect.poll(async()=>(await music(page)).trackId).toBe('brave');await expect.poll(async()=>(await music(page)).loopCount,{timeout:75000,intervals:[500]}).toBeGreaterThanOrEqual(1);
  await expect(page.locator('#app')).toHaveAttribute('data-phase','running');expect((await music(page)).playing).toBe(true);
 });
+
+useLegacyCourse(test);

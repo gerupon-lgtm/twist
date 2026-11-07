@@ -8,27 +8,29 @@ import { createAircraft } from './aircraft.js';
 import { createScenery } from './scenery.js';
 import { createExitBeacon } from './exit-beacon.js';
 import { COURSE } from './course.js';
+import { FLIGHT_TURN, normalizeTurnGravity, flightYawForBank, applyHorizontalTurn } from './flight-turn.js';
+import { STAGE_HALF_EXTENT, stageBoundaryStatus } from './boundary.js';
+import { createStageBoundary } from './stage-boundary.js';
 
-const START = new THREE.Vector3(COURSE.start.x,COURSE.start.y,COURSE.start.z);
-const BEACONS = COURSE.lights.map(p => new THREE.Vector3(p.x,p.y,p.z));
-const EXIT = new THREE.Vector3(COURSE.exit.x,COURSE.exit.y,COURSE.exit.z);
 const COLLECT_RADIUS = 3.2;
 const EXIT_RADIUS = 4;
 const SKY = 0xdcebf1;
 const MAX_BANK = THREE.MathUtils.degToRad(40);
 const DIRECTION_LANDMARKS = [
-  { id: 'north', label: '北の三角塔', color: '#2c81b7', shape: 'triangle', position: { x: 0, y: 16, z: -98 } },
-  { id: 'east', label: '東の四角塔', color: '#bf6559', shape: 'square', position: { x: 74, y: 16, z: -24 } },
-  { id: 'south', label: '南のひし形', color: '#8b6bb3', shape: 'diamond', position: { x: 0, y: 16, z: 54 } },
-  { id: 'west', label: '西のアーチ', color: '#478f73', shape: 'arch', position: { x: -74, y: 16, z: -24 } },
+  { id: 'north', label: '北の三角塔', color: '#2c81b7', shape: 'triangle', position: { x: 0, y: 16, z: -315 } },
+  { id: 'east', label: '東の四角塔', color: '#bf6559', shape: 'square', position: { x: 295, y: 16, z: 0 } },
+  { id: 'south', label: '南のひし形', color: '#8b6bb3', shape: 'diamond', position: { x: 0, y: 16, z: 315 } },
+  { id: 'west', label: '西のアーチ', color: '#478f73', shape: 'arch', position: { x: -295, y: 16, z: 0 } },
 ];
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
-const flightYawForBank = (angle, speed) => speed > 0
-  ? THREE.MathUtils.clamp(FLIGHT_MODEL.gravity * Math.tan(angle) / Math.max(speed, 6), -0.8, 0.8)
-  : 0;
 
 /** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */
-export function createStage(canvas, { visibility = 'assisted', display = 'bank', cameraMode = 'overlay' } = {}) {
+export function createStage(canvas, { visibility = 'assisted', display = 'bank', cameraMode = 'overlay', course = COURSE, turnGravity:initialTurnGravity=FLIGHT_TURN.defaultGravity } = {}) {
+  const layout=course&&Array.isArray(course.lights)&&course.lights.length>=3?course:COURSE;
+  const START=new THREE.Vector3(layout.start.x,layout.start.y,layout.start.z);
+  const BEACONS=layout.lights.map(p=>new THREE.Vector3(p.x,p.y,p.z));
+  const EXIT=new THREE.Vector3(layout.exit.x,layout.exit.y,layout.exit.z);
+  let turnGravity=normalizeTurnGravity(initialTurnGravity),turnBankLimit=40,arenaTime=0;
   cameraMode = normalizeCameraMode(cameraMode);
   display = display === 'fixed' ? 'fixed' : 'bank';
   visibility = normalizeVisibility(visibility);
@@ -49,12 +51,13 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY);
-  scene.fog = new THREE.Fog(SKY, 48, 156);
+  scene.fog = new THREE.Fog(SKY, 220, 1100);
   const camera = new THREE.PerspectiveCamera(64, 1, 0.1, 250);
   // Both cameras remain fixed for the entire simulation.
   const world = new THREE.Group();
   scene.add(world);
-  const scenery=createScenery();world.add(scenery.group);
+  const scenery=createScenery({halfExtent:STAGE_HALF_EXTENT});world.add(scenery.group);
+  const boundaryVisual=createStageBoundary({halfExtent:STAGE_HALF_EXTENT});world.add(boundaryVisual.group);
   scene.add(new THREE.HemisphereLight(0xf4fcff, 0x7896a2, 2.4));
   const sun = new THREE.DirectionalLight(0xfff8e7, 2.6);
   sun.position.set(-35, 65, 30);
@@ -156,7 +159,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   // The safety floor is conceptually Y=0 throughout the reachable square.
   // This outer sheet sits eight centimeters lower only to avoid coplanar
   // flicker with the existing island. It does not change collision/height math.
-  const outerGround = new THREE.Mesh(new THREE.PlaneGeometry(320, 320), groundMaterial);
+  const outerGround = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), groundMaterial);
   outerGround.name = 'ground-outer-surface';
   outerGround.rotation.x = -Math.PI / 2;
   outerGround.position.y = -0.08;
@@ -168,9 +171,9 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   horizonBackdrop.renderOrder = -10;
   world.add(horizonBackdrop);
   const outerGridPoints = [];
-  for (let offset = -160; offset <= 160; offset += 8) {
-    outerGridPoints.push(offset, -0.045, -160, offset, -0.045, 160);
-    outerGridPoints.push(-160, -0.045, offset, 160, -0.045, offset);
+  for (let offset = -700; offset <= 700; offset += 8) {
+    outerGridPoints.push(offset, -0.045, -700, offset, -0.045, 700);
+    outerGridPoints.push(-700, -0.045, offset, 700, -0.045, offset);
   }
   const outerGridGeometry = new THREE.BufferGeometry();
   outerGridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(outerGridPoints, 3));
@@ -714,7 +717,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     }
     camera.aspect = width / height;
     camera.fov = fieldOfView.vertical;
-    camera.far=visibility==='assisted'?1800:250;
+    camera.far=1800;
     camera.updateProjectionMatrix();
     scenery.group.visible=visibility==='assisted';
     directionLandmarks.visible = visibility === 'assisted';
@@ -755,6 +758,9 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       } else craft.quaternion.identity();
     } else craft.quaternion.identity();
     const elapsed = Math.max(0, finite(dt));
+    arenaTime+=elapsed;boundaryVisual.update(arenaTime);
+    if(Number.isFinite(input.turnGravity))turnGravity=normalizeTurnGravity(input.turnGravity);
+    if(Number.isFinite(input.maxBank))turnBankLimit=THREE.MathUtils.clamp(input.maxBank,5,40);
     const nextMode = input.mode === 'flight' ? 'flight' : 'explore';
     if (nextMode !== mode) {
       // The app resets the route when switching. If a caller switches directly,
@@ -806,8 +812,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         // Use the middle bank for integration, while diagnostics report the
         // instantaneous rate at the final bank. No bank-generated turn at rest.
         middleBank = (previousBank + bank) / 2;
-        turnYawRate = flightYawForBank(middleBank, speed);
-        yawRate = flightYawForBank(bank, speed);
+        turnYawRate = flightYawForBank(middleBank, speed, turnGravity);
+        yawRate = flightYawForBank(bank, speed, turnGravity);
       } else {
         bank = 0;
         yawRate = exploreYawRate;
@@ -839,7 +845,12 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         up.set(0, 1, 0).applyQuaternion(flightOrientation);
         previousVelocity.copy(velocity);
         const next = stepFlightVelocity(velocity, step, { forward, up, throttle: targetThrottle });
-        velocity.set(next.velocity.x, next.velocity.y, next.velocity.z);
+        // Keep the natural bank response from the unchanged lift model. Add
+        // only the requested increase in horizontal turning, without changing
+        // speed or vertical velocity (and with an exact identity at strength 3).
+        const extraYaw=turnYawRate-flightYawForBank(middleBank,speed,FLIGHT_MODEL.gravity);
+        const turned=extraYaw===0?next.velocity:applyHorizontalTurn(next.velocity,next.velocity,extraYaw,step);
+        velocity.set(turned.x, turned.y, turned.z);
         throttle = next.throttle;
         recoveryAssist = next.recoveryAssist;
         angleOfAttack = next.angleOfAttack;
@@ -853,21 +864,15 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
           grounded = true;
           stopMotion();
         }
-        position.x = THREE.MathUtils.clamp(position.x, -110, 110);
         position.y = THREE.MathUtils.clamp(position.y, 0, 45);
-        position.z = THREE.MathUtils.clamp(position.z, -110, 110);
-        if ((position.x <= -110 && velocity.x < 0) || (position.x >= 110 && velocity.x > 0)) velocity.x = 0;
         if (position.y >= 45 && velocity.y > 0) velocity.y = 0;
-        if ((position.z <= -110 && velocity.z < 0) || (position.z >= 110 && velocity.z > 0)) velocity.z = 0;
         speed = velocity.length();
-        yawRate = grounded ? 0 : flightYawForBank(bank, speed);
+        yawRate = grounded ? 0 : flightYawForBank(bank, speed, turnGravity);
       } else {
         // Exploration remains direct movement at the supplied speed, with no
         // stored momentum or force calculation.
         position.addScaledVector(forward, speed * step);
-        position.x = THREE.MathUtils.clamp(position.x, -110, 110);
         position.y = THREE.MathUtils.clamp(position.y, 2, 45);
-        position.z = THREE.MathUtils.clamp(position.z, -110, 110);
         velocity.subVectors(position, previousPosition).divideScalar(step);
       }
       if (mode === 'flight') baseOrientation.premultiply(fullFlightYaw).multiply(fullFlightPitch).normalize();
@@ -891,6 +896,11 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     return {
       collected,
       total: BEACONS.length,
+      course:{id:layout.id??'legacy',name:layout.name??'比較用（旧配置）',targetCount:BEACONS.length},
+      stageSize:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2},
+      turnGravity,
+      boundary:stageBoundaryStatus(position,{heading:Math.atan2(forward.x,-forward.z),velocity,speed,turnGravity,maxBank:turnBankLimit}),
+      boundaryAppearance:boundaryVisual.snapshot(),
       complete,
       radarHeading: Math.hypot(velocity.x, velocity.z) > .1 ? Math.atan2(velocity.x, -velocity.z) : Math.atan2(forward.x, -forward.z),
       navigationTargets: complete ? [] : collected < BEACONS.length ? BEACONS.slice(collected).map((p,i) => ({

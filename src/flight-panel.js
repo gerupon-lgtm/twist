@@ -151,7 +151,7 @@ export function createFlightPanel(getModes) {
       }));
       $('result-target-views').replaceChildren(...(report.targetViews??[]).map((segment,i)=>{
         const row=document.createElement('div');row.dataset.targetViewId=segment.id;
-        const label=document.createElement('dt');label.textContent=['開始→光1','光1→光2','光2→光3','光3→出口'][i];
+        const label=document.createElement('dt');label.textContent=report.segments?.find(item=>item.id===segment.id)?.label??`区間${i+1}`;
         const value=document.createElement('dd');value.textContent=segment.firstVisibleSeconds===null?'未表示':`${segment.firstVisibleSeconds.toFixed(1)}秒`;row.append(label,value);return row;
       }));
     },

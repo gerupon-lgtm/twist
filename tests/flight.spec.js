@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test, expect } from '@playwright/test';
 import { COURSE } from '../src/course.js';
 import { FLIGHT_MODEL } from '../src/flight-physics.js';
@@ -333,3 +334,5 @@ test('zero airspeed in midair still accepts pitch, bank and engine input', async
   expect(result.after.recoveryAssist).toBeGreaterThan(0);
   expect(result.after.grounded).toBe(false);
 });
+
+useLegacyCourse(test);

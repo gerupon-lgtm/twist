@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from '@playwright/test';
 const music=p=>p.locator('#feedback-diagnostics').getAttribute('data-music').then(JSON.parse);
 test('rock lead can be selected, stored and recorded without replacing preceding songs',async({page})=>{
@@ -12,3 +13,5 @@ test('the full rock song loops after 73.84608 seconds without a restart',async({
  test.setTimeout(90000);await page.goto('/?mode=explore&music=rock');await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('rock');
  await expect.poll(async()=>(await music(page)).loopCount,{timeout:82000,intervals:[500]}).toBeGreaterThanOrEqual(1);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
 });
+
+useLegacyCourse(test);

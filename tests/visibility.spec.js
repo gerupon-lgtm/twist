@@ -1,3 +1,4 @@
+import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test, expect } from '@playwright/test';
 // This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
 test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja", "flightDirector": false, "edgeGuidance": false, "targetHeadingCue": false, "nextTargetNotice": false});});
@@ -61,7 +62,7 @@ test('view picker compares assisted and classic at the same position without res
   await page.getByRole('button', { name: '見失い対策', exact: true }).click();
   await expect.poll(() => data(page, 'horizontal-fov')).toBeCloseTo(45, 5);
   expect(await page.locator('#app').getAttribute('data-position')).toBe(position);
-  await expect(page.locator('#home-link')).toHaveAttribute('href', /view=assisted.*v=0.1.25/);
+  await expect(page.locator('#home-link')).toHaveAttribute('href', /view=assisted.*v=0.1.26/);
 });
 
 test('all four landmarks are distinguishable in the stage and profiles preserve the complete flight route', async ({ page }) => {
@@ -151,3 +152,5 @@ test('collecting the first light updates the edge marker to the next goal', asyn
   await page.getByRole('button', { name: '一時停止', exact: true }).click();
   await expect(page.locator('#target-edge-marker')).toBeHidden();
 });
+
+useLegacyCourse(test);
