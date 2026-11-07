@@ -38,7 +38,13 @@
 
 ## 公開
 
-ローカル検証完了。GitHub Pagesへの公開と配信ファイルの一致・実worker・公開画面の確認をこの後に行い、結果を追記する。
+2026-11-08公開完了。アプリのコミットa60f83baf27c19049ebe8111765e8d5a3d7b99dc、GitHub Pages run 42399710935が成功。CIのnpm test・build・deploy各ステップ成功を確認した。
+
+公開先 https://twist.sikumilab.com/?mode=flight&view=assisted&camera=cockpit&v=0.1.25 。全21ファイルのHTTP状態・MIME・長さ・SHA-256が、改行をLFへ揃えた検証ビルドと一致。最初のHTMLの差は改行だけだったことを実データで確認し、書式を揃えて再比較した。
+
+公開先の10項目も成功。実SW制御（sw.js?v=0.1.25、scopeルート、updateViaCache:none、CacheStorage空）、表示版と実module、実クリック後の英語HUD、日本語の開始/一時停止/調整、EN/JA保存・再開・再読込、旧GitHub URLの全クエリー保持を確認。実行エラー・consoleエラー・HTTPエラー・失敗リクエストは0。
+
+Pixel 9aの実機の操作感・視認性・音の聞こえ方・処理負荷は未確認。以下の確認項目を残す。
 
 ## Pixel 9aで確認してほしい点（未確認）
 
