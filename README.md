@@ -2,9 +2,9 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.28（公開確認前） / 2026-11-08**
+**操作検証 v0.1.28（公開確認済み） / 2026-11-08**
 
-v0.1.28の確認用URLです。単体385件・ブラウザー267件・公開用ビルドが成功しています。公開先の確認状況はdocs/verification-v0128.mdに記録します。以下の`v`は更新確認用の値で、過去版を選ぶ指定ではありません。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
+v0.1.28の公開URLです。単体385件・ブラウザー267件・公開用ビルド、公開66ファイルと新作3曲の実再生・設定・workerを確認済みです。詳しくはdocs/verification-v0128.mdを参照してください。以下の`v`は更新確認用の値で、過去版を選ぶ指定ではありません。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
 
 - [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&music=newrock&v=0.1.28)
 - [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&music=newrock&v=0.1.28)

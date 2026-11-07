@@ -49,6 +49,20 @@
 
 独立した差分レビューでP1/P2の問題は指摘なし。配信データを編集可能に保つテストの見直しも再レビューした。レビューは実行確認・実機の受入とは別の証拠として扱う。
 
+## 公開と保存版（完了）
+
+公開アプリのコミット：`0888de658b7ee37ec84914154273670eceabbf99`。GitHub Pages：[42426681838](https://github.com/gerupon-lgtm/twist/actions/runs/42426681838)。最終確認：2026/11/08 08:49:14 JST。
+
+- GitHub側の依存導入・単体テスト・ビルド・配信・後処理がすべて成功。
+- 配信66ファイル（現在版24＋保存版25/26各21）の状態・MIME・長さ・SHA-256が最終distと一致。既存6 MIDIと既存曲の設定は変更前と一致し、参考の録音・MIDIや検証用WAVは配信に含めない。
+- 公開先の13確認が全成功。実画面の版28と配信module、実worker・scope・空のCacheStorage、開始操作後の英語HUD、新作3曲の実AudioWorklet再生、曲選択の保存、360×640／844×390の設定表示、実AB操作、停止・再開・再読込、旧GitHub URLのクエリーを保つ転送を確認。
+- 2寸法の曲選択の画面画像も確認し、横方向のはみ出しは0。実行・console・HTTP・request失敗は最終結果ですべて0。
+- 保存版25/26は各21ファイル一致に加え、実画面・配信module・専用worker・英語HUD・停止・再読込の各4確認が成功。
+- 最初の公開確認では、設定欄が再開時に閉じる仕様を確認用スクリプトが扱えておらず、個別曲の選択で待ち時間を超えた。毎回設定欄を開き直す手順へ直し、同じ13確認を全て再実行して成功。公開アプリの変更はしていない。最初の結果もv0128-public-first.json／v0128-public-check-first.logへ保存。
+- 最終証拠：.cache/v0128-public-verification.json、archives-v0128-verification.json、v0128-public-check-final.log、v0128-archives-check-final.log。
+
+[新作3曲を試す](https://twist.sikumilab.com/?mode=flight&course=easy&music=newrock&v=0.1.28)。単独指定はmusic=steel／horizon／storm、従来曲はcurrent／brave／rock、全7曲はall。URLの指定だけでは保存済みの好みを書き換えず、画面の選択操作で保存する。
+
 ## Pixel 9aで確認してほしいこと（すべて未確認）
 
 1. 新作3曲をそれぞれ聴き、旋律が忙しすぎないか、ベースとドラムの勢い、ギターらしさと勇敢さ、3曲の違いを確認する。
