@@ -1,1 +1,3 @@
 * text=auto eol=lf
+src/vendor/scc/** -text
+public/licenses/SCC-NOTICE.txt -text

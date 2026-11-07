@@ -1,0 +1,18 @@
+{
+  "repository": "https://github.com/gerupon-lgtm/SCC",
+  "commit": "0036288a134a79b1855915eac47ff09634295e7f",
+  "version": "0.8.12",
+  "sha256": {
+    "core/config.js": "6f505eb8ed17f20d18a0a6d838174a1d18d3a15577b57facfebbc2e5bcf5ef15",
+    "core/post-stage.js": "5d1b03f6d45512cff30f4db6583ce89bddae8c60463ddf422ff63a5bc741f4fb",
+    "core/presets.js": "1fbf04b15bd3f9cbf8c9c9851bb581f6e8cdb32a19709f15d31764a206df4654",
+    "core/psg-ref.js": "846ba15a1b905abfe09af4c16ed46d9b57581090baa8fa13b8616f8e6e19b06f",
+    "core/psg-stage.js": "d810e0208eb48469ceb763e77b6c5c206a66fd159843f97f97ef0ec92eb22b3a",
+    "core/scc-ext-registers.js": "b8269ee4fd3968973ac962eacee5d1e6103276f93ca9e36a134c0f6116cf3334",
+    "core/scc-fast.js": "5f09d8d1652dae5b2ecd4539a5beb2768cfd4c2f443b0305e4d37e0f63014c6f",
+    "core/scc-ref.js": "e943ba33087306be5d6cb41468cd82c46531bf7d6abec9559a418eec92b8c1c8",
+    "core/scc-registers.js": "892100d3b6b359ba770293c22901ce497b9bb6788d7a7d2c0533d615baa58cff",
+    "core/wave-text.js": "102c695196afeadc3eb52039b00f675fb876d75f28122c4211901624a8f31c54",
+    "core/window-converter.js": "97161f7e396265064bdb8ea47babebf85f9155cbf75f36a76652fd8db2b6d94e"
+  }
+}

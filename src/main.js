@@ -11,6 +11,7 @@ import { createFlightPanel } from './flight-panel.js';
 import { createFlightSession } from './flight-session.js';
 import { normalizeCameraMode } from './flight-camera.js';
 import { layoutCockpitHud, updateCockpitHud } from './cockpit-hud.js';
+import { createFeedbackController } from './feedback/controller.js';
 
 const $ = (id) => document.getElementById(id);
 const app = $('app');
@@ -25,7 +26,8 @@ let pitchMode = new URLSearchParams(location.search).get('pitch') === 'rate' ? '
 let flightDisplay = new URLSearchParams(location.search).get('display') === 'fixed' ? 'fixed' : 'bank';
 let cameraMode = normalizeCameraMode(new URLSearchParams(location.search).get('camera'));
 const flightSession = createFlightSession();
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility }));
+const feedback = createFeedbackController();
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report() }));
 let inputMode = null;
 let reference = null;
 let craftReference = null;
@@ -252,6 +254,7 @@ function selectMode(next) {
   $('toast').hidden = true;
   playMode = next;
   flightSession.reset();
+  feedback.reset();
   flightPanel.showResult(null);
   flightPanel.setPhase(phase, playMode);
   applyModeUI();
@@ -309,6 +312,7 @@ function zeroPractice() {
 }
 
 function halt() {
+  feedback.stop();
   pendingCalibration = false;
   clearTimeout(waitingTimer);
   rates = { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };
@@ -355,6 +359,7 @@ function run(mode) {
   if (mode === 'sensor' && craftReference && latestQuaternion) craftQuaternion.copy(compensationQuaternion(craftReference, latestQuaternion));
   else craftQuaternion.identity();
   setPhase('running');
+  feedback.start();
   $('pause-button').focus({ preventScroll: true });
   keepAwake();
 }
@@ -499,6 +504,7 @@ function startPractice() {
 
 $('start-button').addEventListener('click', () => {
   if (!stage) return;
+  feedback.unlock();
   if (stage.getStatus().grounded) { resetStage({ preserveSession: true }); if (inputMode === 'sensor') calibrate(); return; }
   if (phase === 'complete') { resetStage(); return; }
   if (phase === 'ready' || (phase === 'paused' && inputMode === 'sensor')) { calibrate(); return; }
@@ -507,6 +513,7 @@ $('start-button').addEventListener('click', () => {
 });
 $('practice-button').addEventListener('click', () => {
   if (!stage) return;
+  feedback.unlock();
   if (phase === 'complete' || stage.getStatus().grounded) {
     if (phase === 'complete') flightSession.reset();
     else flightSession.restartLeg();
@@ -541,7 +548,7 @@ $('throttle-input').addEventListener('input', (event) => { if (phase === 'runnin
 for (const axis of controls) $(`practice-${axis}`).addEventListener('input', (event) => { keyboardActive = false; heldKeys.clear(); practiceAngles[axis] = Number(event.target.value); });
 
 function resetStage({ preserveSession = false } = {}) {
-  if (!preserveSession) flightSession.reset();
+  if (!preserveSession) { flightSession.reset(); feedback.reset(); }
   else flightSession.restartLeg();
   flightPanel.showResult(null);
   permissionAttempt++;
@@ -556,8 +563,9 @@ function resetStage({ preserveSession = false } = {}) {
 }
 $('reset-button').addEventListener('click', () => resetStage());
 
-document.addEventListener('visibilitychange', () => { if (document.hidden) pause('画面が隠れたため停止しました。持ち方を合わせて再開してください。'); });
-window.addEventListener('blur', () => { heldKeys.clear(); if (phase === 'running' || pendingCalibration) pause('画面から離れたため停止しました。'); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { feedback.stop(); pause('画面が隠れたため停止しました。持ち方を合わせて再開してください。'); } });
+window.addEventListener('blur', () => { feedback.stop(); heldKeys.clear(); if (phase === 'running' || pendingCalibration) pause('画面から離れたため停止しました。'); });
+window.addEventListener('pagehide',()=>feedback.stop());
 const screenChanged = () => { refreshOrientations(); resize(); };
 screen.orientation?.addEventListener('change', screenChanged);
 if (!screen.orientation) window.addEventListener('orientationchange', screenChanged);
@@ -651,6 +659,7 @@ function updateHud(now, state) {
   if (now - lastHudAt < 80 && phase === lastHudPhase) return;
   lastHudAt = now;
   lastHudPhase = phase;
+  feedback.updateDiagnostics();
   const settings = flightPanel.getSettings();
   for (const axis of controls) meter(axis, playMode === 'flight'
     ? axis === 'pitch' ? settings.maxTilt : axis === 'steer' ? settings.maxSteerTilt : settings.maxSteerTwist
@@ -715,6 +724,7 @@ function updateHud(now, state) {
 
 let previousFrame = performance.now();
 function frame(now) {
+  const frameStart=performance.now();
   const dt = Math.min((now - previousFrame) / 1000, 0.05);
   previousFrame = now;
   if (stage) {
@@ -760,10 +770,12 @@ function frame(now) {
         verticalSpeed: state.verticalSpeed, inputPitch: angles.pitch,
         deadzone: flightPanel.getSettings().deadzone };
     }
-    if (state.collected > previousCollected) { previousCollected = state.collected; showToast(state.collected === state.total ? '3つの光がそろいました。出口へ向かいましょう。' : `光を集めました。あと${state.total - state.collected}つ。`); }
+    feedback.update(state,angles,inputMode,flightSteering,now);
+    if (state.collected > previousCollected) { previousCollected = state.collected; feedback.event('collect'); showToast(state.collected === state.total ? '3つの光がそろいました。出口へ向かいましょう。' : `光を集めました。あと${state.total - state.collected}つ。`); }
     if (state.complete && phase === 'running') {
       halt();
       setPhase('complete');
+      feedback.event('clear');
       dialog({ title: '出口に到着しました', description: playMode === 'flight' ? '3つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？' : '3つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？', note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
       if (playMode === 'flight') flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'clear', flightSession.lastLegSnapshot()));
     }
@@ -778,11 +790,13 @@ function frame(now) {
         description = `接地直前：出力${Math.round(s.throttle * 100)}%・${noseText}・下降${Math.max(0, -s.verticalSpeed).toFixed(1)}m/s。前後操作：${operation}。`;
       }
       pause('地面に接触して停止しました。最初から飛び直せます。');
+      feedback.event('crash');
       dialog({ title: '地面に接触して停止', description, note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
       flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'grounded', flightSession.lastLegSnapshot()));
     }
     updateHud(now, state);
   }
+  feedback.frameTiming(performance.now()-frameStart);
   if (now > toastUntil) $('toast').hidden = true;
   requestAnimationFrame(frame);
 }

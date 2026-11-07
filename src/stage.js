@@ -511,6 +511,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   let speed = 0;
   let throttle = 0;
   let recoveryAssist = 0;
+  let angleOfAttack = 0;
   let grounded = false;
   let collected = 0;
   let complete = false;
@@ -611,6 +612,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     speed = 0;
     throttle = 0;
     recoveryAssist = 0;
+    angleOfAttack = 0;
     yawRate = 0;
   }
 
@@ -822,6 +824,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         velocity.set(next.velocity.x, next.velocity.y, next.velocity.z);
         throttle = next.throttle;
         recoveryAssist = next.recoveryAssist;
+        angleOfAttack = next.angleOfAttack;
         position.addScaledVector(previousVelocity, step / 2).addScaledVector(velocity, step / 2);
         if (position.y <= 0 && velocity.y < 0) {
           // Stop at the intersection with the actual ground reference plane.
@@ -905,6 +908,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       speed,
       throttle,
       recoveryAssist,
+      angleOfAttack,
       verticalSpeed: velocity.y,
       velocity: { x: velocity.x, y: velocity.y, z: velocity.z },
       grounded,

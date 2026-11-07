@@ -2,15 +2,15 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.16 / 2026-11-07**
+**操作検証 v0.1.17 / 2026-11-07**
 
 公開先URL（機首angle、左右端を倒す旋回。視点の未指定は従来表示、機体表示はbank/fixedを残します）:
 
-- [従来視点・overlay](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.16)
-- [追尾3D視点・chase](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.16)
-- [操縦席視点・cockpit](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.16)
-- [追尾3D・自機固定fixed](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.16)
-- [機首が回り続けるrate（比較）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.16)
+- [従来視点・overlay](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.17)
+- [追尾3D視点・chase](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.17)
+- [操縦席視点・cockpit](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.17)
+- [追尾3D・自機固定fixed](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.17)
+- [機首が回り続けるrate（比較）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.17)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
 
