@@ -41,7 +41,7 @@ async function clearMarker(page) {
 test('view picker compares assisted and classic at the same position without restarting flight', async ({ page }) => {
   await page.goto('/?mode=flight');
   await expect(page.getByRole('button', { name: '見失い対策', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
+  await page.getByRole('button', { name: '画面で操縦（スマホ傾きは無効）', exact: true }).click();
   await expect.poll(() => data(page, 'horizontal-fov')).toBeCloseTo(45, 5);
   await expect(page.locator('#app')).toHaveAttribute('data-landmark-count', '4');
   await page.getByRole('button', { name: '一時停止', exact: true }).click();

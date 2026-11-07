@@ -77,7 +77,7 @@ test('tuning persists all flight fields, affects pitch and bank, copies and rese
   for(const [key,value] of Object.entries(values)) await slider(page,`setting-${key}`,value);
   await page.locator('#settings-copy').click();
   const copied=await page.evaluate(()=>JSON.parse(window.copied));
-  expect(copied).toEqual({version:'0.1.22',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',launch:'browser',fullscreen:false,settings:{...values,ladderRange:10,cockpitFov:0,targetHeightGuide:true},inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov'],feedback:expect.any(Object)});
+  expect(copied).toEqual({version:'0.1.22',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',launch:'browser',fullscreen:false,settings:{...values,ladderRange:10,cockpitFov:0,targetHeightGuide:true},inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov'],feedback:expect.any(Object),input:expect.any(Object)});
   await page.reload(); await page.clock.runFor(100); await page.locator('#practice-button').click(); await page.clock.runFor(100);
   await slider(page,'practice-pitch',10); await slider(page,'practice-steer',10); await page.clock.runFor(3200);
   expect(await data(page,'flight-pitch')).toBeCloseTo(25*Math.PI/180,2);

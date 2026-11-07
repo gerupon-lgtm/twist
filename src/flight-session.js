@@ -26,7 +26,7 @@ export function createFlightSession() {
   };
 }
 
-export function flightReport({ version, pitch, steer, display = 'bank', camera = 'overlay', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted', feedback, launch = 'browser', fullscreen = false }) {
+export function flightReport({ version, pitch, steer, display = 'bank', camera = 'overlay', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted', feedback, input, launch = 'browser', fullscreen = false }) {
   const inactiveSettings = [...(pitch === 'rate' ? ['maxPitch', 'timeConstant'] : []),
     ...(display !== 'fixed' ? ['displayTimeConstant'] : []), ...(view !== 'assisted' ? ['radarRange'] : []),
     ...(camera !== 'chase' || mode !== 'flight' ? ['chaseTimeConstant'] : [])];
@@ -38,6 +38,7 @@ export function flightReport({ version, pitch, steer, display = 'bank', camera =
     ...(['clear', 'grounded'].includes(result) ? { result } : {}),
     settings: normalizeFlightSettings(settings), inactiveSettings,
     ...(feedback ? {feedback:structuredClone(feedback)} : {}),
+    ...(input ? {input:structuredClone(input)} : {}),
     ...(stats ? { stats: { ...stats } } : {}), ...(lastLeg ? { lastLeg: { ...lastLeg } } : {}) };
 }
 

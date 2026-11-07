@@ -40,7 +40,7 @@ test('phone sizes show onboarding and the actual 3D stage without overflow', asy
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'test-results/intro-mobile.png' });
-  await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
+  await page.getByRole('button', { name: '画面で操縦（スマホ傾きは無効）', exact: true }).click();
   await expect(page.locator('#input-mode')).toHaveText('画面操作・センサー未使用');
   await page.screenshot({ path: 'test-results/play-mobile.png' });
   expect(errors).toEqual([]);
@@ -48,7 +48,7 @@ test('phone sizes show onboarding and the actual 3D stage without overflow', asy
 
 test('nose down accelerates, neutral keeps speed, nose up brakes to a stop', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
+  await page.getByRole('button', { name: '画面で操縦（スマホ傾きは無効）', exact: true }).click();
   const start = await position(page);
   await setAngle(page, 'pitch', -25);
   await expect.poll(() => position(page).then((p) => p.z)).toBeLessThan(start.z - 1);
@@ -160,7 +160,7 @@ test('nose-side acceleration and braking work after a physical quarter-turn and 
 
 test('practice turns the phone first and keyboard and brake stay craft-relative', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
+  await page.getByRole('button', { name: '画面で操縦（スマホ傾きは無効）', exact: true }).click();
   await setAngle(page, 'twist', 180);
   // The visible nose is now at the device bottom, so raising the top accelerates.
   await setAngle(page, 'pitch', 22);
@@ -191,7 +191,7 @@ test('an edge-on craft stops rather than guessing a nose direction', async ({ pa
 
 test('twist turns vertically without accelerating and keyboard follows the new controls', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
+  await page.getByRole('button', { name: '画面で操縦（スマホ傾きは無効）', exact: true }).click();
   await setAngle(page, 'twist', 25);
   await page.waitForTimeout(250);
   expect(await speed(page)).toBe(0);
@@ -208,11 +208,11 @@ test('twist turns vertically without accelerating and keyboard follows the new c
   await page.keyboard.up('e');
 });
 
-test('sensor outage stops motion and denied permission stays out of play', async ({ page }) => {
+test('an unchanged valid pose keeps working and denied permission stays out of play', async ({ page }) => {
   await startFakeSensor(page);
   await sensor(page, { alpha: 0, beta: -22, gamma: 0 });
-  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused', { timeout: 4000 });
-  await expect(page.locator('#speed-value')).toHaveText('0.0');
+  await page.waitForTimeout(2500);await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
+  expect(await speed(page)).toBeGreaterThan(0);
   await fakePermissions(page, 'denied');
   await page.goto('/');
   await page.getByRole('button', { name: 'スマホの傾きで始める', exact: true }).click();
@@ -220,13 +220,13 @@ test('sensor outage stops motion and denied permission stays out of play', async
   await expect(page.locator('#error-message')).toContainText('許可されていません');
 });
 
-test('motion without fresh orientation cannot keep old forward input alive', async ({ page }) => {
+test('motion notifications without a changed orientation do not interrupt a held pose', async ({ page }) => {
   await startFakeSensor(page);
   await sensor(page, { alpha: 0, beta: -22, gamma: 0 });
   await page.waitForTimeout(500);
   await page.evaluate(() => window.dispatchEvent(Object.assign(new Event('devicemotion'), { rotationRate: { alpha: 15, beta: 0, gamma: 0 } })));
-  await expect(page.locator('#app')).toHaveAttribute('data-phase', 'paused');
-  await expect(page.locator('#speed-value')).toHaveText('0.0');
+  await page.waitForTimeout(2000);await expect(page.locator('#app')).toHaveAttribute('data-phase', 'running');
+  await page.locator('#pause-button').click();await expect(page.locator('#speed-value')).toHaveText('0.0');
   await page.getByRole('button', { name: 'この持ち方で再開する', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-phase', 'waiting');
 });

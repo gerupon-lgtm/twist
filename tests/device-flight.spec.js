@@ -212,3 +212,10 @@ test('PC pitch follows the hardware top after turning and steering keys follow t
     await page.keyboard.up('e');
   }
 });
+test('a held turning pose continues without sensor heartbeats, while invalid readings and hidden pages still pause',async({page})=>{
+ await startSensor(page,'tilt');await page.evaluate(()=>{clearInterval(window.deviceFlightHeartbeat);clearInterval(window.deviceFlightCalibration);});
+ await sensor(page,devicePose({steer:8}));const start=await data(page,'heading');
+ await page.waitForTimeout(4500);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');await expect(page.locator('#app')).toHaveAttribute('data-input','sensor');expect(Math.abs(await data(page,'heading')-start)).toBeGreaterThan(.2);
+ await page.evaluate(()=>window.dispatchEvent(Object.assign(new Event('devicemotion'),{rotationRate:{alpha:15,beta:0,gamma:0}})));await page.waitForTimeout(500);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
+ await page.evaluate(()=>window.dispatchEvent(Object.assign(new Event('deviceorientation'),{alpha:null,beta:null,gamma:null})));await expect(page.locator('#app')).toHaveAttribute('data-phase','paused');await expect(page.locator('#dialog-description')).toContainText('読めなくなった');await expect(page.locator('#app')).toHaveAttribute('data-input','sensor');
+});

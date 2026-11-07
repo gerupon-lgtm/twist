@@ -67,7 +67,7 @@
         </div>
         <div class="toolbar"><button id="pause-button" type="button" disabled>一時停止</button><button id="recenter-button" type="button" disabled>持ち方を合わせ直す</button><button id="help-button" type="button" aria-label="操作の説明">?</button></div>
         <details class="practice-panel" id="practice-panel" open hidden>
-          <summary id="practice-summary">端末の動きを再現</summary>
+          <summary id="practice-summary">画面操作中・スマホの傾きは無効</summary>
           <p>端末の動きを再現 <span>スマホの傾きは使っていません</span></p>
           <label>端末の上辺 <input id="practice-pitch" aria-label="端末の上辺の傾き" type="range" min="-25" max="25" value="0" step="1" /></label>
           <label>端末の右辺 <input id="practice-steer" aria-label="端末の右辺の傾き" type="range" min="-25" max="25" value="0" step="1" /></label>
@@ -124,7 +124,7 @@
           <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.22" target="_blank" rel="noopener">ブラウザーで開く</a></p>
           <aside id="update-notice" class="update-notice" role="status" hidden><p>新しい版 <b id="update-version"></b> があります。</p><button id="update-button" type="button">最新版を開く</button></aside>
           <button class="primary-button" id="start-button" type="button">スマホの傾きで始める</button>
-          <button class="secondary-button" id="practice-button" type="button">画面操作で試す</button>
+          <button class="secondary-button" id="practice-button" type="button">画面で操縦（スマホ傾きは無効）</button>
           <button class="text-button" id="reset-button" type="button" hidden>最初からやり直す</button>
           <section class="flight-result" id="flight-result" aria-label="今回の飛行記録" hidden>
             <h2>今回の飛行記録</h2><p class="result-outcome" id="result-outcome"></p>
@@ -141,7 +141,8 @@
             <div id="flight-settings-fields"></div>
             <fieldset class="feedback-settings"><legend>音と振動</legend><div id="feedback-settings-fields"></div><p id="vibration-support"></p><p id="feedback-audio-status"></p><p id="feedback-save-status"></p></fieldset>
             <small id="flight-settings-help">追いつく時間の目安が小さいほど、機首が速く反応します。「回り続ける」では機首の最大角度と時間は使いません。翼の最大角度は両方の旋回方式に使います。旋回の中立範囲は最大入力角度より1度以上小さく自動補正します。カーブ1は直線、2に近いほど中立付近を細かく操作できます。固定表示のならしは表示だけに使い、0秒で即時・大きくすると滑らかになります。</small>
-            <div class="settings-actions"><button id="settings-reset" type="button">初期値に戻す</button><button id="settings-copy" type="button">設定をコピー</button></div>
+            <p class="range-help">ゲージは横へずらすと変わります。触れるだけでは変わりません。各項目の「変更前へ」「初期値」はその項目だけに使えます。</p>
+            <div class="settings-actions"><button id="settings-reset" type="button">すべて初期値に戻す</button><button id="settings-undo-reset" type="button" hidden>全体リセットを取り消す</button><button id="settings-copy" type="button">設定をコピー</button></div>
             <p id="settings-status" role="status">値はこの端末のブラウザー内だけに保存します。</p>
             <p id="settings-copy-status" role="status"></p><textarea id="settings-copy-text" aria-label="コピーする設定" readonly hidden></textarea>
           </details>

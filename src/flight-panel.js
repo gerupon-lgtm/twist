@@ -2,6 +2,7 @@ import { APP_VERSION } from './version.js';
 import { FLIGHT_SETTING_FIELDS, DEFAULT_FLIGHT_SETTINGS, normalizeFlightSettings, loadFlightSettings, saveFlightSettings } from './flight-settings.js';
 import { flightReport, copyableFlightReport } from './flight-session.js';
 import { computeFieldOfView } from './visibility.js';
+import { createRangeEditor } from './range-editor.js';
 
 const $ = id => document.getElementById(id);
 const describeSettings = report => Object.entries(FLIGHT_SETTING_FIELDS)
@@ -12,6 +13,7 @@ export function createFlightPanel(getModes) {
   try { storage = window.localStorage; } catch { /* Defaults also work without storage access. */ }
   let settings = loadFlightSettings(storage);
   let result = null;
+  const rangeEditors={};let beforeReset=null;
   const fovAuto=document.createElement('input');fovAuto.type='checkbox';fovAuto.id='cockpit-fov-auto';
   for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
     const label = document.createElement('label');
@@ -24,6 +26,10 @@ export function createFlightPanel(getModes) {
     if(typeof field.initial==='boolean')Object.assign(input,{type:'checkbox',id:label.htmlFor});
     else Object.assign(input, { type: 'range', id: label.htmlFor, min: field.min, max: field.max, step: field.step });
     label.append(caption, value, input); $('flight-settings-fields').append(label);
+    input.value=settings[key];
+    if(input.type==='range')rangeEditors[key]=createRangeEditor(input,{name:field.label,unit:field.unit,initial:field.initial,onReset:()=>{
+      settings=normalizeFlightSettings({...settings,[key]:field.initial});persist();
+    }});
     if(key==='cockpitFov') {
       const autoLabel=document.createElement('label');autoLabel.className='cockpit-fov-auto';autoLabel.dataset.settingKey=key;
       autoLabel.append(fovAuto,document.createTextNode('視野を自動計算する'));$('flight-settings-fields').append(autoLabel);
@@ -43,6 +49,7 @@ export function createFlightPanel(getModes) {
     $('setting-ladderRange').disabled=inactive;
     $('setting-targetHeightGuide').disabled=modes.view!=='assisted';
     $('setting-value-cockpitFov').textContent=fovAuto.checked?`自動（${maximum.toFixed(1)}°）`:`${Math.min(maximum,settings.cockpitFov).toFixed(1)}°`;
+    for(const editor of Object.values(rangeEditors))editor.sync();
   }
   fovAuto.addEventListener('change',()=>{
     settings={...settings,cockpitFov:fovAuto.checked?0:Math.floor(computeFieldOfView(innerWidth,innerHeight,getModes().view).vertical*10)/10};persist();
@@ -71,11 +78,13 @@ export function createFlightPanel(getModes) {
     }
   }
   $('settings-reset').addEventListener('click', () => {
+    beforeReset={...settings};$('settings-undo-reset').hidden=false;
     settings = getModes().mode === 'explore'
       ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange, targetHeightGuide: true }
       : { ...DEFAULT_FLIGHT_SETTINGS };
     persist();
   });
+  $('settings-undo-reset').addEventListener('click',()=>{if(beforeReset){settings=beforeReset;beforeReset=null;persist();$('settings-undo-reset').hidden=true;}});
   $('settings-copy').addEventListener('click', () => copy(flightReport({ version: APP_VERSION, ...getModes(), settings, result: result?.result }), 'settings'));
   $('result-copy').addEventListener('click', () => { if (result) copy(result, 'result'); });
   refresh();
@@ -109,7 +118,7 @@ export function createFlightPanel(getModes) {
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       refreshLayout();
       $('flight-settings-help').hidden = mode !== 'flight';
-      $('settings-reset').textContent = mode === 'flight' ? '操縦を初期値へ' : '目印を初期値へ';
+      $('settings-reset').textContent = mode === 'flight' ? '操縦をすべて初期値へ' : '目印をすべて初期値へ';
       $('adjustment-scope-note').textContent = mode === 'flight'
         ? '機首と旋回の入力角度を別々に調整します。選んだ旋回方式の項目だけ表示します。'
         : 'レーダーの表示範囲と目標高度の目印を調整します。探索の操縦には影響しません。';

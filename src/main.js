@@ -12,6 +12,7 @@ import { createFlightSession } from './flight-session.js';
 import { normalizeCameraMode } from './flight-camera.js';
 import { layoutCockpitHud, updateCockpitHud } from './cockpit-hud.js';
 import { updateTargetHeightPanel } from './target-height-panel.js';
+import { createRangeEditor } from './range-editor.js';
 import { createFeedbackController } from './feedback/controller.js';
 import { createPwaController } from './pwa.js';
 
@@ -30,8 +31,13 @@ let cameraMode = normalizeCameraMode(new URLSearchParams(location.search).get('c
 const flightSession = createFlightSession();
 const feedback = createFeedbackController();
 const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dialog });
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), ...pwa.report() }));
 let inputMode = null;
+const inputTransitions=[];
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {current:inputMode,transitions:inputTransitions}, ...pwa.report() }));
+function setInputMode(next,reason) {
+  if(inputMode!==next){inputTransitions.push({from:inputMode,to:next,reason,phase,at:new Date().toISOString()});if(inputTransitions.length>8)inputTransitions.shift();}
+  inputMode=next;app.dataset.input=next??'';
+}
 let reference = null;
 let craftReference = null;
 let referenceScreenAngle = 0;
@@ -39,7 +45,6 @@ let latestQuaternion = null;
 let latestInputQuaternion = null;
 let latestOrientationSample = null;
 let lastOrientationAt = 0;
-let lastMotionAt = 0;
 let sensorListening = false;
 let permissionAttempt = 0;
 let platformStartAttempt = 0;
@@ -67,7 +72,8 @@ function setPhase(next) {
   app.dataset.phase = next;
   flightPanel.setPhase(next, playMode);
   $('pause-button').disabled = next !== 'running';
-  $('recenter-button').disabled = next !== 'running' || inputMode !== 'sensor';
+  $('recenter-button').disabled = next !== 'running';
+  $('recenter-button').textContent=inputMode==='practice'?'スマホの傾きに切替':'持ち方を合わせ直す';
   $('veil').hidden = next === 'running';
   for (const mode of ['explore', 'flight']) $(`mode-${mode}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   $('throttle-input').disabled = next !== 'running' || playMode !== 'flight';
@@ -278,7 +284,7 @@ function selectMode(next) {
     setPhase('paused');
     dialog({ title: `${playMode === 'flight' ? '飛行機' : '探索'}モードに切り替えました`, description: 'ステージを最初からにしました。持ち方を決めて始めましょう。', note: modeNote(), action: inputMode === 'sensor' ? 'この持ち方で再開する' : '画面操作を再開する', guide: true });
   } else {
-    inputMode = null;
+    setInputMode(null,'mode-reset');
     setPhase('intro');
     dialog({ title: '自分はそのまま。世界を動かそう。', description: modeIntroduction(), note: modeNote(), action: 'スマホの傾きで始める', guide: true });
   }
@@ -300,7 +306,7 @@ function dialog({ title, description, note = '', action = '再開する', guide 
   $('error-message').hidden = !error;
   $('reset-button').hidden = !inputMode;
   $('practice-button').hidden = false;
-  $('practice-button').textContent = inputMode === 'practice' ? 'スマホの傾きに切り替える' : '画面操作で試す';
+  $('practice-button').textContent = inputMode === 'practice' ? 'スマホの傾きに切り替える' : '画面で操縦（スマホ傾きは無効）';
   $('dialog-kicker').textContent = inputMode === 'practice' ? '画面操作・センサー未使用' : playMode === 'flight' ? '傾き操縦と画面スロットル' : '傾きと回転の操作検証';
   pwa.render();
 }
@@ -316,7 +322,7 @@ function zeroPractice() {
   heldKeys.clear();
   keyboardActive = false;
   keyboardTwistBase = 0;
-  for (const axis of controls) { practiceAngles[axis] = 0; $(`practice-${axis}`).value = '0'; }
+  for (const axis of controls) { practiceAngles[axis] = 0; $(`practice-${axis}`).value = '0'; practiceEditors[axis]?.sync(); }
 }
 
 function halt() {
@@ -354,12 +360,11 @@ async function keepAwake() {
   } catch { /* Unsupported or denied does not prevent play. */ }
 }
 
-function run(mode) {
+function run(mode,reason) {
   if (document.hidden || !pwa.begin()) return;
   lastFlightSnapshot = null;
   if (playMode === 'flight') flightSession.start();
-  inputMode = mode;
-  app.dataset.input = mode;
+  setInputMode(mode,reason);
   $('practice-panel').hidden = mode !== 'practice';
   $('input-mode').textContent = mode === 'sensor' ? 'スマホの傾きで操作中' : '画面操作・センサー未使用';
   zeroPractice();
@@ -418,21 +423,6 @@ function receiveOrientation(event) {
 function attachSensors() {
   if (sensorListening) return;
   window.addEventListener('deviceorientation', receiveOrientation);
-  // Some browsers only send orientation when the angle changes. Motion events
-  // provide a heartbeat while a deliberately held angle is unchanged.
-  window.addEventListener('devicemotion', (event) => {
-    const rotation = event.rotationRate;
-    if (!rotation || ![rotation.alpha, rotation.beta, rotation.gamma].every((n) => typeof n === 'number' && Number.isFinite(n))) return;
-    const now = performance.now();
-    const moving = Math.max(Math.abs(rotation.alpha), Math.abs(rotation.beta), Math.abs(rotation.gamma)) > 3;
-    if (moving && now - lastOrientationAt > 400) {
-      // Motion without a corresponding orientation must not keep old acceleration alive.
-      latestQuaternion = null;
-      latestInputQuaternion = null;
-      latestOrientationSample = null;
-      if (phase === 'running' && inputMode === 'sensor') pause('スマホの動きに対する向きの更新が届かないため停止しました。');
-    } else if (!moving) lastMotionAt = now;
-  });
   sensorListening = true;
 }
 
@@ -445,10 +435,8 @@ async function requestSensors() {
   latestInputQuaternion = null;
   latestOrientationSample = null;
   lastOrientationAt = 0;
-  lastMotionAt = 0;
   reference = null;
-  inputMode = 'sensor';
-  app.dataset.input = 'sensor';
+  setInputMode('sensor','request-sensors');
   if (!window.isSecureContext) { showError('センサーにはHTTPSのページが必要です。公開URLをSafariやChromeで直接開いてください。'); return; }
   if (!('DeviceOrientationEvent' in window)) { showError('この端末・ブラウザーでは傾きを取得できません。スマホのSafariやChromeで公開URLを直接開いてください。'); return; }
   setPhase('waiting');
@@ -492,7 +480,7 @@ function finishCalibration() {
   reference = (playMode === 'flight' ? latestInputQuaternion : latestQuaternion).clone();
   if (!craftReference) craftReference = latestQuaternion.clone();
   angles = { pitch: 0, steer: 0, twist: 0 };
-  run('sensor');
+  run('sensor','held-pose-start');
   showToast(playMode === 'flight' ? `スマホ本体の上端を起こすと機首上げ。${flightSteering === 'twist' ? '面を保って左右に回して' : '左右の端を上下にひねって'}旋回します。` : '自機の先端側を下げると加速、逆側を下げるとブレーキ。持ち直しても自機の向きは保ちます。', 4300);
 }
 
@@ -502,7 +490,7 @@ function showToast(text, duration = 2600) {
   toastUntil = performance.now() + duration;
 }
 
-function startPractice() {
+function startPractice(reason='resume-screen') {
   if (!pwa.canResume()) return;
   permissionAttempt++;
   pendingCalibration = false;
@@ -510,7 +498,7 @@ function startPractice() {
   halt();
   reference = null;
   craftReference = null;
-  run('practice');
+  run('practice',reason);
   showToast('画面操作の練習です。スマホの傾きは使っていません。');
 }
 
@@ -529,12 +517,14 @@ $('start-button').addEventListener('click', async () => {
   requestSensors();
 });
 $('practice-button').addEventListener('click', async () => {
-  if (!stage || !pwa.canResume()) return;
+  if (!stage || !pwa.canResume() || phase==='running') return;
+  if(inputMode==='sensor'&&!window.confirm('画面操作へ切り替えると、スマホを傾けても操縦できなくなります。画面のゲージで操縦するモードへ切り替えますか？'))return;
+  const sourcePhase=phase,sourceMode=inputMode;
   feedback.unlock();
   if (inputMode !== 'practice') {
     const attempt = permissionAttempt, startAttempt = ++platformStartAttempt;
     await pwa.enter();
-    if (attempt !== permissionAttempt || startAttempt !== platformStartAttempt || document.hidden || !pwa.canResume()) return;
+    if (attempt !== permissionAttempt || startAttempt !== platformStartAttempt || phase!==sourcePhase || inputMode!==sourceMode || document.hidden || !pwa.canResume()) return;
   }
   if (phase === 'complete' || stage.getStatus().grounded) {
     pwa.clearOrientation();
@@ -542,10 +532,14 @@ $('practice-button').addEventListener('click', async () => {
     else flightSession.restartLeg();
     stage.reset(); previousCollected = 0; craftReference = null;
   }
-  inputMode === 'practice' ? requestSensors() : startPractice();
+  inputMode === 'practice' ? requestSensors() : startPractice('screen-button-confirmed');
 });
 $('pause-button').addEventListener('click', () => pause());
 $('recenter-button').addEventListener('click', () => {
+  if(inputMode==='practice'){
+    pause('画面操作を止めました。スマホの傾きへの切替を確認します。');
+    $('practice-button').click();return;
+  }
   pause(playMode === 'flight' ? '一度停止しました。今の持ち方を操作の中立に合わせ直します。' : '一度停止しました。自機の向きは保ったまま、今の持ち方を操作の中立に合わせ直します。');
   void pwa.enter();
 });
@@ -563,7 +557,7 @@ function pointPracticeTilt(pitch, steer, twist = practiceAngles.twist) {
   practiceAngles.pitch = Math.round(pitch * Math.cos(radians) - steer * Math.sin(radians));
   practiceAngles.steer = Math.round(pitch * Math.sin(radians) + steer * Math.cos(radians));
   practiceAngles.twist = twist;
-  for (const axis of controls) $(`practice-${axis}`).value = practiceAngles[axis];
+  for (const axis of controls) { $(`practice-${axis}`).value = practiceAngles[axis];practiceEditors[axis]?.sync(); }
 }
 $('practice-brake').addEventListener('click', () => {
   heldKeys.clear();
@@ -571,6 +565,9 @@ $('practice-brake').addEventListener('click', () => {
   else { keyboardActive = false; pointPracticeTilt(25, 0); }
 });
 $('throttle-input').addEventListener('input', (event) => { if (phase === 'running' && playMode === 'flight') setThrottle(Number(event.target.value) / 100); });
+const practiceEditors=Object.fromEntries(controls.map(axis=>[axis,createRangeEditor($(`practice-${axis}`),{
+  name:axis==='pitch'?'端末の上辺':axis==='steer'?'端末の右辺':'回し角度',unit:'°',initial:0,showValue:true,
+})]));
 for (const axis of controls) $(`practice-${axis}`).addEventListener('input', (event) => { keyboardActive = false; heldKeys.clear(); practiceAngles[axis] = Number(event.target.value); });
 
 function resetStage({ preserveSession = false } = {}) {
@@ -767,8 +764,8 @@ function frame(now) {
   if (stage) {
     if (phase === 'running') {
       if (inputMode === 'sensor') {
-        if (now - Math.max(lastOrientationAt, lastMotionAt) > 1800) pause('センサーの更新が届かなくなったため停止しました。持ち方を合わせて再開してください。');
-        else if (reference && craftReference && latestOrientationSample) {
+        // An unchanged held pose may produce no new events. Keep its last valid value while visible.
+        if (reference && craftReference && latestOrientationSample) {
           refreshOrientations();
           angles = readPose(latestQuaternion, latestInputQuaternion, reference, craftReference);
         }

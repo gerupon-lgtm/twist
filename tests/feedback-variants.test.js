@@ -28,3 +28,11 @@ test('enum defaults and persisted invalid values cannot create arbitrary music g
   for(const invalid of [null,undefined,'__proto__',[],42])assert.equal(normalizeFeedbackSettings({musicSet:invalid}).musicSet,'current');
   assert.equal(normalizeFeedbackSettings({musicSet:'brave',flightVibration:'classic'}).musicSet,'brave');
 });
+test('shared ground and buffet rhythms resynchronize after delayed frames instead of accumulating drift',()=>{
+  const h=createHaptics(()=>{});h.arm();
+  for(const model of [flightFeedback({...state,altitude:2},defaults),flightFeedback({...state,angleOfAttack:16*Math.PI/180},defaults)]){
+    h.stop();h.update(model,defaults,0);
+    assert.deepEqual(h.update(model,defaults,model.cycle+10),{restarted:true,elapsedMs:0});
+    assert.deepEqual(h.update(model,defaults,model.cycle*2+20),{restarted:true,elapsedMs:0});
+  }h.stop();
+});

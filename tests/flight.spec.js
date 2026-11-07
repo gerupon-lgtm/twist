@@ -8,7 +8,7 @@ const data = (page, key) => page.locator('#app').getAttribute(`data-${key}`).the
 const sensor = (page, sample) => page.evaluate(sample => window.dispatchEvent(Object.assign(new Event('deviceorientation'), sample)), sample);
 async function practice(page) {
   await page.goto('/?mode=flight&steer=tilt&pitch=rate');
-  await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
+  await page.getByRole('button', { name: '画面で操縦（スマホ傾きは無効）', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-play-mode', 'flight');
   await expect(page.locator('#throttle-value')).toHaveText('50%');
   await expect.poll(() => speed(page)).toBeGreaterThan(5.5);
@@ -139,7 +139,7 @@ test('flight controls fit portrait and landscape while keeping the craft center 
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'test-results/flight-intro-mobile.png' });
-  await page.getByRole('button', { name: '画面操作で試す', exact: true }).click();
+  await page.getByRole('button', { name: '画面で操縦（スマホ傾きは無効）', exact: true }).click();
   for (const size of [{ width: 390, height: 844 }, { width: 360, height: 640 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(size);
     await expect(page.locator('#throttle-input')).toBeInViewport();

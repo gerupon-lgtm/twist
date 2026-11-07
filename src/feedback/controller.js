@@ -5,6 +5,7 @@ import { createHaptics } from './haptics.js';
 import { createSensorJitter } from './jitter.js';
 import { isIPhone } from '../device-platform.js';
 import { createMusicPlayer } from '../music/player.js';
+import { createRangeEditor } from '../range-editor.js';
 
 export function createFeedbackController(){
   let storage;try{storage=localStorage;}catch{/* Defaults work without storage. */}
@@ -17,6 +18,7 @@ export function createFeedbackController(){
   const supported=!isIPhone(navigator.userAgent)&&typeof navigator.vibrate==='function';
   const haptics=createHaptics(supported?navigator.vibrate.bind(navigator):null);
   const fields=document.getElementById('feedback-settings-fields');
+  const rangeEditors={};
   for(const [key,field] of Object.entries(FEEDBACK_FIELDS)){
     const label=document.createElement('label');label.htmlFor=`feedback-${key}`;
     const caption=document.createElement('span');caption.textContent=field.label;
@@ -26,6 +28,8 @@ export function createFeedbackController(){
     else input.type=typeof field.initial==='boolean'?'checkbox':'range';
     if(input.type==='range')Object.assign(input,{min:field.min,max:field.max,step:field.step});
     label.dataset.feedbackSetting=key;label.append(caption,output,input);fields.append(label);
+    input.value=settings[key];
+    if(input.type==='range')rangeEditors[key]=createRangeEditor(input,{name:field.label,unit:field.unit,initial:field.initial});
     if(field.group==='vibration')label.hidden=!supported;
     input.addEventListener('input',()=>{
       settings=normalizeFeedbackSettings({...settings,[key]:field.options?input.value:input.type==='checkbox'?input.checked:Number(input.value)});
@@ -44,7 +48,8 @@ export function createFeedbackController(){
   function refresh(){
     for(const [key,field]of Object.entries(FEEDBACK_FIELDS)){
       const el=document.getElementById(`feedback-${key}`);if(el.type==='checkbox')el.checked=settings[key];else el.value=settings[key];
-      el.previousElementSibling.textContent=field.options||el.type==='checkbox'?'':`${settings[key]}${field.unit||''}`;
+      el.closest('label').querySelector('output').textContent=field.options||el.type==='checkbox'?'':`${settings[key]}${field.unit||''}`;
+      rangeEditors[key]?.sync();
     }
   }
   refresh();

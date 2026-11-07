@@ -11,7 +11,13 @@ export function createHaptics(vibrate) {
       if(eventUntil){clearTimeout(eventTimer);eventUntil=0;cue='';next=0;}
       if(!model.pattern.some(n=>n>0)){if(cue)this.stop();return;}
       const restarted=cue!==model.cue||now>=next;
-      if(restarted){send(model.pattern);if(cue!==model.cue)cueAt=now;cue=model.cue;next=now+model.cycle;}
+      if(restarted){
+        send(model.pattern);
+        // Shared warning rhythms restart together; deliberately different rhythms keep the sound clock.
+        const sharedCycle=model.cycle===model.soundPattern.reduce((sum,n)=>sum+n,0);
+        if(cue!==model.cue||sharedCycle)cueAt=now;
+        cue=model.cue;next=now+model.cycle;
+      }
       return {restarted,elapsedMs:now-cueAt};
     },
     event(kind,settings,now){
