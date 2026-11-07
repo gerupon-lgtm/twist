@@ -2,17 +2,27 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.21 / 2026-11-07**
+**操作検証 v0.1.22 / 2026-11-07**
 
 公開先URL（機首angle、左右端を倒す旋回。視点の未指定は従来表示、機体表示はbank/fixedを残します）:
 
-- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.21)
-- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.21)
-- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.21)
-- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.21)
-- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.21)
+- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.22)
+- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.22)
+- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.22)
+- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.22)
+- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.22)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.22の振動・別案BGM・目標高度の目印
+
+通常飛行の振動を60ms間隔の細かな震えへ変更。失速は長い震えを強めに、取得は短・長、ゴールは3段、接地は長い1回の合図に分けました。「音と振動」の「通常飛行の振動間隔」で従来の400ms間隔にも戻せます。実機での感触と、振動によるセンサーへの影響は未確認です。
+
+今の2曲をそのまま残し、別案のオリジナル曲「勇進の航路」（ホ短調・170BPM・約68秒）を追加。低音の16分刻み、音の立ち上がりと減衰、勇敢な主題、区切りのドラムで推進力を狙っています。「音と振動」の「飛行中の曲」で、従来2曲／別案／3曲を順番に、から選択・保存できます。指定なしは従来2曲です。[別案を試す](https://twist.sikumilab.com/?mode=flight&camera=cockpit&music=brave&v=0.1.22)。添付MMLは編成の一般的な参考に限り、旋律・波形・エンベロープ・ファイルは使用していません。
+
+次の光・出口の高さと、高さを合わせる帯を全視点・探索にも追加。操縦席は右の高度計、それ以外は地面までの値の近くに表示し、帯の中では「高さOK」、間に合いにくい接近時は早めの上下合図を出します。高さだけでなく左右の進路も目標へ合わせる必要があります。「調整」の「目標高度の目印」でオン／オフして保存・コピーできます。従来表示では隠します。光・出口の位置、取れる範囲、操縦・物理計算は変更していません。
+
+重複する資料A・Bはv0.1.20〜21の実装を継続し、新規Cと今回の直接依頼を反映。[検証と実機確認の手順](docs/verification-v0122.md)、[音楽の設定と差し替え](docs/music.md)。
 
 ## v0.1.21の操縦席改善（追加資料B）
 

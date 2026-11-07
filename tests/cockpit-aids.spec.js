@@ -34,6 +34,7 @@ for(const size of sizes)test(`compact cockpit keeps scenery, HUD and touch contr
  await page.screenshot({path:`test-results/v0121-cockpit-${size.width}.png`});
 });
 test('overlay and chase keep all six previously published panel layouts',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('twist.flight-settings.v1',JSON.stringify({targetHeightGuide:false})));
  for(const sample of baseline){
   await page.setViewportSize({width:sample.width,height:sample.height});await launch(page,sample.camera);
   for(const [selector,wanted]of Object.entries(sample.rects)){

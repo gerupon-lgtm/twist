@@ -2,9 +2,10 @@ import { getGroundProximity } from '../ground-proximity.js';
 import { varioCue } from '../cockpit-aids.js';
 const clamp = (n,min,max) => Math.max(min,Math.min(max,Number.isFinite(n)?n:min));
 export const FEEDBACK_TUNING = Object.freeze({ buffetStart: 14, stallStart: 20, stallEnd: 70,
-  engineCycle: 400, enginePulse: 5, groundPattern: [85,100,85,430], stallPattern: [100,45,55,90,160,110] });
+  engineCycle: 400, enginePulse: 5, groundPattern: [85,100,85,430], stallPattern: [100,45,55,90,160,110],
+  fineCycle: 60, finePulses: 4, strongStallPattern: [180,30,120,40,260,50] });
 export const EVENT_FEEDBACK = Object.freeze({
-  collect: { priority: 2, duration: 300, pattern: [35,65,35] },
+  collect: { priority: 2, duration: 300, pattern: [30,80,70] },
   clear: { priority: 3, duration: 1300, pattern: [90,90,160,100,260] },
   crash: { priority: 3, duration: 800, pattern: [320] },
 });
@@ -32,8 +33,14 @@ export function flightFeedback(state={},settings={}) {
   else if(angle>=FEEDBACK_TUNING.stallStart){cue='stall';pattern=scaledPattern(FEEDBACK_TUNING.stallPattern,.6+.4*clamp((angle-FEEDBACK_TUNING.stallStart)/(FEEDBACK_TUNING.stallEnd-FEEDBACK_TUNING.stallStart),0,1));}
   else if(angle>=FEEDBACK_TUNING.buffetStart){cue='buffet';const on=Math.round(15+(angle-FEEDBACK_TUNING.buffetStart)/(FEEDBACK_TUNING.stallStart-FEEDBACK_TUNING.buffetStart)*70);pattern=[on,300-on];}
   else if(power>0 && settings.engineVibration!==false){cue='engine';const on=Math.max(1,Math.round(FEEDBACK_TUNING.enginePulse*power));pattern=[on,FEEDBACK_TUNING.engineCycle-on];}
-  const vibration=scaledPattern(pattern,clamp(settings.vibrationScale??1,0,2));
-  return { cue, pattern:vibration, soundPattern:pattern, cycle:pattern.reduce((a,b)=>a+b,0),
+  let vibrationPattern=pattern;
+  if(cue==='engine'&&settings.flightVibration!=='classic') {
+    // Four pulses per request; eight entries also fit the current Vibration API limit.
+    const on=Math.round(8+6*power);
+    vibrationPattern=Array.from({length:FEEDBACK_TUNING.finePulses},()=>[on,FEEDBACK_TUNING.fineCycle-on]).flat();
+  } else if(cue==='stall') vibrationPattern=scaledPattern(FEEDBACK_TUNING.strongStallPattern,.75+.25*clamp((angle-20)/50,0,1));
+  const vibration=scaledPattern(vibrationPattern,clamp(settings.vibrationScale??1,0,2));
+  return { cue, pattern:vibration, soundPattern:pattern, cycle:vibrationPattern.reduce((a,b)=>a+b,0),
     angleOfAttack:angle,power,speed,engineHz:55+power*120,wind:Math.min(1,speed/18),
     vario:varioCue(state.verticalSpeed,settings.vario!==false&&state.mode==='flight') };
 }

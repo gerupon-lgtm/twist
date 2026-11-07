@@ -2,6 +2,7 @@ import { cockpitReadings, cockpitProjection, horizonSegment } from './cockpit-pr
 import { getGroundProximity } from './ground-proximity.js';
 import { verticalSpeedIndicator } from './cockpit-aids.js';
 import { viewportInsets } from './viewport-insets.js';
+import { heightBandSvg } from './target-height-panel.js';
 
 const $ = id => document.getElementById(id);
 const point = p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
@@ -27,6 +28,7 @@ export function layoutCockpitHud(active) {
   }
   headingX=Math.max(insets.left+12,Math.min(w-insets.right-192,headingX));
   box($('cockpit-heading'),headingX,compassY,180,28);
+  box($('cockpit-target-height'),headingX,compassY+32,180,32);
   box($('cockpit-speed'),insets.left+12,tapeY,58,tapeHeight);
   box($('cockpit-altitude'),w-insets.right-92,tapeY,58,tapeHeight);
   box($('cockpit-vario'),w-insets.right-28,tapeY,16,tapeHeight);
@@ -34,7 +36,7 @@ export function layoutCockpitHud(active) {
   return { w,h,compassY,powerY,insets };
 }
 
-export function updateCockpitHud(state, active, layout = layoutCockpitHud(active), settings={}) {
+export function updateCockpitHud(state, active, layout = layoutCockpitHud(active), settings={}, heightGuide=null) {
   if (!active || !layout) return;
   const root = $('cockpit-hud');
   const { w,h,compassY,powerY,insets } = layout;
@@ -44,7 +46,10 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
     return `<span>${label} ${unit}</span><small>${Math.max(0,base+step)}</small><strong>${format(value)}</strong><small>${Math.max(0,base-step)}</small>${extra}`;
   };
   $('cockpit-speed').innerHTML = tape(readings.speed,2,'速度','m/s');
-  $('cockpit-altitude').innerHTML = tape(readings.altitude,5,'地面まで','m');
+  $('cockpit-altitude').innerHTML = heightGuide
+    ? `<span>地面まで m</span><div class="height-tape-scale">${heightBandSvg(heightGuide)}<strong style="top:${Math.max(16,Math.min(84,heightGuide.scale.currentY))}%">${format(readings.altitude)}</strong></div>`
+    : tape(readings.altitude,5,'地面まで','m');
+  $('cockpit-altitude').dataset.heightState=heightGuide?.inside?'inside':heightGuide?.urgent?'urgent':'outside';
   const vario=verticalSpeedIndicator(readings.verticalSpeed),center=50,tip=center+(vario.direction==='up'?-vario.length:vario.length);
   const bar=vario.length?`<path class="vario-bar" d="M8,${center}V${tip}"/><path d="M3,${tip+(vario.direction==='up'?6:-6)}L8,${tip}L13,${tip+(vario.direction==='up'?6:-6)}"/>`:'';
   $('cockpit-vario').innerHTML=`<svg viewBox="0 0 16 100" preserveAspectRatio="none" aria-hidden="true"><path class="vario-axis" d="M8,3V97M1,50H15"/>${bar}</svg><span>${vario.speed>=0?'+':''}${format(vario.speed)}</span><small>m/s</small>`;
@@ -61,7 +66,7 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   const projection = cockpitProjection(state,w,h,settings);
   const horizon = horizonSegment(projection.horizon,w,h);
   const left = insets.left+82, right = w-insets.right-102;
-  const top = compassY+38, low = Math.max(top+20,powerY-8);
+  const top = compassY+($('cockpit-target-height').hidden?38:70), low = Math.max(top+20,powerY-8);
   let clip = `M${left},${top}H${right}V${low}H${left}Z`;
   for(const marker of [$('target-edge-marker'),$('practice-panel')].filter(e=>!e.hidden&&e.getClientRects().length)) {
     const r=marker.getBoundingClientRect();

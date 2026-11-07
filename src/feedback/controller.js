@@ -9,6 +9,8 @@ import { createMusicPlayer } from '../music/player.js';
 export function createFeedbackController(){
   let storage;try{storage=localStorage;}catch{/* Defaults work without storage. */}
   let settings=loadFeedbackSettings(storage),active=false,lastAudio=0;
+  const query=new URL(location.href).searchParams.get('music');
+  if(Object.hasOwn(FEEDBACK_FIELDS.musicSet.options,query))settings={...settings,musicSet:query};
   let frames=0,frameSum=0,frameMax=0;
   const audio=createGameAudio(),jitter=createSensorJitter();
   const music=createMusicPlayer(audio);music.setSettings(settings);
@@ -18,15 +20,20 @@ export function createFeedbackController(){
   for(const [key,field] of Object.entries(FEEDBACK_FIELDS)){
     const label=document.createElement('label');label.htmlFor=`feedback-${key}`;
     const caption=document.createElement('span');caption.textContent=field.label;
-    const input=document.createElement('input');input.id=label.htmlFor;
+    const input=document.createElement(field.options?'select':'input');input.id=label.htmlFor;
     const output=document.createElement('output');output.htmlFor=input.id;
-    input.type=typeof field.initial==='boolean'?'checkbox':'range';
+    if(field.options)for(const [value,text]of Object.entries(field.options))input.add(new Option(text,value));
+    else input.type=typeof field.initial==='boolean'?'checkbox':'range';
     if(input.type==='range')Object.assign(input,{min:field.min,max:field.max,step:field.step});
     label.dataset.feedbackSetting=key;label.append(caption,output,input);fields.append(label);
-    if(['vibration','vibrationScale','engineVibration'].includes(key))label.hidden=!supported;
+    if(field.group==='vibration')label.hidden=!supported;
     input.addEventListener('input',()=>{
-      settings=normalizeFeedbackSettings({...settings,[key]:input.type==='checkbox'?input.checked:Number(input.value)});
-      if(['vibration','vibrationScale','engineVibration'].includes(key))jitter.reset();
+      settings=normalizeFeedbackSettings({...settings,[key]:field.options?input.value:input.type==='checkbox'?input.checked:Number(input.value)});
+      if(key==='musicSet'){
+        const url=new URL(location.href);url.searchParams.set('music',settings.musicSet);history.replaceState(null,'',url);
+        const home=document.getElementById('home-link'),link=new URL(home.href);link.searchParams.set('music',settings.musicSet);home.href=link.href;
+      }
+      if(field.group==='vibration')jitter.reset();
       haptics.stop();audio.configure(settings);music.setSettings(settings);
       if(!settings.sound)audio.stop();else if(active){audio.start();void music.play('flight');}
       document.getElementById('feedback-save-status').textContent=saveFeedbackSettings(storage,settings)?'このブラウザーに保存しました。':'保存できません。この画面を開いている間だけ使います。';
@@ -37,7 +44,7 @@ export function createFeedbackController(){
   function refresh(){
     for(const [key,field]of Object.entries(FEEDBACK_FIELDS)){
       const el=document.getElementById(`feedback-${key}`);if(el.type==='checkbox')el.checked=settings[key];else el.value=settings[key];
-      el.previousElementSibling.textContent=el.type==='checkbox'?'':`${settings[key]}${field.unit||''}`;
+      el.previousElementSibling.textContent=field.options||el.type==='checkbox'?'':`${settings[key]}${field.unit||''}`;
     }
   }
   refresh();

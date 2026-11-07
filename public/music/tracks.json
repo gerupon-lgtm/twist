@@ -3,6 +3,49 @@
     "flight",
     "flight2"
   ],
+  "flightSets": {
+    "brave": [
+      "brave"
+    ],
+    "all": [
+      "flight",
+      "flight2",
+      "brave"
+    ]
+  },
+  "brave": {
+    "title": "勇進の航路",
+    "file": "brave.mid",
+    "loop": {
+      "start": 0,
+      "end": 67.764672
+    },
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 101
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 66
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 64
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 96
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 44
+      },
+      "10": {
+        "volume": 105
+      }
+    }
+  },
   "flight": {
     "title": "蒼穹突破",
     "file": "flight.mid",

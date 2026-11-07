@@ -5,7 +5,7 @@ import { computeFieldOfView } from './visibility.js';
 
 const $ = id => document.getElementById(id);
 const describeSettings = report => Object.entries(FLIGHT_SETTING_FIELDS)
-  .map(([key, field]) => `${field.label} ${field.auto && report.settings[key]===0 ? '自動' : report.settings[key]+field.unit}${report.inactiveSettings.includes(key) ? '（未使用）' : ''}`).join(' / ');
+  .map(([key, field]) => `${field.label} ${typeof field.initial==='boolean'?(report.settings[key]?'オン':'オフ'):field.auto && report.settings[key]===0 ? '自動' : report.settings[key]+field.unit}${report.inactiveSettings.includes(key) ? '（未使用）' : ''}`).join(' / ');
 
 export function createFlightPanel(getModes) {
   let storage;
@@ -21,14 +21,15 @@ export function createFlightPanel(getModes) {
     const value = document.createElement('output'); value.id = `setting-value-${key}`;
     value.htmlFor = label.htmlFor;
     const input = document.createElement('input');
-    Object.assign(input, { type: 'range', id: label.htmlFor, min: field.min, max: field.max, step: field.step });
+    if(typeof field.initial==='boolean')Object.assign(input,{type:'checkbox',id:label.htmlFor});
+    else Object.assign(input, { type: 'range', id: label.htmlFor, min: field.min, max: field.max, step: field.step });
     label.append(caption, value, input); $('flight-settings-fields').append(label);
     if(key==='cockpitFov') {
       const autoLabel=document.createElement('label');autoLabel.className='cockpit-fov-auto';autoLabel.dataset.settingKey=key;
       autoLabel.append(fovAuto,document.createTextNode('視野を自動計算する'));$('flight-settings-fields').append(autoLabel);
     }
     input.addEventListener('input', () => {
-      settings = normalizeFlightSettings({ ...settings, [key]: Number(input.value) });
+      settings = normalizeFlightSettings({ ...settings, [key]: input.type==='checkbox'?input.checked:Number(input.value) });
       persist();
     });
   }
@@ -40,6 +41,7 @@ export function createFlightPanel(getModes) {
     const inactive=modes.mode!=='flight'||modes.camera!=='cockpit';
     fovAuto.disabled=inactive;input.disabled=inactive||fovAuto.checked;
     $('setting-ladderRange').disabled=inactive;
+    $('setting-targetHeightGuide').disabled=modes.view!=='assisted';
     $('setting-value-cockpitFov').textContent=fovAuto.checked?`自動（${maximum.toFixed(1)}°）`:`${Math.min(maximum,settings.cockpitFov).toFixed(1)}°`;
   }
   fovAuto.addEventListener('change',()=>{
@@ -47,8 +49,8 @@ export function createFlightPanel(getModes) {
   });
   function refresh() {
     for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
-      $(`setting-${key}`).value = settings[key];
-      $(`setting-value-${key}`).textContent = `${settings[key]}${field.unit}`;
+      if(typeof field.initial==='boolean')$(`setting-${key}`).checked=settings[key];else $(`setting-${key}`).value = settings[key];
+      $(`setting-value-${key}`).textContent = typeof field.initial==='boolean'?'':`${settings[key]}${field.unit}`;
     }
     refreshLayout();
   }
@@ -70,7 +72,7 @@ export function createFlightPanel(getModes) {
   }
   $('settings-reset').addEventListener('click', () => {
     settings = getModes().mode === 'explore'
-      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange }
+      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange, targetHeightGuide: true }
       : { ...DEFAULT_FLIGHT_SETTINGS };
     persist();
   });
@@ -102,15 +104,15 @@ export function createFlightPanel(getModes) {
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = phase !== 'paused';
       const inactiveSteering = getModes().steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone'];
-      for (const label of $('flight-settings-fields').children) label.hidden = (mode !== 'flight' && label.dataset.settingKey !== 'radarRange')
+      for (const label of $('flight-settings-fields').children) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide'].includes(label.dataset.settingKey))
         || inactiveSteering.includes(label.dataset.settingKey);
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       refreshLayout();
       $('flight-settings-help').hidden = mode !== 'flight';
-      $('settings-reset').textContent = mode === 'flight' ? '操縦を初期値へ' : 'レーダーを初期値へ';
+      $('settings-reset').textContent = mode === 'flight' ? '操縦を初期値へ' : '目印を初期値へ';
       $('adjustment-scope-note').textContent = mode === 'flight'
         ? '機首と旋回の入力角度を別々に調整します。選んだ旋回方式の項目だけ表示します。'
-        : 'レーダーの表示範囲を調整します。探索の操縦には影響しません。';
+        : 'レーダーの表示範囲と目標高度の目印を調整します。探索の操縦には影響しません。';
       if (phase !== 'paused') $('flight-adjustments').open = false;
       if (phase === 'running' || mode !== 'flight') this.showResult(null);
     },

@@ -810,6 +810,7 @@ test('settings normalize unknown, corrupt, and out-of-range input without imposs
   for(const value of [null,undefined,[],{},'bad',{deadzone:NaN,maxTilt:Infinity}]) assert.deepEqual(normalizeFlightSettings(value),DEFAULT_FLIGHT_SETTINGS);
   for(const key of Object.keys(FLIGHT_SETTING_FIELDS)) {
     const field=FLIGHT_SETTING_FIELDS[key];
+    if(typeof field.initial==='boolean'){assert.equal(normalizeFlightSettings({[key]:false})[key],false);assert.equal(normalizeFlightSettings({[key]:123})[key],true);continue;}
     near(normalizeFlightSettings({[key]:-100})[key],field.min);
     near(normalizeFlightSettings({[key]:field.max+100})[key],field.max);
   }

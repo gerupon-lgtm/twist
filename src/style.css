@@ -130,3 +130,16 @@
  .app[data-camera="cockpit"][data-phase="running"] .flight-throttle{flex:1;min-width:180px}.app[data-camera="cockpit"][data-phase="running"] .toolbar{margin:0;flex:1;justify-content:flex-end;min-width:300px}
  .app[data-camera="cockpit"][data-phase="running"] .practice-panel{left:20px;right:auto;bottom:calc(100% + 8px);width:220px}
 }
+.feedback-settings select{grid-column:1/-1;width:100%;min-height:36px;border:1px solid #b8cdd1;border-radius:6px;background:#f7faf9;color:var(--ink);padding:6px;font:inherit}
+#flight-settings-fields input[type=checkbox]{width:19px;height:19px;accent-color:var(--teal);grid-column:2;grid-row:1}
+.target-height-guide{display:flex;align-items:center;gap:4px;color:#185c78;font-variant-numeric:tabular-nums;line-height:1.2;pointer-events:none}
+.target-height-guide>span{display:flex;flex-direction:column;gap:2px}.target-height-guide b{font-size:10px;font-weight:600;white-space:nowrap}.target-height-guide small{font-size:9px;white-space:nowrap}
+#target-height-inline{margin-left:auto;min-width:96px}#target-height-inline .height-band{width:18px;height:27px;flex:none}.throttle-heading:has(#target-height-inline:not([hidden])){align-items:center}.throttle-heading #throttle-value{order:3}
+.height-band{overflow:visible}.height-axis{stroke:#7595a0;stroke-width:1;fill:none}.height-band-range{fill:#26b3d355;stroke:#1d8dab;stroke-width:.6}.height-target{stroke:#147b9b;stroke-width:2;fill:none}.height-current{fill:currentColor}.height-band text{fill:currentColor;font-size:8px}
+.target-height-guide[data-height-state=inside],#cockpit-altitude[data-height-state=inside]{color:#2c9a56}.target-height-guide[data-height-state=inside] .height-band-range,#cockpit-altitude[data-height-state=inside] .height-band-range{fill:#57d77b66;stroke:#2c9a56}
+.target-height-guide[data-height-state=urgent]{color:#a54c15;font-weight:700}.target-height-guide[data-height-state=urgent] small{font-weight:800}
+#cockpit-target-height{position:absolute;justify-content:center;background:#102a1866;border:1px solid #b4ff8a88;border-radius:4px;color:#c7eaff}#cockpit-target-height>span{flex-direction:row;align-items:center;gap:8px}#cockpit-target-height b{font-size:11px}#cockpit-target-height small{font-size:10px}
+#cockpit-target-height[data-height-state=inside]{color:#bdffa8}#cockpit-target-height[data-height-state=urgent]{color:#ffdd91}
+.height-tape-scale{position:relative;width:100%;flex:1;min-height:0}.height-tape-scale .height-band{position:absolute;inset:0;width:100%;height:100%}.cockpit-tape .height-tape-scale strong{position:absolute;left:-3px;width:39px;font-size:12px;line-height:1.4;transform:translateY(-50%);background:#102a18b8;border-color:currentColor}
+.height-tape-scale .height-target{stroke:#c7eaff}.height-tape-scale .height-band-range{fill:#90d7ff66;stroke:#c7eaff}.height-tape-scale .height-axis{stroke:#b4ff8a}#cockpit-altitude[data-height-state=inside]{color:#bdffa8}
+.app[data-play-mode=explore] .flight-line:has(#target-height-inline:not([hidden])) #stop-hint{display:none}.app[data-play-mode=explore] .flight-line:has(#target-height-inline:not([hidden])){gap:10px}

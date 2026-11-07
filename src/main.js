@@ -11,6 +11,7 @@ import { createFlightPanel } from './flight-panel.js';
 import { createFlightSession } from './flight-session.js';
 import { normalizeCameraMode } from './flight-camera.js';
 import { layoutCockpitHud, updateCockpitHud } from './cockpit-hud.js';
+import { updateTargetHeightPanel } from './target-height-panel.js';
 import { createFeedbackController } from './feedback/controller.js';
 import { createPwaController } from './pwa.js';
 
@@ -107,7 +108,7 @@ function applyVisibilityUI() {
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
   $('view-note').textContent = assisted ? 'レーダー、ピンクの光と白い輪、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
-  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&pitch=${pitchMode}&display=${flightDisplay}&camera=${cameraMode}&v=${APP_VERSION}`;
+  $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&pitch=${pitchMode}&display=${flightDisplay}&camera=${cameraMode}&music=${feedback.report().settings.musicSet}&v=${APP_VERSION}`;
 }
 
 function selectVisibility(next) {
@@ -678,7 +679,7 @@ function updateEdgeMarker(state) {
   app.dataset.edgeBehind = String(projected.behind);
   if (!projected.visible) return;
   const cockpitObstacles = cameraMode === 'cockpit' && playMode === 'flight'
-    ? ['cockpit-speed','cockpit-altitude','cockpit-heading','cockpit-power','cockpit-vario'].map(id=>$(id).getBoundingClientRect()) : [];
+    ? ['cockpit-speed','cockpit-altitude','cockpit-heading','cockpit-target-height','cockpit-power','cockpit-vario'].filter(id=>!$(id).hidden).map(id=>$(id).getBoundingClientRect()) : [];
   const placed = avoidRadarMarker(projected, { left:left+50,top:top+25,right:right-50,bottom:bottom-25 }, cockpitObstacles);
   marker.style.left = `${placed.x}px`;
   marker.style.top = `${placed.y}px`;
@@ -750,11 +751,12 @@ function updateHud(now, state) {
   app.dataset.viewPosition = JSON.stringify(state.viewPosition);
   app.dataset.verticalFov = String(state.fieldOfView.vertical);
   app.dataset.navigationTargets = JSON.stringify(state.navigationTargets);
-  updateRadar(state, { phase, visibility, range: flightPanel.getSettings().radarRange });
   const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
+  const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive});
+  updateRadar(state, { phase, visibility, range: settings.radarRange });
   const cockpitLayout = layoutCockpitHud(cockpitActive);
   updateEdgeMarker(state);
-  updateCockpitHud(state, cockpitActive, cockpitLayout, settings);
+  updateCockpitHud(state, cockpitActive, cockpitLayout, settings, heightGuide);
 }
 
 let previousFrame = performance.now();
