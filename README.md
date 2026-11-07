@@ -2,17 +2,23 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.17 / 2026-11-07**
+**操作検証 v0.1.18 / 2026-11-07**
 
 公開先URL（機首angle、左右端を倒す旋回。視点の未指定は従来表示、機体表示はbank/fixedを残します）:
 
-- [従来視点・overlay](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.17)
-- [追尾3D視点・chase](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.17)
-- [操縦席視点・cockpit](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.17)
-- [追尾3D・自機固定fixed](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.17)
-- [機首が回り続けるrate（比較）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.17)
+- [従来視点・overlay](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.18)
+- [追尾3D視点・chase](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.18)
+- [操縦席視点・cockpit](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.18)
+- [追尾3D・自機固定fixed](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.18)
+- [機首が回り続けるrate（比較）](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.18)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.18のMIDI BGM
+
+SCCとBGM専用PSGで鳴る45秒のオリジナル曲「ひかりの航路（仮）」を追加しました。光や警告は別のPSGなので、BGMのドラムやノイズを取り合いません。休止で停止し、再開は曲の先頭から。接地時は曲を止めて接地音、ゴールでは2.4秒のMIDIジングルへ切り替えます。
+
+「音と振動」のBGMオン/オフとBGM音量を別に保存できます。全体音量は両方に効きます。曲は`public/music/*.mid`、曲名・音色・音量・ループ位置は`public/music/tracks.json`で差し替えます。[DAW書き出し・差し替え手順](docs/music.md)、[生成元](tools/generate-music.mjs)、[検証記録](docs/verification-v0118.md)。曲が読めなくてもBGMなしで遊べます。ゴール曲は効果音オンに従い、BGMオフでも通知を残します。**曲の聞こえ方とPixel 9aでの同時処理負荷は未確認**です。
 
 ## v0.1.17の振動と効果音
 
