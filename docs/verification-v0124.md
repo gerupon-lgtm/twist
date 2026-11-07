@@ -60,7 +60,13 @@ Spec: 実装上の指摘0、柱高の記録を補正。画面軸の独立レビ�
 
 ## 公開
 
-公開処理と公開先の照合結果は続けて記録する。
+2026-11-08 JST、アプリe0f94ef1155eda64a659b1b806d761615c70a958を公開。[Pages run 42394185317](https://github.com/gerupon-lgtm/twist/actions/runs/42394185317)がsuccess。JS index-CMY6hvgq.js / CSS index-C4wQbZne.css / worklet audio-worklet-Cj0Cg5df.js。500kB超の既存警告は残る。worker/manifest/version/トップの表示と各リンクの版は0.1.24。
+
+公開先で20ファイルのHTTP状態・内容の種類・長さ・SHA-256がdistと一致、workerが実際に制御しキャッシュは空、再読込・開始/停止、旧URLからクエリーを保つ転送を確認。ページ実行/HTTPエラー0、検証終了0。
+
+公開先のブラウザー46件もpass・exit 0（33件1.3分、13件26.5秒）。横持ち左右/上下逆と合わせ直し、画面の上を機首・左右を旋回にする入力、初速10m/s/開始14m/手動再開10m/s、出口までの完走・4区間・初回表示コピー、3サイズ/3視点高度、ゲージ/設定/説明の保存を確認。30m/sの方向を保つ速度制限は単体と公開JSの一致で確認。実際に水平30m/sを出したという意味ではない。
+
+[スマホで試す](https://twist.sikumilab.com/?mode=flight&view=assisted&camera=cockpit&music=rock&v=0.1.24)。本版は完了し、案内の輪/英語HUDは最新版の別資料に従いv0.1.25で追加する。
 
 ## 実機で未確認
 
