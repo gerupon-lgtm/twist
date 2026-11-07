@@ -24,3 +24,7 @@ v0.1.17の公開確認後に着手。指示は[instruction-bgm.md](instruction-b
 ## 実機手順（未確認）
 
 Pixel 9aで開始し、曲とエンジン音の釣り合いを調整する。光/警告の効果音で曲/ドラムが途切れないか、1分以上でループが自然か、休止/再開/接地/ゴールが記載どおりか確認。計測を開いて負荷をコピーする。曲の聞こえ方と3Dと同時の重さはPixel 9a未確認。iPhone XRの音の聞こえ方も未確認。PCのPCM/API試験を実機の耳の確認へ置き換えない。
+
+## 公開確認
+
+アプリコミット1d27ae61e29c138224db769e73c306dd197bf355、[Pages処理42362518335](https://github.com/gerupon-lgtm/twist/actions/runs/42362518335)成功。CIの143単体とビルドも成功。公開31件/4ファイル、Edge・1worker、2.2分で成功、終了コード0。意図的な欠損試験の404以外は実行/読込エラー0。別MIDIのループ、準備遅延、音量/保存、SFXなしのBGM出力、実接地の停止、bank/fixedの実ゴールでMIDIジングルを確認。HTML/型/HTTP200、main/CSS/Worklet/MIDI2曲/tracks.json/NOTICEのSHA-256がビルドに一致。旧GitHub URLは https://twist.sikumilab.com/?mode=flight&v=0.1.18 へ転送されることを実ブラウザーで確認。曲の耳の確認/Pixel負荷は未確認のまま、次のPWA版へ進む。
