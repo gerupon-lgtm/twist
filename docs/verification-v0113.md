@@ -29,6 +29,11 @@ Standards軸は「調整した中立範囲と接地説明が不一致」1点、S
 
 ## 公開版
 
-配信版の確認後に追記する。
+- アプリコミット `1831a714e5f7c48b6675a4444cf3edf705627224`。[GitHub Pages更新](https://github.com/gerupon-lgtm/twist/actions/runs/42346706223) 成功。CIの105件とビルドも成功。
+- [標準・角度方式](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=angle&v=0.1.13)、[比較・回り続ける方式](https://gerupon-lgtm.github.io/twist/?mode=flight&view=assisted&steer=tilt&pitch=rate&v=0.1.13) を公開。画面v0.1.13、JS `index-eoDBAmap.js` / CSS `index-BsLPyYzn.css`。
+- 公開URLで新機能10件が全件成功。3サイズの開始版番号、角度・キーの中立復帰、rate切替、設定5項目の保存と飛行への反映、保存/コピー拒否、接地2回と累積時間、補助時間、過去結果の固定、調整後の接地説明、探索範囲、角度入力で全光と出口への到達を確認。実行エラー0。開始画面・接地記録を目視。
+- 同じ実行の配信資産照合1件は、検証用Node通信で証明書を検証できず失敗。アプリと同じブラウザーの通常HTTPS通信へ切り替え、証明書検証を無効化せずに再検証。HTTP200・HTML型と、JS/CSSの型・SHA-256がローカル最終ビルドと一致し、1件成功・終了コード0。
+- 公開のrate方式でも疑似センサー・本体基準・旋回表示・スロットル保持・上昇減速/下降加速・停止と手動再開・探索・目標マーカー・見え方比較・地面表示・0m接地・出力50/100%の失速復帰を確認。実行/HTTP読込エラー0、終了コード0。
+- 新機能の公開試験は `node_modules/.cache/twist-public-v0113.spec.js` と同config、従来方式の公開確認は `node_modules/.cache/twist-public-regression-v0113.mjs`。結果画像 `test-results/public-v0113-*`、従来方式の結果 `test-results/public-v0113-rate-result.json` はGit管理外。次の試験で上書き・初期化され得る。
 
 スマホ実機の操作感は未確認。PCの疑似操作を実機確認の代わりにはしない。物理計算と復帰補助はv0.1.12から変更しない。
