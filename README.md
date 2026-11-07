@@ -2,17 +2,31 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.27（公開確認済み） / 2026-11-08**
+**操作検証 v0.1.28（公開確認前） / 2026-11-08**
 
-v0.1.27の公開URLです。全63ファイルと実画面・実操作・workerを確認済みです。以下の`v`は更新確認用の値で、過去版を選ぶ指定ではありません。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
+v0.1.28の確認用URLです。単体385件・ブラウザー267件・公開用ビルドが成功しています。公開先の確認状況はdocs/verification-v0128.mdに記録します。以下の`v`は更新確認用の値で、過去版を選ぶ指定ではありません。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
 
-- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.27)
-- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.27)
-- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.27)
-- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.27)
-- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.27)
+- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&music=newrock&v=0.1.28)
+- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&music=newrock&v=0.1.28)
+- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&music=newrock&v=0.1.28)
+- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&music=newrock&v=0.1.28)
+- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&music=newrock&v=0.1.28)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.28の追加BGM3曲
+
+既存曲を残し、伴奏の刻みで前進する勢いを作り、ギター風の旋律を大きく聴かせる3曲を追加しました。
+
+| 曲名 | 目指した特徴 | テンポ |
+|---|---|---|
+| 鋼翼の鼓動 | 強い拍と低い刻み | 144 BPM |
+| 黎明の航跡 | 伸びる旋律と上昇感 | 148 BPM |
+| 嵐を越えて | 重い刻みと短い切れ目 | 152 BPM |
+
+「音と振動」→「飛行中の曲」で、新作3曲順番・各曲・7曲順番を選べます。初期選択と保存済みの従来曲は維持します。[新作3曲を試す](https://twist.sikumilab.com/?mode=flight&course=easy&music=newrock&v=0.1.28)。録音したギターではなく、既存のSCC＋PSGによる電子音です。曲の切替・保存・再生の技術検証と、実機で聴いた音の好みは分けて記録します。[音楽の説明](docs/music.md)、[検証記録](docs/verification-v0128.md)。
+
+ディレクターの違和感は依頼に沿って調査し、安全復帰時の急な切替を別条件で確認しました。報告画像と同じ原因とは確定できず、今回の音楽追加では案内や飛行の計算を変更しません。
 
 ## v0.1.27のスピード感とアフターバーナー
 

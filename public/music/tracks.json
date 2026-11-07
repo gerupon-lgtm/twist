@@ -10,11 +10,28 @@
     "rock": [
       "rock"
     ],
+    "steel": [
+      "steel"
+    ],
+    "horizon": [
+      "horizon"
+    ],
+    "storm": [
+      "storm"
+    ],
+    "newrock": [
+      "steel",
+      "horizon",
+      "storm"
+    ],
     "all": [
       "flight",
       "flight2",
       "brave",
-      "rock"
+      "rock",
+      "steel",
+      "horizon",
+      "storm"
     ]
   },
   "rock": {
@@ -146,6 +163,105 @@
       },
       "10": {
         "volume": 100
+      }
+    }
+  },
+  "steel": {
+    "title": "鋼翼の鼓動",
+    "file": "steel.mid",
+    "loop": {
+      "start": 0,
+      "end": 106.666752
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 101
+      },
+      "2": {
+        "waveform": 0,
+        "volume": 51
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 45
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 83
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 38
+      },
+      "10": {
+        "volume": 96
+      }
+    }
+  },
+  "horizon": {
+    "title": "黎明の航跡",
+    "file": "horizon.mid",
+    "loop": {
+      "start": 0,
+      "end": 103.78368
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 101
+      },
+      "2": {
+        "waveform": 0,
+        "volume": 51
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 45
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 83
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 38
+      },
+      "10": {
+        "volume": 96
+      }
+    }
+  },
+  "storm": {
+    "title": "嵐を越えて",
+    "file": "storm.mid",
+    "loop": {
+      "start": 0,
+      "end": 101.052672
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 101
+      },
+      "2": {
+        "waveform": 0,
+        "volume": 51
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 45
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 83
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 38
+      },
+      "10": {
+        "volume": 96
       }
     }
   },

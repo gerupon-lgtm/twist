@@ -155,7 +155,7 @@ function braveSong() {
 }
 export function generateMusic(){
   const legacy=generateLegacyMusic();
-  return Object.fromEntries([...HARD_SONGS.map(song=>[song.id,hardSong(song)]),['brave',braveSong()],['rock',rockSong()],['clear',hardClear()],['flight-legacy',legacy.flight]]);
+  return Object.fromEntries([...HARD_SONGS.map(song=>[song.id,hardSong(song)]),['brave',braveSong()],['rock',rockSong()],['clear',hardClear()],['flight-legacy',legacy.flight],...ROCK_TRILOGY.map(song=>[song.id,trilogySong(song)])]);
 }
 export const ROCK_SONG={id:'rock',title:'黒曜の翼',bpm:156,beats:192};
 function rockSong(){
@@ -193,17 +193,135 @@ function rockSong(){
   tracks.forEach((track,i)=>track.push({t:beats*PPQ,b:[176+(i===5?9:i),123,0]}));
   return midi(tracks,bpm,beats,`Twist original - ${title}`);
 }
+
+// Three independent, hand-authored scores. A phrase spans two bars; tuples are
+// [beat, MIDI pitch, held beats]. Rests and long notes are part of each melody.
+// No external MIDI/MML, recordings, melodies, waves or envelopes are used.
+export const ROCK_TRILOGY=[
+  {id:'steel',title:'鋼翼の鼓動',bpm:144,beats:256,key:'E minor',
+    form:[['intro',4],['verse',12],['lift',8],['chorus',16],['bridge',8],['final',12],['turn',4]]},
+  {id:'horizon',title:'黎明の航跡',bpm:148,beats:256,key:'B minor',
+    form:[['intro',4],['verse',12],['lift',8],['chorus',12],['bridge',8],['final',16],['turn',4]]},
+  {id:'storm',title:'嵐を越えて',bpm:152,beats:256,key:'D minor',
+    form:[['intro',8],['verse',8],['lift',8],['chorus',16],['bridge',8],['final',12],['turn',4]]},
+];
+const TRILOGY_SCORE={
+  steel:{
+    roots:{intro:[40,40,36,47],verse:[40,36,45,47,40,43,38,47],lift:[36,38,40,47],chorus:[40,43,38,45,36,43,45,47],bridge:[45,36,40,38],turn:[36,38,47,47]},
+    melody:{
+      intro:[[[0,64,.7],[1,71,.7],[2,76,1.5],[4,74,.7],[5,71,1.7]],[[0,67,.7],[1,71,.7],[2,74,1.5],[4,78,.7],[5,74,.7],[6,71,.8]]],
+      verse:[[[0,64,1.3],[1.5,71,.7],[2.5,74,1.2],[4,76,1.7],[6,71,.7]],[[0,72,1.2],[1.5,71,.7],[2.5,67,1.2],[4,69,.7],[5,71,1.7]],
+        [[0,64,.7],[1,67,.7],[2,71,1.7],[4.5,74,1.2],[6,72,.7]],[[0,71,1.7],[2,66,.7],[3,69,.7],[4,71,1.2],[5.5,74,.7],[6.5,71,.7]]],
+      lift:[[[0,72,1.7],[2,76,.7],[3,74,.7],[4,78,1.7],[6,76,.7]],[[0,74,.7],[1,78,1.7],[3,81,.7],[4,78,1.2],[5.5,74,.7],[6.5,71,.7]]],
+      chorus:[[[0,76,1.7],[2,83,1.2],[3.5,81,.7],[4.5,79,1.2],[6,78,.7]],[[0,79,1.2],[1.5,78,.7],[2.5,74,1.2],[4,76,2.7]],
+        [[0,76,.7],[1,79,1.7],[3,83,.7],[4,81,1.2],[5.5,79,1.2]],[[0,78,1.7],[2,74,.7],[3,76,.7],[4,71,1.2],[5.5,74,.7],[6.5,78,.7]]],
+      bridge:[[[0,69,2.7],[3.5,72,.7],[4.5,71,1.7]],[[.5,67,1.7],[3,66,.7],[4,71,2.7]]],
+      turn:[[[0,76,1.2],[1.5,74,.7],[2.5,72,1.2],[4,74,1.7],[6,71,.7]],[[0,71,.7],[1,74,.7],[2,78,1.2],[4,74,1.2],[5.5,71,1.7]]],
+    },
+    bass:[0,0,0,7,0,0,7,0],response:[76,71],
+  },
+  horizon:{
+    roots:{intro:[35,43,38,42],verse:[35,38,45,40,43,45,42,42],lift:[43,45,35,42],chorus:[35,43,38,45,40,43,42,42],bridge:[40,35,43,42],turn:[43,45,42,42]},
+    melody:{
+      intro:[[[.5,66,1.2],[2,71,2.7],[5.5,73,.7],[6.5,74,.7]],[[0,78,2.7],[3.5,76,.7],[5,73,1.7]]],
+      verse:[[[.5,71,1.7],[2.5,78,1.2],[4,76,1.7],[6,74,.7]],[[0,73,1.2],[1.5,74,.7],[3,78,1.7],[5,76,1.2],[6.5,73,.7]],
+        [[0,74,2.2],[2.5,78,.7],[4,83,1.7],[6.5,81,.7]],[[.5,79,1.2],[2,78,.7],[3.5,76,1.2],[5,73,1.7]]],
+      lift:[[[0,79,1.7],[2,78,.7],[3.5,76,1.2],[5,81,1.7]],[[.5,78,1.2],[2,81,1.2],[3.5,83,2.2],[6,82,.7]]],
+      chorus:[[[0,78,2.2],[2.5,83,1.2],[4,81,.7],[5,78,1.7]],[[.5,79,1.2],[2,83,1.7],[4,86,2.2],[6.5,83,.7]],
+        [[0,81,1.7],[2,78,.7],[3.5,76,1.2],[5,79,1.7]],[[0,78,1.2],[1.5,76,.7],[3,73,1.7],[5,78,2.2]]],
+      bridge:[[[1,71,2.2],[4,74,1.7],[6.5,78,.7]],[[0,79,2.7],[3.5,78,1.2],[5.5,73,1.2]]],
+      turn:[[[0,79,1.7],[2.5,81,1.2],[4,78,2.2],[6.5,76,.7]],[[.5,73,1.2],[2,78,1.7],[4.5,82,.7],[6,78,1.2]]],
+    },
+    bass:[0,0,7,0,0,12,0,7],response:[78,74],
+  },
+  storm:{
+    roots:{intro:[38,38,34,45],verse:[38,34,36,45,38,41,34,45],lift:[43,34,36,45],chorus:[38,34,41,36,43,34,45,45],bridge:[34,38,43,45],turn:[34,36,45,45]},
+    melody:{
+      intro:[[[0,62,.45],[.75,62,.45],[2.5,69,1.2],[4.5,65,.7],[6,64,.7]],[[.5,62,1.2],[2.5,69,.7],[4,73,1.2],[6.5,69,.7]]],
+      verse:[[[0,62,.7],[1.5,69,1.2],[3.5,67,.7],[5,65,1.7]],[[.5,65,1.2],[2.5,69,.7],[4.5,70,1.2],[6.5,69,.7]],
+        [[0,67,1.2],[2,74,.7],[3.5,72,1.2],[5.5,69,1.2]],[[.75,69,.7],[2.5,65,1.2],[4.5,64,.7],[6,61,1.2]]],
+      lift:[[[.5,67,1.2],[2.5,70,.7],[4,74,1.7],[6.5,72,.7]],[[0,72,1.2],[2,76,.7],[3.5,73,1.2],[5.5,69,1.2]]],
+      chorus:[[[0,74,1.2],[1.75,81,1.2],[3.5,79,.7],[5,77,1.7]],[[.5,77,1.2],[2.5,82,1.2],[4.5,81,.7],[6,77,1.2]],
+        [[0,79,.7],[1.5,81,1.2],[3.5,77,1.2],[5.5,74,1.2]],[[.75,76,1.2],[2.5,73,.7],[4,69,1.7],[6.5,73,.7]]],
+      bridge:[[[0,65,2.2],[3.5,62,1.2],[5.5,69,1.2]],[[1,67,1.7],[4,64,1.2],[6,61,.7]]],
+      turn:[[[.5,70,1.2],[2.5,72,.7],[4,73,1.2],[6,69,1.2]],[[0,73,.7],[1.5,76,1.2],[3.5,73,.7],[5,69,1.7]]],
+    },
+    bass:[0,0,0,7,0,12,0,7],response:[74,69],
+  },
+};
+
+function trilogySong({id,bpm,beats,title,form}){
+  const score=TRILOGY_SCORE[id],tracks=Array.from({length:6},()=>[]);
+  const hit=(part,at,pitch,length,velocity)=>note(tracks[part],part===5?9:part,at,pitch,Math.min(length,beats-at),velocity);
+  const cc=(part,at,value)=>tracks[part].push({t:Math.round(at*PPQ),b:[176+(part===5?9:part),7,value]});
+  const bend=(at,value)=>tracks[0].push({t:Math.round(at*PPQ),b:[224,value&127,(value>>7)&127]});
+  let bar=0;
+  for(const [section,count]of form){
+    const singing=section==='chorus'||section==='final',quiet=section==='bridge';
+    const phraseBank=score.melody[section==='final'?'chorus':section];
+    const roots=score.roots[section==='final'?'chorus':section];
+    for(let local=0;local<count;local++,bar++){
+      const at=bar*4,root=roots[local%roots.length];
+      if(local%2===0){
+        const phrase=phraseBank[(Math.floor(local/2)+(section==='final'?1:0))%phraseBank.length];
+        for(const [time,pitch,length]of phrase){
+          // Guitar attack falls into a held tone; vibrato starts after the attack.
+          const start=at+time,end=start+length;
+          hit(0,start,pitch,length,singing?110:quiet?93:103);
+          cc(0,start,118);cc(0,start+.08,101);cc(0,start+Math.min(.28,length*.55),quiet?82:87);
+          bend(start,8192);
+          if(length>=1.2){
+            // Small scoops stay well within the engine's two-semitone bend range.
+            bend(start+.12,id==='storm'?7168:7680);bend(start+.25,8192);
+            for(let n=0,t=start+.55;t<end-.08;n++,t+=.18)bend(t,8192+(n%2?-288:352));
+          }
+          bend(end-.02,8192);cc(0,end-.045,68);
+        }
+      }
+      // Distinct root/fifth chugs; each SCC part remains strictly monophonic.
+      const guitar=quiet?[[0,1.25],[2.5,.8]]:id==='steel'?
+        (singing?[[0,.27],[.5,.22],[1.5,.3],[2,.27],[2.5,.22],[3.5,.3]]:Array.from({length:8},(_,i)=>[i*.5,i%2?.2:.26])):
+        id==='horizon'?(singing?[[0,.42],[1,.3],[1.75,.4],[2.75,.4],[3.5,.32]]:[[0,.65],[1.5,.35],[2.5,.65]]):
+        (singing?[[0,.3],[.75,.28],[1.5,.35],[2.5,.3],[3.25,.32]]:[[0,.22],[.5,.22],[1.75,.3],[2.25,.22],[3,.4]]);
+      for(const [time,length]of guitar){
+        hit(1,at+time,root+12,length,quiet?66:96);hit(2,at+time,root+19,length,quiet?60:86);
+        for(const part of [1,2]){cc(part,at+time,116);cc(part,at+time+Math.min(.12,length*.6),quiet?88:76);}
+      }
+      // Eight steady bass attacks in every bar, including quieter sections.
+      for(let i=0;i<8;i++){
+        const pitch=root+score.bass[(i+(id==='horizon'&&local%4===3?2:0))%8];
+        hit(3,at+i*.5,pitch,id==='storm'?.32:.38,quiet?78:i%2?94:106);
+        cc(3,at+i*.5,115);cc(3,at+i*.5+.14,84);
+      }
+      // Brief synth answers once per four bars, instead of an arpeggio.
+      // Horizon answers in the guitar rest so dynamic SCC bank allocation cannot
+      // steal its sustained lead despite the score staying within five notes.
+      if(local%4===3&&!quiet)for(let i=0;i<(id==='horizon'?1:2);i++)hit(4,at+(id==='horizon'?3.2:3+i*.45),score.response[(i+Math.floor(local/4))%2],.24,singing?52:43);
+      const fill=local===count-1&&section!=='turn';
+      for(let i=0;i<8;i++)hit(5,at+i*.5,42,.045,quiet?(i%2?30:44):(i%2?45:60));
+      const kicks=quiet?[0,2]:id==='steel'?[0,1.5,2,3.5]:id==='horizon'?[0,2,2.75]:[0,.75,2,2.5];
+      for(const time of kicks)if(!fill||time<3)hit(5,at+time,36,.075,quiet?91:115);
+      for(const time of [1,3])if(!fill||time<3)hit(5,at+time,38,.075,quiet?79:110);
+      if(fill)for(let i=0;i<4;i++)hit(5,at+3+i*.25,(id==='steel'?[38,38,45,38]:id==='horizon'?[38,47,45,38]:[45,38,47,38])[i],.065,93+i*5);
+      if(local===0&&!quiet)hit(5,at,49,.11,96);
+    }
+  }
+  tracks.forEach((track,i)=>track.push({t:beats*PPQ,b:[176+(i===5?9:i),123,0]}));
+  return midi(tracks,bpm,beats,`Twist original - ${title}`);
+}
+
 export function generatedTracks(){
   const parts={'1':{waveform:1,volume:94},'2':{waveform:4,volume:74},'3':{waveform:0,volume:68},'4':{waveform:1,volume:92},'5':{waveform:1,volume:54},'10':{volume:100}};
-  return {flightPlaylist:['flight','flight2'],flightSets:{brave:['brave'],rock:['rock'],all:['flight','flight2','brave','rock']},
+  return {flightPlaylist:['flight','flight2'],flightSets:{brave:['brave'],rock:['rock'],steel:['steel'],horizon:['horizon'],storm:['storm'],newrock:['steel','horizon','storm'],all:['flight','flight2','brave','rock','steel','horizon','storm']},
     rock:{title:ROCK_SONG.title,file:'rock.mid',loop:{start:0,end:Math.round(60000000/ROCK_SONG.bpm)/1000000*ROCK_SONG.beats},parts:{'1':{waveform:1,volume:111},'2':{waveform:0,volume:55},'3':{waveform:0,volume:49},'4':{waveform:1,volume:88},'5':{waveform:1,volume:43},'10':{volume:104}}},
     brave:{title:BRAVE_SONG.title,file:'brave.mid',loop:{start:0,end:Math.round(60000000/BRAVE_SONG.bpm)/1000000*BRAVE_SONG.beats},parts:{'1':{waveform:4,volume:101},'2':{waveform:1,volume:66},'3':{waveform:0,volume:64},'4':{waveform:1,volume:96},'5':{waveform:1,volume:44},'10':{volume:105}}},
     ...Object.fromEntries(HARD_SONGS.map(song=>[song.id,{title:song.title,file:`${song.id}.mid`,loop:{start:0,end:Math.round(60000000/song.bpm)/1000000*192},parts}])),
+    ...Object.fromEntries(ROCK_TRILOGY.map(song=>[song.id,{title:song.title,file:`${song.id}.mid`,loop:{start:0,end:Math.round(60000000/song.bpm)/1000000*song.beats},parts:{'1':{waveform:1,volume:101},'2':{waveform:0,volume:51},'3':{waveform:0,volume:45},'4':{waveform:1,volume:83},'5':{waveform:1,volume:38},'10':{volume:96}}}])),
     clear:{title:'突破の凱歌',file:'clear.mid',parts:{'1':{waveform:4,volume:96},'2':{waveform:1,volume:78},'3':{waveform:1,volume:88},'4':{waveform:1,volume:50},'10':{volume:98}}},
     comparison:{title:'ひかりの航路（比較）',file:'flight-legacy.mid',loop:{start:0,end:45},parts:{'1':{waveform:4,volume:96},'2':{waveform:2,volume:78},'3':{waveform:0,volume:96},'10':{volume:85}}}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   await mkdir('public/music',{recursive:true});for(const [name,bytes]of Object.entries(generateMusic()))await writeFile(`public/music/${name}.mid`,bytes);
   await writeFile('public/music/tracks.json',JSON.stringify(generatedTracks(),null,2)+'\n');
-  console.log('Generated originals: preserved preceding five MIDI tracks; added D-minor rock / 156 BPM / 73.84608 s.');
+  console.log('Generated originals: preserved preceding six MIDI tracks; added steel / horizon / storm, 64 bars each.');
 }
