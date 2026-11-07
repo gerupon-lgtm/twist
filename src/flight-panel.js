@@ -27,7 +27,14 @@ export function createFlightPanel(getModes) {
     else Object.assign(input, { type: 'range', id: label.htmlFor, min: field.min, max: field.max, step: field.step });
     label.append(caption, value, input); $('flight-settings-fields').append(label);
     input.value=settings[key];
-    if(input.type==='range')rangeEditors[key]=createRangeEditor(input,{name:field.label,unit:field.unit,initial:field.initial,onReset:()=>{
+    if(input.type==='range')rangeEditors[key]=createRangeEditor(input,{name:field.label,unit:field.unit,initial:field.initial,
+      ...(key==='cockpitFov'?{
+        readValue:()=>settings.cockpitFov,
+        restoreValue:value=>{settings={...settings,cockpitFov:value};persist();},
+        formatValue:value=>value===0?'自動':`${value}°`,
+        canUndo:()=>getModes().mode==='flight'&&getModes().camera==='cockpit',
+        isRestorable:value=>value===0||(value>=field.min&&value<=field.max),
+      }:{}),onReset:()=>{
       settings=normalizeFlightSettings({...settings,[key]:field.initial});persist();
     }});
     if(key==='cockpitFov') {
@@ -52,6 +59,7 @@ export function createFlightPanel(getModes) {
     for(const editor of Object.values(rangeEditors))editor.sync();
   }
   fovAuto.addEventListener('change',()=>{
+    rangeEditors.cockpitFov.remember();
     settings={...settings,cockpitFov:fovAuto.checked?0:Math.floor(computeFieldOfView(innerWidth,innerHeight,getModes().view).vertical*10)/10};persist();
   });
   function refresh() {

@@ -1,8 +1,8 @@
 import {test,expect} from '@playwright/test';
 test.use({hasTouch:true});
 const input=page=>page.locator('#setting-maxPitch');
-async function settings(page) {
- await page.goto('/?mode=flight');await page.locator('#practice-button').click();await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await input(page).scrollIntoViewIfNeeded();
+async function settings(page,camera='overlay') {
+ await page.goto('/?mode=flight&camera='+camera);await page.locator('#practice-button').click();await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await input(page).scrollIntoViewIfNeeded();
 }
 async function drag(page,locator,delta) {
  const box=await locator.boundingBox(),x=box.x+box.width*.3,y=box.y+box.height/2;
@@ -71,4 +71,11 @@ test('touch taps do not jump, horizontal dragging adjusts, and vertical scrollin
  await gesture(30,0);expect(Number(await range.inputValue())).toBeGreaterThan(15);const value=await range.inputValue();
  const beforeScroll=await page.locator('#veil').evaluate(el=>el.scrollTop);
  await gesture(0,-60);await expect(range).toHaveValue(value);await expect.poll(()=>page.locator('#veil').evaluate(el=>el.scrollTop)).toBeGreaterThan(beforeScroll);await session.detach();
+});
+test('FOV history restores automatic mode as well as the previous manual value after an individual reset',async({page})=>{
+ await settings(page,'cockpit');await page.locator('#cockpit-fov-auto').uncheck();await expect(page.locator('[data-range-before=setting-cockpitFov]')).toHaveText('変更前：自動');
+ await page.locator('[data-range-undo=setting-cockpitFov]').click();await expect(page.locator('#cockpit-fov-auto')).toBeChecked();
+ await page.locator('#cockpit-fov-auto').uncheck();await page.locator('#setting-cockpitFov').evaluate(el=>{el.value='60';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.locator('[data-range-reset=setting-cockpitFov]').click();await expect(page.locator('#cockpit-fov-auto')).toBeChecked();await expect(page.locator('[data-range-undo=setting-cockpitFov]')).toBeEnabled();
+ await page.locator('[data-range-undo=setting-cockpitFov]').click();await expect(page.locator('#cockpit-fov-auto')).not.toBeChecked();await expect(page.locator('#setting-cockpitFov')).toHaveValue('60');
 });
