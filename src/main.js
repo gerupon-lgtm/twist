@@ -115,6 +115,7 @@ function selectVisibility(next) {
   visibility = next;
   stage.setVisibility(visibility);
   applyVisibilityUI();
+  flightPanel.refreshLayout();
   const url = new URL(location.href);
   url.searchParams.set('view', visibility);
   url.searchParams.set('steer', flightSteering);

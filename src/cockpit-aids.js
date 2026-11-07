@@ -21,3 +21,10 @@ export function varioCue(value=0,enabled=true) {
   if(value<=-2) return {active:true,hz:clamp(170+(value+2)*8,90,170),periodMs:1500,onMs:1150};
   return {active:false,hz:0,periodMs:1000,onMs:0};
 }
+
+/** Integrate within one cycle; a changing period must never rebase against absolute time. */
+export function advanceVarioPhase(value,elapsedMs,periodMs) {
+  const phase=Number.isFinite(value)?value>=0&&value<1?value:((value%1)+1)%1:0;
+  const elapsed=Number.isFinite(elapsedMs)?Math.max(0,elapsedMs):0;
+  return Number.isFinite(periodMs)&&periodMs>0?(phase+elapsed/periodMs)%1:phase;
+}

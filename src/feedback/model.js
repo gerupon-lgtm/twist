@@ -39,6 +39,7 @@ export function flightFeedback(state={},settings={}) {
 }
 
 const COLLECT_NOTES=[523,784,1047],CLEAR_NOTES=[523,659,784,1047,784,1047];
+export const varioMaySound=(model,eventActive=false)=>Boolean(model.vario?.active&&!eventActive&&!['stall','ground','buffet'].includes(model.cue));
 function voice(regs,channel,hz,volume,noise,mixer){
   const period=Math.round(3579545/2/(16*Math.max(25,hz||25)));
   regs[channel*2]=period&255;regs[channel*2+1]=(period>>8)&15;regs[8+channel]=clamp(Math.round(volume),0,15);
@@ -58,7 +59,7 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
     else {const notes=event==='collect'?COLLECT_NOTES:CLEAR_NOTES;
       mixer=voice(regs,2,notes[Math.min(notes.length-1,Math.floor(eventMs/(event==='collect'?85:180)))],12*(1-eventMs/EVENT_FEEDBACK[event].duration),false,mixer);}
   }
-  if(!eventActive&&!['stall','ground','buffet'].includes(model.cue)&&model.vario?.active
+  if(varioMaySound(model,eventActive)
     &&varioMs%model.vario.periodMs<model.vario.onMs) {
     mixer=voice(regs,2,model.vario.hz,6,false,mixer);
   }

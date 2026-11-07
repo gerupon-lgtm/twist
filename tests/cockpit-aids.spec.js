@@ -52,6 +52,8 @@ test('pitch ladder follows only nearby angles and the displayed range persists',
 test('automatic FOV preserves the original projection and manual FOV narrows only cockpit',async({page})=>{
  await launch(page);const initial=Number(await page.locator('#app').getAttribute('data-vertical-fov'));
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await expect(page.locator('#cockpit-fov-auto')).toBeChecked();
+ await page.locator('#view-classic').click();await expect(page.locator('#setting-cockpitFov')).toHaveAttribute('max','64');await expect(page.locator('#setting-value-cockpitFov')).toContainText('64.0');
+ await page.locator('#view-assisted').click();expect(Number(await page.locator('#setting-cockpitFov').getAttribute('max'))).toBeGreaterThan(64);
  await page.locator('#cockpit-fov-auto').uncheck();await slider(page,'setting-cockpitFov',60);await page.locator('#start-button').click();
  await expect.poll(()=>page.locator('#app').getAttribute('data-vertical-fov').then(Number)).toBe(60);expect(initial).toBeGreaterThan(60);
  await page.locator('#pause-button').click();await page.locator('#camera-overlay').click();

@@ -1,5 +1,6 @@
 import { ChipMixer } from './chip-mixer.js';
-import { flightFeedback, sfxRegisters, pulseAt, EVENT_FEEDBACK } from './model.js';
+import { flightFeedback, sfxRegisters, pulseAt, EVENT_FEEDBACK,varioMaySound } from './model.js';
+import { advanceVarioPhase } from '../cockpit-aids.js';
 
 class TwistAudioProcessor extends AudioWorkletProcessor {
   constructor(){
@@ -8,8 +9,9 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
     this.silentModel=flightFeedback();this.registers=new Uint8Array(14);
     this.musicQueue=[];this.musicHead=0;this.musicPlaying=false;this.musicVolume=.5;
     this.busyMs=0;this.frames=0;this.untilUpdate=0;
+    this.varioPhase=0;this.varioRunning=false;
     this.port.onmessage=({data:m})=>{
-      if(m.type==='stop'){this.active=false;this.event=null;this.cue='quiet';this.cueAt=currentTime;this.musicQueue=[];this.musicHead=0;this.musicPlaying=false;this.mixer.stop();}
+      if(m.type==='stop'){this.active=false;this.event=null;this.cue='quiet';this.cueAt=currentTime;this.musicQueue=[];this.musicHead=0;this.musicPlaying=false;this.varioPhase=0;this.varioRunning=false;this.untilUpdate=0;this.mixer.stop();}
       if(m.type==='resetMetrics'){this.busyMs=0;this.frames=0;this.mixer.post.takePeak();}
       if(m.type==='settings'){this.settings=m.settings;this.mixer.setVolume(m.settings.volume);}
       if(m.type==='musicGain'){this.musicVolume=m.gain;}
@@ -33,18 +35,21 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       if(m.type==='poll'){
         this.port.postMessage({type:'metrics',load:this.frames?this.busyMs/1000/(this.frames/sampleRate):0,
           peak:this.mixer.post.takePeak(),active:this.active,event:this.event,music:this.musicPlaying,
-          vario:this.active&&this.settings.sound&&this.settings.sfx&&this.model.vario?.active&&!this.event&&!['stall','ground','buffet'].includes(this.model.cue)});this.busyMs=0;this.frames=0;
+          vario:this.active&&this.settings.sound&&this.settings.sfx&&varioMaySound(this.model,Boolean(this.event))});this.busyMs=0;this.frames=0;
       }
     };
   }
   process(_inputs,outputs){
     const t=Date.now(),left=outputs[0]?.[0];if(!left)return true;
     if(this.event&&(currentTime-this.eventAt)*1000>=EVENT_FEEDBACK[this.event].duration)this.event=null;
+    const varioEnabled=this.active&&this.settings.sound&&this.settings.sfx&&varioMaySound(this.model,Boolean(this.event));
+    if(!varioEnabled){this.varioPhase=0;this.varioRunning=false;}
+    else if(!this.varioRunning){this.varioPhase=0;this.varioRunning=true;this.untilUpdate=0;}
     if((this.active||this.event||this.musicPlaying)&&this.settings.sound){
       if(this.untilUpdate<=0){
         const model=this.active?this.model:this.silentModel;
         this.mixer.writeSfx(sfxRegisters(model,this.event,(currentTime-this.eventAt)*1000,
-          pulseAt(model.soundPattern,(currentTime-this.cueAt)*1000),this.registers,currentTime*1000));
+          pulseAt(model.soundPattern,(currentTime-this.cueAt)*1000),this.registers,this.varioPhase*(model.vario?.periodMs||1000)));
         this.untilUpdate=sampleRate/100;
       }
       const end=currentTime+left.length/sampleRate;
@@ -55,6 +60,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       this.mixer.sfxGain=this.settings.sfx?1:0;
       this.untilUpdate-=left.length;this.mixer.render(left);
     }else left.fill(0);
+    if(varioEnabled)this.varioPhase=advanceVarioPhase(this.varioPhase,left.length/sampleRate*1000,this.model.vario.periodMs);
     for(let i=1;i<outputs[0].length;i++)outputs[0][i].set(left);
     this.frames+=left.length;this.busyMs+=Date.now()-t;return true;
   }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pitchLadderAngles,verticalSpeedIndicator,varioCue } from '../src/cockpit-aids.js';
+import { pitchLadderAngles,verticalSpeedIndicator,varioCue,advanceVarioPhase } from '../src/cockpit-aids.js';
 import { normalizeFlightSettings } from '../src/flight-settings.js';
 import { flightFeedback,sfxRegisters } from '../src/feedback/model.js';
 import { createScenery } from '../src/scenery.js';
@@ -27,6 +27,29 @@ test('vario gets higher and closer during stronger climb, and lower/longer durin
  assert.ok(down.hz<slow.hz&&down.onMs>slow.onMs);assert.ok(varioCue(-8).hz<down.hz);
  for(const value of [NaN,Infinity,-Infinity])assert.equal(varioCue(value).active,false);
  assert.equal(varioCue(4,false).active,false);assert.ok(varioCue(1000).hz<=1240);
+});
+test('vario phase remains continuous when climb rate changes, independent of flight duration',()=>{
+ const before=advanceVarioPhase(.2,10,600),after=advanceVarioPhase(before,10,598.5);
+ assert.ok(after>before&&after-before<.02);assert.ok(Math.abs(after-(.2+10/600+10/598.5))<1e-10);
+ assert.ok(Math.abs(advanceVarioPhase(.99,12,600)-.01)<1e-10);
+ for(const n of [NaN,Infinity])assert.equal(advanceVarioPhase(n,0,600),0);
+ assert.equal(advanceVarioPhase(.2,Infinity,600),.2);assert.equal(advanceVarioPhase(.2,20,0),.2);
+});
+test('worklet keeps vario phase after ten minutes and restarts it after stop or priority warnings',async()=>{
+ let Processor;globalThis.AudioWorkletProcessor=class{constructor(){this.port={postMessage(){}};}};
+ globalThis.sampleRate=48000;globalThis.currentTime=600;globalThis.registerProcessor=(_name,C)=>{Processor=C;};
+ try {
+  await import('../src/feedback/audio-worklet.js?unit-vario-phase');const p=new Processor(),settings={sound:true,sfx:true,volume:25,vario:true};
+  const state={mode:'flight',groundClearance:30,altitude:30,throttle:.5,speed:6,verticalSpeed:1.6};
+  const send=data=>p.port.onmessage({data}),step=()=>{p.process([],[[new Float32Array(128)]]);globalThis.currentTime+=128/48000;};
+  send({type:'state',model:flightFeedback(state,settings),settings});step();const first=p.varioPhase;
+  send({type:'state',model:flightFeedback({...state,verticalSpeed:1.62},settings),settings});step();
+  assert.ok(p.varioPhase>first&&p.varioPhase-first<.01);assert.ok(p.registers[10]>0);
+  send({type:'state',model:flightFeedback({...state,groundClearance:1,altitude:1},settings),settings});for(let i=0;i<5;i++)step();
+  assert.equal(p.varioPhase,0);assert.equal(p.registers[10],0);
+  send({type:'stop'});assert.equal(p.varioPhase,0);globalThis.currentTime=1200;
+  send({type:'state',model:flightFeedback(state,settings),settings});step();assert.ok(p.varioPhase<.01);assert.ok(p.registers[10]>0);
+ } finally {delete globalThis.AudioWorkletProcessor;delete globalThis.sampleRate;delete globalThis.currentTime;delete globalThis.registerProcessor;}
 });
 test('warnings and events take precedence over vario without changing haptic patterns',()=>{
  const state={mode:'flight',groundClearance:30,altitude:30,throttle:.5,speed:6,verticalSpeed:2};
