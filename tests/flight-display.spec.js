@@ -39,7 +39,7 @@ test('bank is the default and both display choices fit the opening phone layouts
  for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
   await page.setViewportSize(size);await page.goto('/?mode=flight');
   await expect(page.locator('#app')).toHaveAttribute('data-display','bank');
-  await expect(page.locator('#intro-version')).toContainText('v0.1.14');await expect(page.locator('#intro-version')).toBeInViewport();
+  await expect(page.locator('#intro-version')).toContainText('v0.1.15');await expect(page.locator('#intro-version')).toBeInViewport();
   for(const id of ['display-bank','display-fixed','start-button'])await expect(page.locator('#'+id)).toBeInViewport();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:`test-results/v0114-intro-${size.width}.png`});

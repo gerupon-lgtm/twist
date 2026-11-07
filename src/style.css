@@ -78,3 +78,16 @@
  .app[data-play-mode="flight"] .intro-card .basic-controls .control-guide{display:flex;grid-column:auto;grid-row:auto}
  .veil:has(#motion-explanation[open]) .intro-card .motion-explanation{grid-column:1/-1;grid-row:10}
 }
+/* v0.1.15: stationary heading-up map and assisted target colors. */
+.radar{position:absolute;width:100px;height:100px;pointer-events:none;border-radius:50%;filter:drop-shadow(0 2px 5px #25485a25);z-index:1}.radar svg{display:block;width:100%;height:100%;overflow:visible}.radar-disc{fill:#fafaffee;stroke:#7396a6;stroke-width:1}.radar-grid{fill:none;stroke:#a1b8c480;stroke-width:.6}.radar-heading,.radar-range{fill:#537783;font-size:7px}.radar-self{fill:#117f97;stroke:#fff;stroke-width:1}.radar-target circle{fill:#be73a0;stroke:#fff;stroke-width:.7}.radar-target text{fill:#785d75;font:7px "Meiryo",sans-serif;paint-order:stroke;stroke:#fff;stroke-width:2px;stroke-linejoin:round}.radar-next circle{fill:#eb228f;stroke-width:1}.radar-next text{fill:#a20d5b;font-weight:700}.radar-exit path{fill:#117f97;stroke:#fff;stroke-width:1}.radar-exit text{fill:#117f97}.flight-result h3{font-size:12px;margin:13px 0 8px}.flight-result h3 span{float:right;font-size:10px;color:#62838e}
+.app[data-visibility="assisted"] .target-edge-marker{border-color:#df4c9a;background:#fff6fcf5}.app[data-visibility="assisted"] .target-edge-marker svg{fill:#d02686}.app[data-visibility="assisted"] .target-edge-marker strong{color:#a51b66}
+/* Reserve the left part of the top row for the radar on portrait phones. */
+@media(max-width:599px){
+ .app[data-visibility="assisted"] .navigation{left:124px;transform:none;width:calc(100% - 136px);padding:8px;gap:6px}
+ .app[data-visibility="assisted"] .nav-compass{width:26px;height:26px}.app[data-visibility="assisted"] .nav-compass svg{width:22px;height:22px}
+ .app[data-visibility="assisted"] .navigation>div:nth-child(2){flex:1;min-width:0}.app[data-visibility="assisted"] .nav-caption{font-size:9px;line-height:1.3}
+ .app[data-visibility="assisted"] .nav-target{gap:5px;flex-wrap:wrap}.app[data-visibility="assisted"] .nav-target strong{font-size:14px}.app[data-visibility="assisted"] .nav-target span{font-size:10px;white-space:nowrap}
+ .app[data-visibility="assisted"] .nav-vertical{font-size:9px;max-width:35px}.app[data-visibility="assisted"] .collection{padding-left:6px;font-size:9px}.app[data-visibility="assisted"] .collection span:first-child{font-size:18px}
+ .app[data-visibility="assisted"] .toast{top:calc(190px + env(safe-area-inset-top))}
+}
+.radar-range-boundary{fill:none;stroke:#8eabba;stroke-width:.7;stroke-dasharray:2 2}

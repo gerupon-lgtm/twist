@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { FLIGHT_MODEL, stepFlightVelocity } from './flight-physics.js';
-import { computeFieldOfView } from './visibility.js';
+import { computeFieldOfView, normalizeVisibility } from './visibility.js';
 import { computeFlightView, advanceFlightView } from './flight-view.js';
 import { advanceDisplayRoll, flightDisplayPose, withoutViewRoll } from './flight-display.js';
 
@@ -29,7 +29,7 @@ const flightYawForBank = (angle, speed) => speed > 0
 /** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */
 export function createStage(canvas, { visibility = 'assisted', display = 'bank' } = {}) {
   display = display === 'fixed' ? 'fixed' : 'bank';
-  visibility = visibility === 'classic' ? 'classic' : 'assisted';
+  visibility = normalizeVisibility(visibility);
   let renderer;
   try {
     renderer = new THREE.WebGLRenderer({
@@ -375,6 +375,15 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
   const haloMaterial = new THREE.MeshBasicMaterial({
     color: 0xffd47a, transparent: true, opacity: 0.18, depthWrite: false,
   });
+  const brightCore = new THREE.MeshBasicMaterial({ color: 0xf02b9b, fog: false });
+  const brightRing = new THREE.MeshBasicMaterial({ color: 0xfffaff, fog: false });
+  const brightHalo = new THREE.MeshBasicMaterial({ color: 0xff7bcb, transparent: true, opacity: .22, depthWrite: false, fog: false });
+  const brightStem = new THREE.MeshBasicMaterial({ color: 0xfa69c1, transparent: true, opacity: .85, depthWrite: false, fog: false });
+  const hintCanvas = document.createElement('canvas'); hintCanvas.width = hintCanvas.height = 64;
+  const hintContext = hintCanvas.getContext('2d');
+  hintContext.strokeStyle = '#fffaff'; hintContext.lineWidth = 9; hintContext.beginPath(); hintContext.arc(32,32,26,0,Math.PI*2); hintContext.stroke();
+  hintContext.strokeStyle = '#eb228f'; hintContext.lineWidth = 3; hintContext.beginPath(); hintContext.arc(32,32,26,0,Math.PI*2); hintContext.stroke();
+  const hintTexture = new THREE.CanvasTexture(hintCanvas); hintTexture.colorSpace = THREE.SRGBColorSpace;
   const beaconVisuals = BEACONS.map((position, index) => {
     const group = new THREE.Group();
     group.position.copy(position);
@@ -382,18 +391,22 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
     const orb = new THREE.Mesh(orbGeometry, core);
     const halo = new THREE.Mesh(haloGeometry, haloMaterial);
     group.add(ring, orb, halo);
+    const hint = new THREE.Sprite(new THREE.SpriteMaterial({ map: hintTexture, transparent: true,
+      depthTest: false, depthWrite: false, sizeAttenuation: false, fog: false }));
+    hint.renderOrder = 8; group.add(hint);
     // Distinct tick counts let the three targets be recognized spatially.
     for (let tick = 0; tick <= index; tick += 1) {
       box(group, (tick - index / 2) * 0.42, -2.05, 0, 0.15, 0.4, 0.15, gold);
     }
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, position.y, 5),
       new THREE.MeshBasicMaterial({ color: 0xe3a139, transparent: true, opacity: 0.28 }));
+    stem.userData.legacyMaterial = stem.material;
     stem.position.set(position.x, position.y / 2, position.z);
     world.add(stem, group);
     const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 0.45, 20), stone);
     pedestal.position.set(position.x, 0.25, position.z);
     world.add(pedestal);
-    return { group, stem, ring, halo };
+    return { group, stem, ring, orb, halo, hint };
   });
 
   const exitGroup = new THREE.Group();
@@ -576,6 +589,9 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
 
   function render() {
     if (disposed) return;
+    // With sizeAttenuation disabled, this scale gives a 24px quad (the opaque ring spans at least 22px).
+    const hintSize = 24 * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / height;
+    beaconVisuals.forEach(visual => visual.hint.scale.set(hintSize, hintSize, 1));
     renderer.clear();
     renderer.render(scene, camera);
     renderer.clearDepth();
@@ -585,7 +601,16 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
   function refreshTargets() {
     beaconVisuals.forEach((visual, index) => {
       visual.group.visible = index >= collected;
-      visual.stem.visible = index >= collected;
+      const assisted = visibility === 'assisted';
+      visual.stem.visible = index >= collected && (!assisted || index === collected);
+      visual.stem.material = assisted ? brightStem : visual.stem.userData.legacyMaterial;
+      visual.stem.scale.set(assisted ? 2 : 1, 1, assisted ? 2 : 1);
+      visual.ring.material = assisted ? brightRing : gold;
+      visual.orb.material = assisted ? brightCore : core;
+      visual.halo.material = assisted ? brightHalo : haloMaterial;
+      visual.hint.visible = assisted && index >= collected;
+      visual.hint.material.opacity = index === collected ? 1 : .65;
+      for (const child of visual.group.children) if (![visual.ring, visual.orb, visual.halo, visual.hint].includes(child)) child.material = assisted ? brightCore : gold;
       visual.ring.scale.setScalar(index === collected ? 1.1 : 1);
       visual.halo.scale.setScalar(index === collected ? 1.25 : 0.85);
     });
@@ -634,6 +659,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
     camera.fov = fieldOfView.vertical;
     camera.updateProjectionMatrix();
     directionLandmarks.visible = visibility === 'assisted';
+    refreshTargets();
   }
 
   function setDisplay(profile) {
@@ -651,7 +677,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
 
   function setVisibility(profile) {
     if (disposed) return;
-    visibility = profile === 'classic' ? 'classic' : 'assisted';
+    visibility = normalizeVisibility(profile);
     updateProjection();
     render();
   }
@@ -801,6 +827,14 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
       collected,
       total: BEACONS.length,
       complete,
+      radarHeading: Math.hypot(velocity.x, velocity.z) > .1 ? Math.atan2(velocity.x, -velocity.z) : Math.atan2(forward.x, -forward.z),
+      navigationTargets: complete ? [] : collected < BEACONS.length ? BEACONS.slice(collected).map((p,i) => ({
+        id: `light-${collected+i+1}`, kind: 'light', number: collected+i+1, label: `光 ${collected+i+1}`, next: i === 0,
+        position: { x: p.x, y: p.y, z: p.z },
+      })) : [{ id: 'exit', kind: 'exit', label: '出口', next: true, position: { x: EXIT.x, y: EXIT.y, z: EXIT.z } }],
+      beaconAppearance: { core: `#${(visibility === 'assisted' ? brightCore : core).color.getHexString()}`,
+        ring: `#${(visibility === 'assisted' ? brightRing : gold).color.getHexString()}`,
+        minPixels: visibility === 'assisted' ? 22 : 0, columnTarget: visibility === 'assisted' && collected < BEACONS.length ? collected + 1 : null },
       targetLabel: collected < BEACONS.length ? `光 ${collected + 1}` : '出口',
       distance: relative.length(),
       bearing: Math.atan2(localRelative.x, -localRelative.z),
@@ -873,7 +907,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
     if (disposed) return;
     disposed = true;
     const geometries = new Set();
-    const materials = new Set([guide, dimGuide]);
+    const materials = new Set([guide, dimGuide, gold, core, haloMaterial, brightCore, brightRing, brightHalo, brightStem, ...beaconVisuals.map(v => v.stem.userData.legacyMaterial)]);
     [scene, craftScene].forEach((root) => root.traverse((object) => {
       if (object.geometry) geometries.add(object.geometry);
       if (object.material) {
@@ -883,6 +917,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank' 
     }));
     geometries.forEach((geometry) => geometry.dispose());
     materials.forEach((material) => material.dispose());
+    hintTexture.dispose();
     renderer.dispose();
   }
 

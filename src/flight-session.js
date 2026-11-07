@@ -2,28 +2,38 @@ import { normalizeFlightSettings } from './flight-settings.js';
 
 /** Counts simulated flying time; menus and waiting for sensors never advance it. */
 export function createFlightSession() {
-  let elapsedSeconds = 0, groundContacts = 0, recoverySeconds = 0, wasGrounded = false;
+  const empty = () => ({ elapsedSeconds: 0, groundContacts: 0, recoverySeconds: 0 });
+  let totals = { ...empty(), legs: 0 }, leg = empty(), pendingLeg = true, wasGrounded = false;
+  const start = () => {
+    if (pendingLeg) { totals.legs++; leg = empty(); pendingLeg = false; wasGrounded = false; }
+  };
   return {
+    start,
     advance(dt, state) {
       if (!Number.isFinite(dt) || dt <= 0) return;
-      elapsedSeconds += dt;
-      if (state.recoveryAssist > 0) recoverySeconds += dt;
-      if (state.grounded && !wasGrounded) groundContacts++;
+      start();
+      for (const counters of [totals, leg]) {
+        counters.elapsedSeconds += dt;
+        if (state.recoveryAssist > 0) counters.recoverySeconds += dt;
+        if (state.grounded && !wasGrounded) counters.groundContacts++;
+      }
       wasGrounded = Boolean(state.grounded);
     },
-    restartLeg() { wasGrounded = false; },
-    reset() { elapsedSeconds = 0; groundContacts = 0; recoverySeconds = 0; wasGrounded = false; },
-    snapshot() { return { elapsedSeconds, groundContacts, recoverySeconds }; },
+    restartLeg() { pendingLeg = true; wasGrounded = false; },
+    reset() { totals = { ...empty(), legs: 0 }; leg = empty(); pendingLeg = true; wasGrounded = false; },
+    snapshot() { return { ...totals }; },
+    lastLegSnapshot() { return { ...leg }; },
   };
 }
 
-export function flightReport({ version, pitch, steer, display = 'bank', result, settings, stats }) {
+export function flightReport({ version, pitch, steer, display = 'bank', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted' }) {
   const inactiveSettings = [...(pitch === 'rate' ? ['maxPitch', 'timeConstant'] : []),
-    ...(display !== 'fixed' ? ['displayTimeConstant'] : [])];
-  return { version, pitch, steer, display: display === 'fixed' ? 'fixed' : 'bank',
+    ...(display !== 'fixed' ? ['displayTimeConstant'] : []), ...(view !== 'assisted' ? ['radarRange'] : [])];
+  if (mode === 'explore') for (const key of ['deadzone','maxTilt','maxPitch','timeConstant','maxBank','displayTimeConstant']) if (!inactiveSettings.includes(key)) inactiveSettings.push(key);
+  return { version, mode, view, pitch, steer, display: display === 'fixed' ? 'fixed' : 'bank',
     ...(['clear', 'grounded'].includes(result) ? { result } : {}),
     settings: normalizeFlightSettings(settings), inactiveSettings,
-    ...(stats ? { stats: { ...stats } } : {}) };
+    ...(stats ? { stats: { ...stats } } : {}), ...(lastLeg ? { lastLeg: { ...lastLeg } } : {}) };
 }
 
 export const copyableFlightReport = report => JSON.stringify(report);

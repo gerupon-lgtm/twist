@@ -206,3 +206,23 @@ test('very distant and nearly side-on finite targets remain directional and neve
   finite(projectEdgeTarget(input));
   assert.deepEqual(input.target, { x: 10, y: 0, z: -10 });
 });
+
+import { projectRadarTarget, placeRadar, rectanglesOverlap } from '../src/radar.js';
+import { normalizeVisibility } from '../src/visibility.js';
+
+test('radar is heading-up, clamps distant goals to its rim and reports vertical differences',()=>{
+ const position={x:0,y:7,z:0},target={x:0,y:10,z:-30};
+ const north=projectRadarTarget({position,target,range:60});assert.equal(north.x,0);assert.equal(north.y,-.5);assert.equal(north.elevation,'above');
+ const right=projectRadarTarget({position,target,heading:Math.PI/2,range:60});assert.ok(Math.abs(right.x+.5)<1e-10);assert.ok(Math.abs(right.y)<1e-10);
+ const far=projectRadarTarget({position,target:{x:300,y:2,z:400},range:60});assert.ok(far.outside);assert.ok(Math.abs(Math.hypot(far.x,far.y)-1)<1e-10);assert.equal(far.elevation,'below');
+ assert.equal(projectRadarTarget({position,target:{x:0,y:7.5,z:0}}).elevation,'level');
+ assert.equal(projectRadarTarget({position:{x:NaN,y:0,z:0},target}),null);
+ assert.equal(normalizeVisibility('legacy'),'classic');assert.equal(computeFieldOfView(390,844,'legacy').vertical,64);
+});
+
+test('radar placement avoids reserved HUD regions on phone layouts',()=>{
+ for(const [width,height] of [[390,844],[360,640],[844,390]]){
+  const obstacles=[{left:0,right:width,top:0,bottom:60},{left:124,right:width-12,top:80,bottom:150},{left:width>600?width-350:16,right:width-16,top:height-270,bottom:height-16}];
+  const r=placeRadar({width,height,obstacles});assert.ok(r);assert.equal(r.right-r.left,100);assert.ok(!obstacles.some(o=>rectanglesOverlap(r,o)));
+ }
+});

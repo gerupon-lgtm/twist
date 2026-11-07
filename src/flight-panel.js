@@ -14,6 +14,7 @@ export function createFlightPanel(getModes) {
   for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
     const label = document.createElement('label');
     label.htmlFor = `setting-${key}`;
+    label.dataset.settingKey = key;
     const caption = document.createElement('span'); caption.textContent = field.label;
     const value = document.createElement('output'); value.id = `setting-value-${key}`;
     value.htmlFor = label.htmlFor;
@@ -53,13 +54,18 @@ export function createFlightPanel(getModes) {
   refresh();
   return {
     getSettings: () => settings,
-    report: (stats, outcome) => flightReport({ version: APP_VERSION, ...getModes(), settings, stats, result: outcome }),
+    report: (stats, outcome, lastLeg) => flightReport({ version: APP_VERSION, ...getModes(), settings, stats, lastLeg, result: outcome }),
     showResult(report) {
       result = report;
       $('flight-result').hidden = !report;
       $('result-copy-text').hidden = true; $('result-copy-status').textContent = '';
       if (!report) return;
       const { stats } = report;
+      const last = report.lastLeg || stats;
+      $('result-legs').textContent = `${stats.legs || 1}回`;
+      $('result-last-elapsed').textContent = `${last.elapsedSeconds.toFixed(1)}秒`;
+      $('result-last-contacts').textContent = `${last.groundContacts}回`;
+      $('result-last-recovery').textContent = `${last.recoverySeconds.toFixed(1)}秒`;
       $('result-elapsed').textContent = `${stats.elapsedSeconds.toFixed(1)}秒`;
       $('result-contacts').textContent = `${stats.groundContacts}回`;
       $('result-recovery').textContent = `${stats.recoverySeconds.toFixed(1)}秒`;
@@ -68,7 +74,12 @@ export function createFlightPanel(getModes) {
       $('result-settings').textContent = describeSettings(report);
     },
     setPhase(phase, mode) {
-      $('flight-adjustments').hidden = mode !== 'flight' || phase !== 'paused';
+      $('flight-adjustments').hidden = phase !== 'paused';
+      for (const label of $('flight-settings-fields').children) label.hidden = mode !== 'flight' && label.dataset.settingKey !== 'radarRange';
+      $('flight-settings-help').hidden = mode !== 'flight';
+      $('adjustment-scope-note').textContent = mode === 'flight'
+        ? 'レーダーと飛行機の操作を調整します。前後・左右のひねりで中立範囲と最大傾きを共用します。'
+        : 'レーダーの表示範囲を調整します。探索の操縦には影響しません。';
       if (phase !== 'paused') $('flight-adjustments').open = false;
       if (phase === 'running' || mode !== 'flight') this.showResult(null);
     },

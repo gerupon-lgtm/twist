@@ -1,4 +1,5 @@
 const DEG_TO_RAD = Math.PI / 180;
+export const normalizeVisibility = value => ['classic', 'legacy'].includes(value) ? 'classic' : 'assisted';
 const RAD_TO_DEG = 180 / Math.PI;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const positiveFinite = (value) => Number.isFinite(value) && value > 0;
@@ -13,7 +14,7 @@ export function computeFieldOfView(width, height, visibility = 'assisted') {
   const w = validSize ? width : 1;
   const h = validSize ? height : 1;
   const requiredVertical = 2 * Math.atan(Math.tan(22.5 * DEG_TO_RAD) * h / w) * RAD_TO_DEG;
-  const vertical = visibility === 'classic' ? 64 : clamp(requiredVertical, 64, 100);
+  const vertical = normalizeVisibility(visibility) === 'classic' ? 64 : clamp(requiredVertical, 64, 100);
   const horizontal = 2 * Math.atan(Math.tan(vertical * DEG_TO_RAD / 2) * w / h) * RAD_TO_DEG;
   return { vertical, horizontal };
 }

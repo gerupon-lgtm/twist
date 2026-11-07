@@ -15,7 +15,7 @@ async function clipboard(page) {
 test('opening version and pitch choice are visible on three phone layouts',async({page})=>{
   for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
     await page.setViewportSize(size); await page.goto('/?mode=flight');
-    await expect(page.locator('#intro-version')).toContainText('v0.1.14');
+    await expect(page.locator('#intro-version')).toContainText('v0.1.15');
     await expect(page.locator('#intro-version')).toBeInViewport();
     await expect(page.locator('#pitch-angle')).toBeInViewport();
     await expect(page.locator('#start-button')).toBeInViewport();
@@ -73,11 +73,11 @@ test('rate remains selectable and retains its pitch, switch keeps position and d
 test('tuning persists all flight fields, affects pitch and bank, copies and resets',async({page})=>{
   await clipboard(page); await launch(page);
   await page.locator('#pause-button').click(); await page.locator('#flight-adjustments > summary').click();
-  const values={deadzone:2,maxTilt:10,maxPitch:25,timeConstant:.5,maxBank:20,displayTimeConstant:.05};
+  const values={deadzone:2,maxTilt:10,maxPitch:25,timeConstant:.5,maxBank:20,displayTimeConstant:.05,radarRange:60};
   for(const [key,value] of Object.entries(values)) await slider(page,`setting-${key}`,value);
   await page.locator('#settings-copy').click();
   const copied=await page.evaluate(()=>JSON.parse(window.copied));
-  expect(copied).toEqual({version:'0.1.14',pitch:'angle',steer:'tilt',display:'bank',settings:values,inactiveSettings:['displayTimeConstant']});
+  expect(copied).toEqual({version:'0.1.15',pitch:'angle',steer:'tilt',display:'bank',mode:'flight',view:'assisted',settings:values,inactiveSettings:['displayTimeConstant']});
   await page.reload(); await page.clock.runFor(100); await page.locator('#practice-button').click(); await page.clock.runFor(100);
   await slider(page,'practice-pitch',10); await slider(page,'practice-steer',10); await page.clock.runFor(3200);
   expect(await data(page,'flight-pitch')).toBeCloseTo(25*Math.PI/180,2);
@@ -86,7 +86,7 @@ test('tuning persists all flight fields, affects pitch and bank, copies and rese
   for(const [key,value] of Object.entries(values)) await expect(page.locator(`#setting-${key}`)).toHaveValue(String(value));
   await page.screenshot({path:'test-results/v0113-adjustments.png'});
   await page.locator('#settings-reset').click();
-  for(const [key,value] of Object.entries({deadzone:3,maxTilt:25,maxPitch:15,timeConstant:.3,maxBank:40,displayTimeConstant:.05})) await expect(page.locator(`#setting-${key}`)).toHaveValue(String(value));
+  for(const [key,value] of Object.entries({deadzone:3,maxTilt:25,maxPitch:15,timeConstant:.3,maxBank:40,displayTimeConstant:.05,radarRange:60})) await expect(page.locator(`#setting-${key}`)).toHaveValue(String(value));
 });
 
 test('denied storage and clipboard keep flight usable and offer manually selectable copy text',async({page})=>{
@@ -114,7 +114,7 @@ test('contacts and flight time accumulate across crash restarts, pause time is e
     await page.clock.runFor(5000); expect(await session(page)).toEqual(before);
     await page.locator('#result-copy').click(); const report=await page.evaluate(()=>JSON.parse(window.copied));
     expect(report.result).toBe('grounded');expect(report.display).toBe('bank');await expect(page.locator('#result-outcome')).toHaveText('墜落');
-    expect(report.stats.groundContacts).toBe(count); expect(report.stats.elapsedSeconds).toBeCloseTo(before.elapsedSeconds,5);
+    expect(report.stats.groundContacts).toBe(count);expect(report.stats.legs).toBe(count);expect(report.lastLeg.groundContacts).toBe(1); expect(report.stats.elapsedSeconds).toBeCloseTo(before.elapsedSeconds,5);
     if(count===1) {await page.locator('#start-button').click();await page.clock.runFor(100);}
   }
   await page.locator('#flight-adjustments > summary').click(); await slider(page,'setting-maxPitch',25);
@@ -140,14 +140,20 @@ test('recovery assistance time accumulates from real flight and freezes while pa
 
 for(const display of ['bank','fixed']) test(`angle input can fly the full course and copy the ${display} clear result`,async({page})=>{
   test.setTimeout(60000); await clipboard(page);await launch(page,'&display='+display);
+  if(display==='bank') {
+    await slider(page,'throttle-input',0);await slider(page,'practice-pitch',-25);
+    for(let i=0;i<200&&await page.locator('#app').getAttribute('data-phase')==='running';i++)await page.clock.runFor(100);
+    await expect(page.locator('#result-contacts')).toHaveText('1回');await page.locator('#start-button').click();await page.clock.runFor(100);
+  }
   const targets=[{x:0,y:10,z:0},{x:16,y:18,z:-24},{x:-14,y:12,z:-44},{x:0,y:7,z:-62}];
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const tilt=d=>Math.sign(d)*(3+Math.abs(d)*22);
-  let heading=0, previous=null;
+  let heading=0, previous=null, sawExit=false;
   for(let i=0;i<1000;i++) {
     const state=await page.locator('#app').evaluate(el=>({phase:el.dataset.phase,position:JSON.parse(el.dataset.position),pitch:Number(el.dataset.flightPitch),speed:Number(el.dataset.speed)}));
     if(state.phase!=='running') break;
     const collected=Number(await page.locator('#collection-count').textContent());
+    if(collected===3&&!sawExit){await expect(page.locator('.radar-exit')).toHaveCount(1);await expect(page.locator('.radar-target[data-id^=light]')).toHaveCount(0);sawExit=true;}
     const target=targets[collected],p=state.position;
     if(previous && Math.hypot(p.x-previous.x,p.z-previous.z)>.001) heading=Math.atan2(p.x-previous.x,-(p.z-previous.z));
     previous=p;
@@ -159,13 +165,15 @@ for(const display of ['bank','fixed']) test(`angle input can fly the full course
     await slider(page,'throttle-input',Math.round(clamp(.5+(6-state.speed)*.3+state.pitch*.8,.15,1)*100));
     await page.clock.runFor(100);
   }
+  expect(sawExit).toBe(true);
   await expect(page.locator('#dialog-title')).toHaveText('出口に到着しました');
   await expect(page.locator('#flight-result')).toBeVisible();
   await expect(page.locator('#result-modes')).toHaveText(`pitch=angle / steer=tilt / display=${display}`);
   await page.locator('#result-copy').click();
   const report=await page.evaluate(()=>JSON.parse(window.copied));
   expect(report.result).toBe('clear');expect(report.display).toBe(display);await expect(page.locator('#result-outcome')).toHaveText('クリア');
-  expect(report.stats.elapsedSeconds).toBeGreaterThan(10);expect(report.stats.groundContacts).toBe(0);
+  expect(report.stats.elapsedSeconds).toBeGreaterThan(10);expect(report.stats.groundContacts).toBe(display==='bank'?1:0);expect(report.stats.legs).toBe(display==='bank'?2:1);expect(report.lastLeg.groundContacts).toBe(0);
+  await expect(page.locator('#result-last-contacts')).toHaveText('0回');
   await page.screenshot({path:'test-results/v0113-clear-record.png'});
 });
 
@@ -183,5 +191,6 @@ test('contact explanation uses the tuned deadzone and exploration retains its or
   await page.locator('#pause-button').click();await page.locator('#mode-explore').click();
   await expect(page.locator('#practice-pitch')).toHaveAttribute('max','25');
   await expect(page.locator('#practice-steer')).toHaveAttribute('min','-25');
-  await expect(page.locator('#flight-adjustments')).toBeHidden();
+  await expect(page.locator('#flight-adjustments')).toBeVisible();
+  await expect(page.locator('label[for=setting-maxPitch]')).toBeHidden();
 });

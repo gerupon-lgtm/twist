@@ -811,7 +811,7 @@ test('settings normalize unknown, corrupt, and out-of-range input without imposs
   for(const key of Object.keys(FLIGHT_SETTING_FIELDS)) {
     const field=FLIGHT_SETTING_FIELDS[key];
     near(normalizeFlightSettings({[key]:-100})[key],field.min);
-    near(normalizeFlightSettings({[key]:100})[key],field.max);
+    near(normalizeFlightSettings({[key]:field.max+100})[key],field.max);
   }
   assert.ok(normalizeFlightSettings({deadzone:100,maxTilt:-1}).deadzone < normalizeFlightSettings({deadzone:100,maxTilt:-1}).maxTilt);
   const commands=flightCommands({pitch:10,steer:10},{settings:{deadzone:0,maxTilt:10,maxBank:20},dt:.05});
@@ -841,7 +841,7 @@ test('flight records retain contacts across legs, ignore invalid time and can st
   assert.equal(session.snapshot().groundContacts,1); near(session.snapshot().recoverySeconds,.05);
   session.restartLeg(); session.advance(.05,{grounded:true});
   assert.equal(session.snapshot().groundContacts,2);
-  session.reset(); assert.deepEqual(session.snapshot(),{elapsedSeconds:0,groundContacts:0,recoverySeconds:0});
+  session.reset(); assert.deepEqual(session.snapshot(),{elapsedSeconds:0,groundContacts:0,recoverySeconds:0,legs:0});
 });
 
 test('settings and result reports share a single-line format and snapshot their values', () => {
@@ -874,4 +874,16 @@ test('comparison reports identify outcome, display and rate-only inactive settin
     assert.equal(report.result,result);assert.equal(JSON.parse(copyableFlightReport(report)).display,'bank');
     assert.deepEqual(report.inactiveSettings,['displayTimeConstant']);
   }
+});
+
+test('last leg separates crash/retry/clear while pauses keep the same leg and total',()=>{
+ const session=createFlightSession();session.start();session.advance(2,{recoveryAssist:.1,grounded:true});
+ assert.deepEqual(session.snapshot(),{elapsedSeconds:2,groundContacts:1,recoverySeconds:2,legs:1});
+ const crash=session.lastLegSnapshot();session.start();assert.deepEqual(session.lastLegSnapshot(),crash);
+ session.restartLeg();session.start();session.advance(3,{recoveryAssist:0,grounded:false});
+ assert.deepEqual(session.snapshot(),{elapsedSeconds:5,groundContacts:1,recoverySeconds:2,legs:2});
+ assert.deepEqual(session.lastLegSnapshot(),{elapsedSeconds:3,groundContacts:0,recoverySeconds:0});
+ const report=flightReport({version:'0.1.15',pitch:'angle',steer:'tilt',stats:session.snapshot(),lastLeg:session.lastLegSnapshot(),result:'clear'});
+ session.advance(1,{recoveryAssist:0,grounded:false});assert.equal(report.lastLeg.elapsedSeconds,3);
+ session.reset();assert.equal(session.snapshot().legs,0);
 });

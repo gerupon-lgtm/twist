@@ -2,7 +2,8 @@ import './style.css';
 import { Quaternion, MathUtils } from 'three';
 import { CONTROL_LIMITS, orientationQuaternion, relativeAngles, compensationQuaternion, projectedTiltAngles, deviceTiltAngles, composeDevicePose, controlRates, advanceSpeed } from './controls.js';
 import { createStage } from './stage.js';
-import { projectEdgeTarget } from './visibility.js';
+import { projectEdgeTarget, normalizeVisibility } from './visibility.js';
+import { updateRadar, avoidRadarMarker } from './radar-panel.js';
 import { getGroundProximity } from './ground-proximity.js';
 import { APP_VERSION } from './version.js';
 import { flightCommands } from './flight-input.js';
@@ -15,13 +16,13 @@ const canvas = $('world');
 let stage;
 let phase = 'intro';
 let playMode = new URLSearchParams(location.search).get('mode') === 'flight' ? 'flight' : 'explore';
-let visibility = new URLSearchParams(location.search).get('view') === 'classic' ? 'classic' : 'assisted';
+let visibility = normalizeVisibility(new URLSearchParams(location.search).get('view'));
 // URL names stay compatible: tilt = ひねる (raise/lower phone sides), twist = 回す (in-plane turn).
 let flightSteering = new URLSearchParams(location.search).get('steer') === 'twist' ? 'twist' : 'tilt';
 let pitchMode = new URLSearchParams(location.search).get('pitch') === 'rate' ? 'rate' : 'angle';
 let flightDisplay = new URLSearchParams(location.search).get('display') === 'fixed' ? 'fixed' : 'bank';
 const flightSession = createFlightSession();
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay }));
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, mode: playMode, view: visibility }));
 let inputMode = null;
 let reference = null;
 let craftReference = null;
@@ -70,9 +71,10 @@ function setPhase(next) {
 const modeNote = () => playMode === 'flight'
   ? (pitchMode === 'angle' ? '中立で機首も水平へ戻ります。上昇で減速、下降で加速。出力50%で出発します。' : '中立でも機首の角度は残ります。逆へ倒して水平へ戻し、出力を上げて失速から復帰。')
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
+const lightColor = () => visibility === 'assisted' ? 'ピンクの' : '金色の';
 const modeIntroduction = () => playMode === 'flight'
-  ? (flightDisplay === 'fixed' ? '自機の上向きを保ち、景色が回ります。金色の光を3つ集めて出口へ。' : '自機は画面中央。右へ曲がると機体も右へ傾きます。金色の光を3つ集めて出口へ。')
-  : '自機はスマホと一緒に傾かず、最初の上向きを保ちます。金色の光を3つ集めて出口へ。';
+  ? (flightDisplay === 'fixed' ? `自機の上向きを保ち、景色が回ります。${lightColor()}光を3つ集めて出口へ。` : `自機は画面中央。右へ曲がると機体も右へ傾きます。${lightColor()}光を3つ集めて出口へ。`)
+  : `自機はスマホと一緒に傾かず、最初の上向きを保ちます。${lightColor()}光を3つ集めて出口へ。`;
 
 function setThrottle(value) {
   throttle = Number.isFinite(value) ? MathUtils.clamp(value, 0, 1) : 0;
@@ -82,6 +84,7 @@ function setThrottle(value) {
 
 function applyVisibilityUI() {
   const assisted = visibility === 'assisted';
+  if (phase === 'intro') $('dialog-description').textContent = modeIntroduction();
   app.dataset.visibility = visibility;
   app.dataset.display = flightDisplay;
   $('display-bank').setAttribute('aria-pressed', String(flightDisplay === 'bank'));
@@ -90,7 +93,7 @@ function applyVisibilityUI() {
   $('play-mode-label').textContent = `${playMode === 'flight' ? '飛行機' : '探索'}・${assisted ? '対策' : '従来'}`;
   $('view-assisted').setAttribute('aria-pressed', String(assisted));
   $('view-classic').setAttribute('aria-pressed', String(!assisted));
-  $('view-note').textContent = assisted ? '視野を広く。色と形の目印と、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
+  $('view-note').textContent = assisted ? 'レーダー、ピンクの光と白い輪、画面端の目標マーク。' : '従来の視野と景色。同じ位置で見え方を比べられます。';
   $('home-link').href = `./?mode=${playMode}&view=${visibility}&steer=${flightSteering}&pitch=${pitchMode}&display=${flightDisplay}&v=${APP_VERSION}`;
 }
 
@@ -321,7 +324,7 @@ async function keepAwake() {
 
 function run(mode) {
   lastFlightSnapshot = null;
-  flightSession.restartLeg();
+  if (playMode === 'flight') flightSession.start();
   inputMode = mode;
   app.dataset.input = mode;
   $('practice-panel').hidden = mode !== 'practice';
@@ -486,6 +489,7 @@ $('practice-button').addEventListener('click', () => {
   if (!stage) return;
   if (phase === 'complete' || stage.getStatus().grounded) {
     if (phase === 'complete') flightSession.reset();
+    else flightSession.restartLeg();
     stage.reset(); previousCollected = 0; craftReference = null;
   }
   inputMode === 'practice' ? requestSensors() : startPractice();
@@ -518,6 +522,7 @@ for (const axis of controls) $(`practice-${axis}`).addEventListener('input', (ev
 
 function resetStage({ preserveSession = false } = {}) {
   if (!preserveSession) flightSession.reset();
+  else flightSession.restartLeg();
   flightPanel.showResult(null);
   permissionAttempt++;
   halt();
@@ -610,8 +615,9 @@ function updateEdgeMarker(state) {
   app.dataset.edgeStatus = projected.visible ? 'shown' : projected.inView ? 'onscreen' : 'hidden';
   app.dataset.edgeBehind = String(projected.behind);
   if (!projected.visible) return;
-  marker.style.left = `${projected.x}px`;
-  marker.style.top = `${projected.y}px`;
+  const placed = avoidRadarMarker(projected, { left:left+50,top:top+25,right:right-50,bottom:bottom-25 });
+  marker.style.left = `${placed.x}px`;
+  marker.style.top = `${placed.y}px`;
   $('edge-arrow').style.transform = `rotate(${projected.rotation}deg)`;
   $('edge-label').textContent = state.targetLabel;
   const vertical = Math.abs(state.elevation) > 0.13 ? (state.elevation > 0 ? '上' : '下') : '';
@@ -666,6 +672,9 @@ function updateHud(now, state) {
   app.dataset.viewAssistance = String(state.viewAssistance || 0);
   app.dataset.horizontalFov = String(state.fieldOfView?.horizontal || 0);
   app.dataset.landmarkCount = String(state.landmarks?.length || 0);
+  app.dataset.beaconAppearance = JSON.stringify(state.beaconAppearance);
+  app.dataset.navigationTargets = JSON.stringify(state.navigationTargets);
+  updateRadar(state, { phase, visibility, range: flightPanel.getSettings().radarRange });
   updateEdgeMarker(state);
 }
 
@@ -720,7 +729,7 @@ function frame(now) {
       halt();
       setPhase('complete');
       dialog({ title: '出口に到着しました', description: playMode === 'flight' ? '3つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？' : '3つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？', note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
-      if (playMode === 'flight') flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'clear'));
+      if (playMode === 'flight') flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'clear', flightSession.lastLegSnapshot()));
     }
     if (state.grounded && phase === 'running') {
       let description = '地面まで0mで接触しました。';
@@ -734,7 +743,7 @@ function frame(now) {
       }
       pause('地面に接触して停止しました。最初から飛び直せます。');
       dialog({ title: '地面に接触して停止', description, note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
-      flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'grounded'));
+      flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'grounded', flightSession.lastLegSnapshot()));
     }
     updateHud(now, state);
   }
