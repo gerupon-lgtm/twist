@@ -1,0 +1,260 @@
+[
+  {
+    "camera": "overlay",
+    "width": 390,
+    "height": 844,
+    "rects": {
+      ".topbar": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      },
+      ".navigation": {
+        "x": 124,
+        "y": 80,
+        "width": 254,
+        "height": 53.6875
+      },
+      "#bottom-panel": {
+        "x": 16,
+        "y": 490.109375,
+        "width": 358,
+        "height": 337.890625
+      },
+      "#throttle-input": {
+        "x": 33,
+        "y": 675.5,
+        "width": 324,
+        "height": 44
+      },
+      "#pause-button": {
+        "x": 33,
+        "y": 741,
+        "width": 85,
+        "height": 33
+      },
+      "#recenter-button": {
+        "x": 126,
+        "y": 741,
+        "width": 114.25,
+        "height": 33
+      }
+    }
+  },
+  {
+    "camera": "overlay",
+    "width": 360,
+    "height": 640,
+    "rects": {
+      ".topbar": {
+        "x": 0,
+        "y": 0,
+        "width": 360,
+        "height": 64
+      },
+      ".navigation": {
+        "x": 124,
+        "y": 68,
+        "width": 224,
+        "height": 53.6875
+      },
+      "#bottom-panel": {
+        "x": 16,
+        "y": 357.5,
+        "width": 328,
+        "height": 266.5
+      },
+      "#throttle-input": {
+        "x": 29,
+        "y": 487.5,
+        "width": 302,
+        "height": 44
+      },
+      "#pause-button": {
+        "x": 29,
+        "y": 549,
+        "width": 85,
+        "height": 31
+      },
+      "#recenter-button": {
+        "x": 122,
+        "y": 549,
+        "width": 108.25,
+        "height": 31
+      }
+    }
+  },
+  {
+    "camera": "overlay",
+    "width": 844,
+    "height": 390,
+    "rects": {
+      ".topbar": {
+        "x": 0,
+        "y": 0,
+        "width": 844,
+        "height": 54
+      },
+      ".navigation": {
+        "x": 252,
+        "y": 10,
+        "width": 340,
+        "height": 54
+      },
+      "#bottom-panel": {
+        "x": 494,
+        "y": 121.609375,
+        "width": 330,
+        "height": 259.390625
+      },
+      "#throttle-input": {
+        "x": 508,
+        "y": 279,
+        "width": 302,
+        "height": 44
+      },
+      "#pause-button": {
+        "x": 508,
+        "y": 340,
+        "width": 85,
+        "height": 31
+      },
+      "#recenter-button": {
+        "x": 601,
+        "y": 340,
+        "width": 108.25,
+        "height": 31
+      }
+    }
+  },
+  {
+    "camera": "chase",
+    "width": 390,
+    "height": 844,
+    "rects": {
+      ".topbar": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      },
+      ".navigation": {
+        "x": 124,
+        "y": 80,
+        "width": 254,
+        "height": 53.6875
+      },
+      "#bottom-panel": {
+        "x": 16,
+        "y": 490.109375,
+        "width": 358,
+        "height": 337.890625
+      },
+      "#throttle-input": {
+        "x": 33,
+        "y": 675.5,
+        "width": 324,
+        "height": 44
+      },
+      "#pause-button": {
+        "x": 33,
+        "y": 741,
+        "width": 85,
+        "height": 33
+      },
+      "#recenter-button": {
+        "x": 126,
+        "y": 741,
+        "width": 114.25,
+        "height": 33
+      }
+    }
+  },
+  {
+    "camera": "chase",
+    "width": 360,
+    "height": 640,
+    "rects": {
+      ".topbar": {
+        "x": 0,
+        "y": 0,
+        "width": 360,
+        "height": 64
+      },
+      ".navigation": {
+        "x": 124,
+        "y": 68,
+        "width": 224,
+        "height": 53.6875
+      },
+      "#bottom-panel": {
+        "x": 16,
+        "y": 357.5,
+        "width": 328,
+        "height": 266.5
+      },
+      "#throttle-input": {
+        "x": 29,
+        "y": 487.5,
+        "width": 302,
+        "height": 44
+      },
+      "#pause-button": {
+        "x": 29,
+        "y": 549,
+        "width": 85,
+        "height": 31
+      },
+      "#recenter-button": {
+        "x": 122,
+        "y": 549,
+        "width": 108.25,
+        "height": 31
+      }
+    }
+  },
+  {
+    "camera": "chase",
+    "width": 844,
+    "height": 390,
+    "rects": {
+      ".topbar": {
+        "x": 0,
+        "y": 0,
+        "width": 844,
+        "height": 54
+      },
+      ".navigation": {
+        "x": 252,
+        "y": 10,
+        "width": 340,
+        "height": 54
+      },
+      "#bottom-panel": {
+        "x": 494,
+        "y": 121.609375,
+        "width": 330,
+        "height": 259.390625
+      },
+      "#throttle-input": {
+        "x": 508,
+        "y": 279,
+        "width": 302,
+        "height": 44
+      },
+      "#pause-button": {
+        "x": 508,
+        "y": 340,
+        "width": 85,
+        "height": 31
+      },
+      "#recenter-button": {
+        "x": 601,
+        "y": 340,
+        "width": 108.25,
+        "height": 31
+      }
+    }
+  }
+]

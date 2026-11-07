@@ -32,7 +32,8 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       }
       if(m.type==='poll'){
         this.port.postMessage({type:'metrics',load:this.frames?this.busyMs/1000/(this.frames/sampleRate):0,
-          peak:this.mixer.post.takePeak(),active:this.active,event:this.event,music:this.musicPlaying});this.busyMs=0;this.frames=0;
+          peak:this.mixer.post.takePeak(),active:this.active,event:this.event,music:this.musicPlaying,
+          vario:this.active&&this.settings.sound&&this.settings.sfx&&this.model.vario?.active&&!this.event&&!['stall','ground','buffet'].includes(this.model.cue)});this.busyMs=0;this.frames=0;
       }
     };
   }
@@ -43,7 +44,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       if(this.untilUpdate<=0){
         const model=this.active?this.model:this.silentModel;
         this.mixer.writeSfx(sfxRegisters(model,this.event,(currentTime-this.eventAt)*1000,
-          pulseAt(model.soundPattern,(currentTime-this.cueAt)*1000),this.registers));
+          pulseAt(model.soundPattern,(currentTime-this.cueAt)*1000),this.registers,currentTime*1000));
         this.untilUpdate=sampleRate/100;
       }
       const end=currentTime+left.length/sampleRate;

@@ -2,23 +2,33 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.20 / 2026-11-07**
+**操作検証 v0.1.21 / 2026-11-07**
 
 公開先URL（機首angle、左右端を倒す旋回。視点の未指定は従来表示、機体表示はbank/fixedを残します）:
 
-- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.20)
-- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.20)
-- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.20)
-- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.20)
-- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.20)
+- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&v=0.1.21)
+- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&v=0.1.21)
+- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&v=0.1.21)
+- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&v=0.1.21)
+- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&v=0.1.21)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+
+## v0.1.21の操縦席改善（追加資料B）
+
+機首の動きと旋回方向の手がかりを増やすため、操縦席だけ上の案内を1行にまとめ、下の出力スライダーと操作部分を小さくしました。停止・合わせ直しのボタンは高さ42pxを保ち、出力は下の1か所だけで表示します。外から見る2視点のパネル配置はv0.1.20のままです。
+
+角度線は初期値で機首の前後10度だけ。中央に短く描き、負の角度の破線を薄くします。「調整」で前後5〜30度へ変更可能。高度の横には上昇/下降の棒と数値を、景色には大きくした進行方向の印を表示します。操縦席の上下の視野は初期の自動計算を保ち、自動を外すと60度〜今の視野まで狭められます。操縦や飛ぶ力へは影響しません。
+
+上昇時は高く間隔の短い音、速い下降時は低く長い音で知らせる「バリオ」を追加しました。効果音専用PSGを使い、警告・取得・接地・ゴールを優先します。「音と振動」でオン/オフして保存できます。初期値はオンで、ほかの飛行視点でも使えます。
+
+見失い対策では12方向の浮島と遺跡、中央付近の高い塔、太陽、12か所の高さの違う雲を追加。遠景は霧で消さず、淡い色にしています。従来/legacyは元の世界を保ちます。新しい景色に当たり判定はなく、地面だけで止まるルールも継続。[検証記録と実機手順](docs/verification-v0121.md)。見やすさ・方角の分かりやすさ・バリオの聞こえ方・Pixel 9aの負荷は未確認です。
 
 ## v0.1.20のBGM改訂（追加資料A）
 
 単調さを減らすため、イントロ・主題・展開・サビ・静かな区間のある2曲へ作り直しました。「蒼穹突破」は160BPM/72秒、「遺跡の閃光」は168BPM/約69秒、どちらも短調を基調にしたオリジナル曲です。飛び直すたびに交互に切り替わり、一時停止や合わせ直しでは同じ曲の先頭へ戻ります。ゴールも3秒の「突破の凱歌」に変更。SCCは最大5音、PSGドラムと効果音の分離・チップの計算は維持します。
 
-旧曲も比較用に残し、tracks.jsonのflightPlaylistで選択できます。自作MIDIへの差し替え条件も継続。[曲/差し替え手順](docs/music.md)、[検証と負荷比較](docs/verification-v0120.md)。曲の聞こえ方とPixel 9aの負荷は未確認です。追加資料Bの操縦席改善は次の版で扱います。
+旧曲も比較用に残し、tracks.jsonのflightPlaylistで選択できます。自作MIDIへの差し替え条件も継続。[曲/差し替え手順](docs/music.md)、[検証と負荷比較](docs/verification-v0120.md)。曲の聞こえ方とPixel 9aの負荷は未確認です。追加資料Bの操縦席改善はv0.1.21に反映しました。
 
 ## v0.1.19のホーム画面起動と画面の向き
 
@@ -199,6 +209,8 @@ npm run build
 ブラウザー検証はWindowsでは既存のEdgeを使用します。CI環境で実行する場合は `npx playwright install --with-deps chromium` が必要です。
 
 ## 記録
+
+- [v0.1.21の操縦席・遠景・バリオ・視野と負荷比較](docs/verification-v0121.md)
 
 - [v0.1.20のハードBGM改訂・曲切替・負荷比較](docs/verification-v0120.md)
 

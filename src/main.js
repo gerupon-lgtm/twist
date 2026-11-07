@@ -614,7 +614,7 @@ window.addEventListener('keydown', (event) => {
 window.addEventListener('keyup', (event) => heldKeys.delete(event.key.toLowerCase()));
 canvas.addEventListener('webglcontextlost', (event) => { event.preventDefault(); pause('3Dの表示が中断しました。ページを再読み込みしてください。'); });
 
-function resize() { stage?.resize(window.innerWidth, window.innerHeight, Math.min(window.devicePixelRatio || 1, 1.6)); }
+function resize() { stage?.resize(window.innerWidth, window.innerHeight, Math.min(window.devicePixelRatio || 1, 1.6)); flightPanel.refreshLayout(); }
 window.addEventListener('resize', () => { resize(); pwa.orientationChanged(); });
 
 function meter(axis, limit) {
@@ -677,7 +677,7 @@ function updateEdgeMarker(state) {
   app.dataset.edgeBehind = String(projected.behind);
   if (!projected.visible) return;
   const cockpitObstacles = cameraMode === 'cockpit' && playMode === 'flight'
-    ? ['cockpit-speed','cockpit-altitude','cockpit-heading','cockpit-power'].map(id=>$(id).getBoundingClientRect()) : [];
+    ? ['cockpit-speed','cockpit-altitude','cockpit-heading','cockpit-power','cockpit-vario'].map(id=>$(id).getBoundingClientRect()) : [];
   const placed = avoidRadarMarker(projected, { left:left+50,top:top+25,right:right-50,bottom:bottom-25 }, cockpitObstacles);
   marker.style.left = `${placed.x}px`;
   marker.style.top = `${placed.y}px`;
@@ -740,6 +740,7 @@ function updateHud(now, state) {
   app.dataset.horizontalFov = String(state.fieldOfView?.horizontal || 0);
   app.dataset.landmarkCount = String(state.landmarks?.length || 0);
   app.dataset.beaconAppearance = JSON.stringify(state.beaconAppearance);
+  app.dataset.scenery = JSON.stringify(state.scenery);
   app.dataset.aircraft = JSON.stringify(state.aircraft);
   app.dataset.worldCraftScreenQuaternion = JSON.stringify(state.worldCraftScreenQuaternion);
   app.dataset.craftVisible = String(state.craftVisible);
@@ -752,7 +753,7 @@ function updateHud(now, state) {
   const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
   const cockpitLayout = layoutCockpitHud(cockpitActive);
   updateEdgeMarker(state);
-  updateCockpitHud(state, cockpitActive, cockpitLayout);
+  updateCockpitHud(state, cockpitActive, cockpitLayout, settings);
 }
 
 let previousFrame = performance.now();
@@ -794,7 +795,8 @@ function frame(now) {
         ...(playMode === 'flight' ? { displayTwist: angles.twist,
           displayScreenOffset: inputMode === 'sensor' ? screenAngle() - referenceScreenAngle : 0,
           displayTimeConstant: flightPanel.getSettings().displayTimeConstant,
-          chaseTimeConstant: flightPanel.getSettings().chaseTimeConstant } : {}) });
+          chaseTimeConstant: flightPanel.getSettings().chaseTimeConstant,
+          cockpitFov: flightPanel.getSettings().cockpitFov } : {}) });
     }
     const state = stage.getStatus();
     if (wasFlying) flightSession.advance(dt, state);

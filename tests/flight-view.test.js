@@ -213,7 +213,7 @@ test('cockpit horizon and five-degree ladder use the rendered perspective and sc
    assert.ok(Math.abs(projection.horizon.a*(x-width/2)+projection.horizon.b*(y-height/2)+projection.horizon.c)<1e-8);
   }
   assert.ok([0,2].includes(horizonSegment(projection.horizon,width,height).length));
-  assert.ok(projection.lines.some(l=>l.degrees===5)&&projection.lines.some(l=>l.degrees===-5));
+  assert.ok(projection.lines.length>0);assert.ok(projection.lines.every(l=>Math.abs(l.degrees-pitch*180/Math.PI)<=10+1e-8));
   if(!roll){const segment=horizonSegment(projection.horizon,width,height);assert.ok(Math.abs(segment[0].y-(height/2+projection.f*Math.tan(pitch)))<1e-8);}
  }
  const state={fieldOfView:{vertical:90},cameraQuaternion:new Quaternion(),worldQuaternion:new Quaternion(),orientation:new Quaternion(),heading:0,velocity:{x:0,y:-3,z:-6}};

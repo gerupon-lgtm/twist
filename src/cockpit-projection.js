@@ -1,4 +1,5 @@
 import { MathUtils, Quaternion, Vector3 } from 'three';
+import { pitchLadderAngles } from './cockpit-aids.js';
 
 const finite = n => Number.isFinite(n) ? n : 0;
 const vector = v => new Vector3(finite(v?.x), finite(v?.y), finite(v?.z));
@@ -11,7 +12,7 @@ export function cockpitReadings(state = {}) {
 }
 
 /** Same perspective and inverse pose as the world renderer, in CSS pixels. */
-export function cockpitProjection(state, width, height) {
+export function cockpitProjection(state, width, height, {ladderRange=10}={}) {
   const q = quaternion(state.cameraQuaternion).invert().multiply(quaternion(state.worldQuaternion));
   const f = height / (2 * Math.tan(MathUtils.degToRad(state.fieldOfView.vertical) / 2));
   function project(direction) {
@@ -27,13 +28,12 @@ export function cockpitProjection(state, width, height) {
   const velocity = vector(state.velocity);
   const flightPath = velocity.length() > .05 ? project(velocity) : null;
   const lines = [];
-  for (let degrees = -85; degrees <= 85; degrees += 5) {
-    if (degrees === 0) continue;
+  for (const degrees of pitchLadderAngles(MathUtils.radToDeg(finite(state.controlPitch)),ladderRange)) {
     const pitch = MathUtils.degToRad(degrees);
     for (const side of [-1,1]) {
       const points = [];
       for (let i = 0; i <= 10; i++) {
-        const azimuth = finite(state.heading) + side * MathUtils.degToRad(2 + i);
+        const azimuth = finite(state.heading) + side * MathUtils.degToRad(2 + i*.5);
         const point = project({ x: Math.sin(azimuth)*Math.cos(pitch), y: Math.sin(pitch), z: -Math.cos(azimuth)*Math.cos(pitch) });
         if (point.inFront && Number.isFinite(point.x) && Number.isFinite(point.y)) points.push(point);
       }

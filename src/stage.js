@@ -5,6 +5,7 @@ import { computeFlightView, advanceFlightView } from './flight-view.js';
 import { advanceDisplayRoll, flightDisplayPose, withoutViewRoll } from './flight-display.js';
 import { advanceChaseAngles, bodyViewAngles, chaseView, normalizeCameraMode } from './flight-camera.js';
 import { createAircraft } from './aircraft.js';
+import { createScenery } from './scenery.js';
 
 const START = new THREE.Vector3(0, 7, 26);
 const BEACONS = [
@@ -55,6 +56,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   // Both cameras remain fixed for the entire simulation.
   const world = new THREE.Group();
   scene.add(world);
+  const scenery=createScenery();world.add(scenery.group);
   scene.add(new THREE.HemisphereLight(0xf4fcff, 0x7896a2, 2.4));
   const sun = new THREE.DirectionalLight(0xfff8e7, 2.6);
   sun.position.set(-35, 65, 30);
@@ -518,6 +520,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   let width = 1;
   let height = 1;
   let fieldOfView = { vertical: 64, horizontal: 64 };
+  let cockpitFov=0;
   let disposed = false;
   let viewAssistance = 0;
   let viewPitch = 0;
@@ -623,6 +626,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       bank = 0;
     }
     mode = 'flight';
+    updateProjection();
     forward.set(0, 0, -1).applyQuaternion(baseOrientation);
     velocity.copy(forward).multiplyScalar(FLIGHT_MODEL.cruiseSpeed);
     speed = velocity.length();
@@ -700,9 +704,15 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
 
   function updateProjection() {
     fieldOfView = computeFieldOfView(width, height, visibility);
+    if(mode==='flight'&&cameraMode==='cockpit'&&cockpitFov>=60) {
+      fieldOfView.vertical=Math.min(fieldOfView.vertical,cockpitFov);
+      fieldOfView.horizontal=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(fieldOfView.vertical)/2)*width/height));
+    }
     camera.aspect = width / height;
     camera.fov = fieldOfView.vertical;
+    camera.far=visibility==='assisted'?1800:250;
     camera.updateProjectionMatrix();
+    scenery.group.visible=visibility==='assisted';
     directionLandmarks.visible = visibility === 'assisted';
     refreshTargets();
   }
@@ -750,8 +760,12 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       stopMotion();
       grounded = false;
       mode = nextMode;
+      updateProjection();
     }
     if (mode === 'flight') {
+      if(Number.isFinite(input.cockpitFov)&&input.cockpitFov!==cockpitFov) {
+        cockpitFov=input.cockpitFov===0?0:THREE.MathUtils.clamp(input.cockpitFov,60,100);updateProjection();
+      }
       if (Number.isFinite(input.chaseTimeConstant)) chaseTimeConstant = THREE.MathUtils.clamp(input.chaseTimeConstant, 0, .5);
       if (Number.isFinite(input.displayTwist)) phoneRoll = advanceDisplayRoll(phoneRoll,
         THREE.MathUtils.degToRad(input.displayTwist), elapsed, input.displayTimeConstant);
@@ -931,6 +945,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       targetPosition: { x: target.x, y: target.y, z: target.z },
       visibility,
       fieldOfView: { ...fieldOfView },
+      scenery:{visible:scenery.group.visible,...scenery.details},
       targetLocal: { x: localRelative.x, y: localRelative.y, z: localRelative.z },
       landmarks: visibility === 'assisted' ? DIRECTION_LANDMARKS.map((landmark) => ({
         ...landmark, position: { ...landmark.position },
@@ -964,6 +979,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     const geometries = new Set();
     const materials = new Set([guide, dimGuide, gold, core, haloMaterial, brightCore, brightRing, brightHalo, brightStem, ...beaconVisuals.map(v => v.stem.userData.legacyMaterial)]);
     [scene, craftScene].forEach((root) => root.traverse((object) => {
+      if(object.isInstancedMesh)object.dispose();
       if (object.geometry) geometries.add(object.geometry);
       if (object.material) {
         (Array.isArray(object.material) ? object.material : [object.material])
@@ -978,6 +994,6 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
 
   updateProjection();
   reset();
-  function setCameraMode(value) { cameraMode = normalizeCameraMode(value); chaseAngles = null; syncWorld(); render(); }
+  function setCameraMode(value) { cameraMode = normalizeCameraMode(value); chaseAngles = null; updateProjection(); syncWorld(); render(); }
   return { resize, update, getStatus, reset, launchFlight, setVisibility, setDisplay, setCameraMode, resetDisplayRotation, dispose };
 }

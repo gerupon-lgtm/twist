@@ -12,6 +12,8 @@ export const FLIGHT_SETTING_FIELDS = Object.freeze({
   maxBank: { label: '翼の最大角度', min: 5, max: 40, step: 1, initial: 40, unit: '°' },
   displayTimeConstant: { label: '固定表示の回転のならし', min: 0, max: .3, step: .01, initial: .05, unit: '秒' },
   chaseTimeConstant: { label: '追尾カメラの遅れ', min: 0, max: .5, step: .01, initial: .15, unit: '秒' },
+  ladderRange: { label: '操縦席の角度線の範囲（機首から前後）', min: 5, max: 30, step: 5, initial: 10, unit: '°' },
+  cockpitFov: { label: '操縦席の上下の視野', min: 60, max: 100, step: .1, initial: 0, auto: true, unit: '°' },
   radarRange: { label: 'レーダーの半径', min: 20, max: 120, step: 10, initial: 60, unit: 'm' },
 });
 export const DEFAULT_FLIGHT_SETTINGS = Object.freeze(Object.fromEntries(
@@ -21,7 +23,7 @@ export const DEFAULT_FLIGHT_SETTINGS = Object.freeze(Object.fromEntries(
 export function normalizeFlightSettings(value) {
   const result = Object.fromEntries(Object.entries(FLIGHT_SETTING_FIELDS).map(([key, field]) => {
     const input = value?.[key];
-    return [key, Number.isFinite(input) ? Math.max(field.min, Math.min(field.max, input)) : field.initial];
+    return [key, field.auto && input === 0 ? 0 : Number.isFinite(input) ? Math.max(field.min, Math.min(field.max, input)) : field.initial];
   }));
   result.steerTiltDeadzone = Math.min(result.steerTiltDeadzone, result.maxSteerTilt - 1);
   result.steerTwistDeadzone = Math.min(result.steerTwistDeadzone, result.maxSteerTwist - 1);

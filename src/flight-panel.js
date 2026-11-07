@@ -1,16 +1,18 @@
 import { APP_VERSION } from './version.js';
 import { FLIGHT_SETTING_FIELDS, DEFAULT_FLIGHT_SETTINGS, normalizeFlightSettings, loadFlightSettings, saveFlightSettings } from './flight-settings.js';
 import { flightReport, copyableFlightReport } from './flight-session.js';
+import { computeFieldOfView } from './visibility.js';
 
 const $ = id => document.getElementById(id);
 const describeSettings = report => Object.entries(FLIGHT_SETTING_FIELDS)
-  .map(([key, field]) => `${field.label} ${report.settings[key]}${field.unit}${report.inactiveSettings.includes(key) ? '（未使用）' : ''}`).join(' / ');
+  .map(([key, field]) => `${field.label} ${field.auto && report.settings[key]===0 ? '自動' : report.settings[key]+field.unit}${report.inactiveSettings.includes(key) ? '（未使用）' : ''}`).join(' / ');
 
 export function createFlightPanel(getModes) {
   let storage;
   try { storage = window.localStorage; } catch { /* Defaults also work without storage access. */ }
   let settings = loadFlightSettings(storage);
   let result = null;
+  const fovAuto=document.createElement('input');fovAuto.type='checkbox';fovAuto.id='cockpit-fov-auto';
   for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
     const label = document.createElement('label');
     label.htmlFor = `setting-${key}`;
@@ -21,16 +23,34 @@ export function createFlightPanel(getModes) {
     const input = document.createElement('input');
     Object.assign(input, { type: 'range', id: label.htmlFor, min: field.min, max: field.max, step: field.step });
     label.append(caption, value, input); $('flight-settings-fields').append(label);
+    if(key==='cockpitFov') {
+      const autoLabel=document.createElement('label');autoLabel.className='cockpit-fov-auto';autoLabel.dataset.settingKey=key;
+      autoLabel.append(fovAuto,document.createTextNode('視野を自動計算する'));$('flight-settings-fields').append(autoLabel);
+    }
     input.addEventListener('input', () => {
       settings = normalizeFlightSettings({ ...settings, [key]: Number(input.value) });
       persist();
     });
   }
+  function refreshLayout() {
+    const modes=getModes(),maximum=computeFieldOfView(innerWidth,innerHeight,modes.view).vertical;
+    const input=$('setting-cockpitFov');input.max=String(Math.floor(maximum*10)/10);
+    input.value=String(settings.cockpitFov===0?maximum:Math.min(maximum,settings.cockpitFov));
+    fovAuto.checked=settings.cockpitFov===0;
+    const inactive=modes.mode!=='flight'||modes.camera!=='cockpit';
+    fovAuto.disabled=inactive;input.disabled=inactive||fovAuto.checked;
+    $('setting-ladderRange').disabled=inactive;
+    $('setting-value-cockpitFov').textContent=fovAuto.checked?`自動（${maximum.toFixed(1)}°）`:`${Math.min(maximum,settings.cockpitFov).toFixed(1)}°`;
+  }
+  fovAuto.addEventListener('change',()=>{
+    settings={...settings,cockpitFov:fovAuto.checked?0:Math.floor(computeFieldOfView(innerWidth,innerHeight,getModes().view).vertical*10)/10};persist();
+  });
   function refresh() {
     for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
       $(`setting-${key}`).value = settings[key];
       $(`setting-value-${key}`).textContent = `${settings[key]}${field.unit}`;
     }
+    refreshLayout();
   }
   function persist() {
     const saved = saveFlightSettings(storage, settings);
@@ -59,6 +79,7 @@ export function createFlightPanel(getModes) {
   refresh();
   return {
     getSettings: () => settings,
+    refreshLayout,
     report: (stats, outcome, lastLeg) => flightReport({ version: APP_VERSION, ...getModes(), settings, stats, lastLeg, result: outcome }),
     showResult(report) {
       result = report;
@@ -84,6 +105,7 @@ export function createFlightPanel(getModes) {
       for (const label of $('flight-settings-fields').children) label.hidden = (mode !== 'flight' && label.dataset.settingKey !== 'radarRange')
         || inactiveSteering.includes(label.dataset.settingKey);
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
+      refreshLayout();
       $('flight-settings-help').hidden = mode !== 'flight';
       $('settings-reset').textContent = mode === 'flight' ? '操縦を初期値へ' : 'レーダーを初期値へ';
       $('adjustment-scope-note').textContent = mode === 'flight'
