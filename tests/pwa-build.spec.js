@@ -4,8 +4,8 @@ import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test, expect } from './helpers/legacy-ui.js';
 for(const base of ['/','/twist/']) test(`${base} loads manifest, icons, 3D and network-only worker from relative paths`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(`${base}?mode=flight&v=0.1.39`);
-  await expect(page.locator('#intro-version')).toContainText('v0.1.39');
+  await page.goto(`${base}?mode=flight&v=0.1.40`);
+  await expect(page.locator('#intro-version')).toContainText('v0.1.40');
   const info=await page.evaluate(async()=>{
     const manifestURL=document.querySelector('link[rel=manifest]').href;
     const response=await fetch(manifestURL,{cache:'no-store'}),manifest=await response.json();
@@ -24,14 +24,14 @@ for(const base of ['/','/twist/']) test(`${base} loads manifest, icons, 3D and n
   expect(new URL(info.manifestURL).pathname).toBe(`${base}manifest.webmanifest`);
   expect(info.manifest).toMatchObject({name:'twist',short_name:'twist',display:'fullscreen',orientation:'any',scope:'./',theme_color:'#dcebf1',background_color:'#dcebf1'});
   const start=new URL(info.manifest.start_url,info.manifestURL);
-  expect(start.pathname).toBe(base);expect(Object.fromEntries(start.searchParams)).toMatchObject({mode:'flight',view:'assisted',pitch:'angle',v:'0.1.39'});expect(start.searchParams.get('steer')).toBeNull();
+  expect(start.pathname).toBe(base);expect(Object.fromEntries(start.searchParams)).toMatchObject({mode:'flight',view:'assisted',pitch:'angle',v:'0.1.40'});expect(start.searchParams.get('steer')).toBeNull();
   expect(info.icons.map(x=>[x.width,x.height,x.purpose])).toEqual([[192,192,'any'],[512,512,'any'],[512,512,'maskable']]);
   for(const icon of info.icons){expect(icon.status).toBe(200);expect(icon.type).toContain('image/png');expect(new URL(icon.url).pathname.startsWith(`${base}icons/`)).toBe(true);}
   expect(info.appleSize).toEqual([180,180]);expect(new URL(info.scope).pathname).toBe(base);
-  expect(new URL(info.scriptURL).pathname).toBe(`${base}sw.js`);expect(new URL(info.scriptURL).searchParams.get('v')).toBe('0.1.39');expect(info.caches).toEqual([]);
-  const guide=await page.request.get(`${base}settings-guide.html?v=0.1.39`);
+  expect(new URL(info.scriptURL).pathname).toBe(`${base}sw.js`);expect(new URL(info.scriptURL).searchParams.get('v')).toBe('0.1.40');expect(info.caches).toEqual([]);
+  const guide=await page.request.get(`${base}settings-guide.html?v=0.1.40`);
   expect(guide.status()).toBe(200);expect(guide.headers()['content-type']).toContain('text/html');
-  expect(await guide.text()).toContain('v0.1.39');expect(await guide.text()).toContain('早見表');
+  expect(await guide.text()).toContain('v0.1.40');expect(await guide.text()).toContain('早見表');
   await page.reload();await page.locator('#practice-button').click();await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
   expect(errors).toEqual([]);
 });
@@ -43,10 +43,10 @@ test('a previous worker yields to current network-only worker and refreshed page
   });
   await page.reload();await expect(page.locator('h1')).toHaveText('twist v0.1.18 fixture');
   await page.evaluate(async()=>{
-    await navigator.serviceWorker.register('/twist/sw.js?v=0.1.39',{scope:'/twist/',updateViaCache:'none'});
+    await navigator.serviceWorker.register('/twist/sw.js?v=0.1.40',{scope:'/twist/',updateViaCache:'none'});
     await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
   });
-  await page.reload();await expect(page.locator('#intro-version')).toContainText('v0.1.39');
+  await page.reload();await expect(page.locator('#intro-version')).toContainText('v0.1.40');
 });
 test('network-only worker never serves a saved offline response',async({page,context})=>{
   await page.goto('/?mode=flight');await page.evaluate(()=>navigator.serviceWorker.ready);
@@ -54,7 +54,7 @@ test('network-only worker never serves a saved offline response',async({page,con
   await context.setOffline(true);
   expect(await page.evaluate(()=>fetch('./version.json?offline-test',{cache:'no-store'}).then(()=>true,()=>false))).toBe(false);
   await context.setOffline(false);
-  expect(await page.evaluate(()=>fetch('./version.json?online-test',{cache:'no-store'}).then(r=>r.json()))).toEqual({version:'0.1.39'});
+  expect(await page.evaluate(()=>fetch('./version.json?online-test',{cache:'no-store'}).then(r=>r.json()))).toEqual({version:'0.1.40'});
 });
 test('resumed old client detects newer version, stops, and updates only on button while keeping chosen modes',async({page})=>{
   await page.addInitScript(()=>{
@@ -63,13 +63,13 @@ test('resumed old client detects newer version, stops, and updates only on butto
       ? Promise.resolve(new Response(JSON.stringify({version:window.publishedVersion}),{headers:{'content-type':'application/json'}}))
       : original(input,init);
   });
-  await page.goto('/?mode=flight&display=fixed&camera=chase&v=0.1.39');await page.locator('#practice-button').click();
+  await page.goto('/?mode=flight&display=fixed&camera=chase&v=0.1.40');await page.locator('#practice-button').click();
   await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
   await page.evaluate(next=>{window.publishedVersion=next;document.dispatchEvent(new Event('visibilitychange'));},NEXT_VERSION);
   await expect(page.locator('#app')).toHaveAttribute('data-phase','paused');
   await expect(page.locator('#throttle-value')).toHaveText('0%');await expect(page.locator('#update-notice')).toContainText('v'+NEXT_VERSION);
   await expect(page.locator('#start-button')).toBeDisabled();await expect(page.locator('#practice-button')).toBeDisabled();
-  await expect(page).toHaveURL(/v=0.1.39/);await page.locator('#update-button').click();
+  await expect(page).toHaveURL(/v=0.1.40/);await page.locator('#update-button').click();
   await expect(page).toHaveURL(new RegExp('display=fixed&camera=chase&v='+NEXT_VERSION.replaceAll('.','\\.')));
 });
 

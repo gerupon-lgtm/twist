@@ -1,4 +1,6 @@
 import {test,expect} from '@playwright/test';
+import {APP_VERSION} from '../src/version.js';
+const evidenceVersion=APP_VERSION.replaceAll('.','');
 
 async function fixture(page){
  await page.addInitScript(()=>{
@@ -94,7 +96,7 @@ for(const size of [{width:390,height:844},{width:360,height:640},{width:844,heig
  await expect(page.locator('#briefing-panel')).toBeVisible();await expect(page.locator('.briefing-points [data-briefing-point^="tgt-"]')).toHaveCount(8);await expect(page.locator('#briefing-map [data-map-point^="tgt-"]')).toHaveCount(8);
  await expect(page.locator('#briefing-map .briefing-route')).toHaveCount(1);await expect(page.locator('#briefing-overview .briefing-boundary')).toHaveCount(1);await expect(page.locator('#briefing-overview [data-landmark]')).toHaveCount(5);
  await expect(page.locator('.briefing-map-reference .briefing-north text')).toHaveText('N');await expect(page.locator('.briefing-map-reference .briefing-scale')).toHaveCount(1);await expect(page.locator('#briefing-overview-scale .briefing-context-scale-label')).toHaveCount(1);
- fits(await bounds(page));await page.screenshot({path:`.cache/v0137-briefing-${size.width}x${size.height}.png`});
+ fits(await bounds(page));await page.screenshot({path:`.cache/v${evidenceVersion}-briefing-fit-${size.width}x${size.height}.png`});
  await page.evaluate(()=>{window.briefingPanel.close();window.briefingPanel.open({course:window.briefingCourses.hard,origin:'pause',state:{position:{x:2200,y:31,z:-1700},heading:Math.PI/2,collected:4}});});
  const paused=await bounds(page);fits(paused);expect(paused.collected).toBe(4);expect(Number(paused.currentHeading)).toBeCloseTo(Math.PI/2,9);
  expect(await page.evaluate(()=>window.briefingPanel.snapshot())).toMatchObject({origin:'pause',progress:1,drawSeconds:0});await expect(page.locator('#briefing-skip')).toHaveText('CONTINUE');await expect(page.locator('#briefing-map .briefing-route')).toHaveAttribute('stroke-dashoffset','0');
@@ -107,7 +109,7 @@ test('map draws silently, stays after3.6seconds, and closes immediately by tap o
  await page.clock.install();await fixture(page);await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
  await page.evaluate(()=>window.briefingPanel.open({course:window.briefingCourses.easy,origin:'start'}));
  await page.clock.runFor(1800);expect((await page.evaluate(()=>window.briefingPanel.snapshot())).progress).toBeCloseTo(.5,1);
- await page.clock.runFor(2000);await expect(page.locator('#briefing-skip')).toHaveText('CONTINUE');await expect(page.locator('#briefing-map .briefing-route')).toHaveAttribute('stroke-dashoffset','0');await page.screenshot({path:'.cache/v0137-briefing-ready.png'});await page.clock.runFor(4000);await expect(page.locator('#briefing-panel')).toBeVisible();
+ await page.clock.runFor(2000);await expect(page.locator('#briefing-skip')).toHaveText('CONTINUE');await expect(page.locator('#briefing-map .briefing-route')).toHaveAttribute('stroke-dashoffset','0');await page.screenshot({path:`.cache/v${evidenceVersion}-briefing-ready.png`});await page.clock.runFor(4000);await expect(page.locator('#briefing-panel')).toBeVisible();
  await page.locator('#briefing-skip').click();let record=await page.evaluate(()=>window.briefingClosed.at(-1));expect(record).toMatchObject({origin:'start',skipped:false,closeMethod:'continue'});expect(record.seconds).toBeGreaterThan(7);
  await page.evaluate(()=>window.briefingPanel.open({course:window.briefingCourses.normal,origin:'start'}));await page.locator('#briefing-skip').click();record=await page.evaluate(()=>window.briefingClosed.at(-1));expect(record).toMatchObject({skipped:true,closeMethod:'skip'});
  await page.evaluate(()=>window.briefingPanel.open({course:window.briefingCourses.hard,origin:'pause'}));expect(await page.evaluate(()=>window.briefingPanel.snapshot())).toMatchObject({progress:1,drawSeconds:0});await expect(page.locator('#briefing-skip')).toHaveText('CONTINUE');await page.locator('.briefing-course-name').click();record=await page.evaluate(()=>window.briefingClosed.at(-1));expect(record).toMatchObject({origin:'pause',skipped:false,closeMethod:'tap'});

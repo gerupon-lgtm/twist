@@ -8,21 +8,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="twist" />
-    <link rel="manifest" href="./manifest.webmanifest?v=0.1.39" />
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.39" />
+    <link rel="manifest" href="./manifest.webmanifest?v=0.1.40" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.40" />
     <meta name="description" content="自分はそのまま、世界を動かす。スマホの動きで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.39" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.40" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
       <div id="ground-edge-warning" class="ground-edge-warning" data-level="clear" aria-hidden="true" hidden></div>
       <header class="topbar">
-        <a class="brand" id="home-link" href="./?v=0.1.39" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <a class="brand" id="home-link" href="./?v=0.1.40" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
         <span class="mode-tag" id="play-mode-label">探索モード</span>
         <details class="feedback-metrics"><summary>計測</summary><p id="feedback-diagnostics" aria-label="操作検証の計測値"></p></details>
-        <span class="version">操作検証 <b>v0.1.39</b></span>
+        <span class="version">操作検証 <b>v0.1.40</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
@@ -130,7 +130,7 @@
         <section class="intro-card" id="intro-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-description">
           <span class="card-symbol" aria-hidden="true">↝</span>
           <p class="card-kicker" id="dialog-kicker">スマホの動きで操作検証</p>
-          <p class="intro-version" id="intro-version">twist <b>v0.1.39</b><span>操作検証版</span></p>
+          <p class="intro-version" id="intro-version">twist <b>v0.1.40</b><span>操作検証版</span></p>
           <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
           <aside id="orientation-notice" class="orientation-notice" role="status" aria-live="polite" hidden><button type="button" aria-label="向き固定の案内を閉じる">×</button><strong data-notice-title></strong><p data-notice-copy></p></aside>
           <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。ピンクの光を3つ集めて出口へ。</p>
@@ -180,7 +180,7 @@
           <p class="installation-advice" id="installation-advice" hidden></p>
           <button class="secondary-button pwa-action" id="install-button" type="button" hidden>ホーム画面に追加</button>
           <button class="secondary-button pwa-action" id="release-screen-button" type="button" hidden>全画面と向き固定を解除</button>
-          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.39" target="_blank" rel="noopener">ブラウザーで開く</a></p>
+          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.40" target="_blank" rel="noopener">ブラウザーで開く</a></p>
           <aside id="update-notice" class="update-notice" role="status" hidden><p>新しい版 <b id="update-version"></b> があります。</p><button id="update-button" type="button">最新版を開く</button></aside>
           <button class="primary-button" id="start-button" type="button">スマホの傾きで始める</button>
           <button class="secondary-button" id="practice-button" type="button">画面で操縦（スマホ傾きは無効）</button>
@@ -205,7 +205,7 @@
             <summary>調整</summary><p id="adjustment-scope-note">機首と旋回の入力角度を別々に調整します。</p>
             <p class="range-help">1回に変える設定は1つだけにすると、効果を比べやすくなります。</p>
             <details id="settings-troubles" class="settings-troubles"><summary>こう感じたら</summary><div id="settings-troubles-list"></div></details>
-            <p class="range-help"><a id="settings-guide-link" href="./settings-guide.html?v=0.1.39" target="_blank" rel="noopener">調整の早見表を開く</a></p>
+            <p class="range-help"><a id="settings-guide-link" href="./settings-guide.html?v=0.1.40" target="_blank" rel="noopener">調整の早見表を開く</a></p>
             <div id="flight-settings-fields"></div>
             <aside id="radar-upgrade-notice" class="update-notice radar-upgrade-notice" role="status" aria-live="polite" hidden><p>ステージが広くなりました。保存中のレーダー半径60mを、新しい初期値180mに更新しますか？</p><button id="radar-upgrade-accept" type="button">180mに更新する（おすすめ）</button><button id="radar-upgrade-keep" type="button">60mのまま使う</button></aside>
             <fieldset class="feedback-settings"><legend>音と振動</legend><div id="feedback-settings-fields"></div><p id="vibration-support"></p><p id="feedback-audio-status"></p><p id="feedback-save-status"></p></fieldset>

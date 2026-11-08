@@ -1,6 +1,6 @@
 import './briefing.css';
 import {APP_VERSION} from './version.js';
-import {BRIEFING_DRAW_SECONDS,briefingProgress,createBriefingModel,fitBriefingMap} from './briefing-model.js';
+import {BRIEFING_DRAW_SECONDS,briefingProgress,createBriefingModel,fitBriefingMap,briefingGridPath} from './briefing-model.js';
 
 const NS='http://www.w3.org/2000/svg';
 let briefingObservationSession=0;
@@ -41,7 +41,7 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
   const mapElement=element.querySelector('#briefing-map'),area=element.querySelector('.briefing-map-area');
   const closeButton=element.querySelector('#briefing-skip'),legend=element.querySelector('.briefing-points'),overview=element.querySelector('#briefing-overview');
   element.querySelector('.briefing-version').textContent=`v${APP_VERSION}`;
-  let active=null,disposed=false,frame=null,routeLine=null,routeTip=null,routeTrace=null,previousFocus=null;
+  let active=null,disposed=false,frame=null,routeLine=null,routeTip=null,routeTrace=null,previousFocus=null,gateNodes=[];
   const now=()=>performance.now();
   const elapsed=()=>active?active.visibleSeconds+(active.visibleAt===null?0:Math.max(0,now()-active.visibleAt)/1000):0;
   const staticMap=()=>active?.reducedMotion||active?.origin==='pause';
@@ -57,16 +57,19 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
   function updateProgress(){
     if(!active)return;
     const seconds=elapsed(),value=staticMap()?1:briefingProgress(seconds);routeLine?.setAttribute('stroke-dashoffset',String(1-value));
-    const tipVisible=Boolean(routeTip&&routeTrace?.length>0&&active.origin==='start'&&!active.reducedMotion&&value>0&&value<1);
+    const tipVisible=Boolean(routeTip&&routeTrace?.length>0&&active.origin==='start'&&!active.reducedMotion&&value<1);
     if(routeTip){
       routeTip.setAttribute('visibility',tipVisible?'visible':'hidden');
       if(tipVisible){
         const distance=value*routeTrace.length;let index=1;
         while(index<routeTrace.points.length-1&&routeTrace.points[index].distance<distance)index++;
         const from=routeTrace.points[index-1],to=routeTrace.points[index],fraction=(distance-from.distance)/(to.distance-from.distance||1);
-        routeTip.setAttribute('cx',String(from.x+(to.x-from.x)*fraction));routeTip.setAttribute('cy',String(from.y+(to.y-from.y)*fraction));
+        const x=from.x+(to.x-from.x)*fraction,y=from.y+(to.y-from.y)*fraction;
+        routeTip.setAttribute('transform',`translate(${x} ${y}) rotate(${Math.atan2(to.y-from.y,to.x-from.x)*180/Math.PI+90})`);
+        routeTip.dataset.nextPoint=to.id;
       }
     }
+    for(const gate of gateNodes)gate.node.dataset.passed=String(!staticMap()&&value>=gate.progress);
     element.dataset.progress=String(value);element.dataset.drawComplete=String(value>=1);
     closeButton.textContent=value>=1?'CONTINUE':'SKIP';
     if(!active.signalOpened&&active.signalPoints){active.signalOpened=true;notify('open',{visibleSeconds:seconds,progress:value});}
@@ -80,16 +83,22 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
   function render(){
     if(!active||disposed)return;
     const rect=mapElement.getBoundingClientRect(),width=Math.max(120,rect.width),height=Math.max(120,rect.height);
-    const map=fitBriefingMap(routeViewModel(active.model),{width,height,padding:30});
+    const map=fitBriefingMap(routeViewModel(active.model),{width,height,padding:38,oblique:true});
     element.dataset.fitPolicy='route-with-whole-context';
+    element.dataset.mapView='oblique';
     mapElement.setAttribute('viewBox',`0 0 ${width} ${height}`);
     mapElement.replaceChildren(svgNode('title',{id:'briefing-map-title'},`${active.model.name} flight map`),
-      svgNode('desc',{id:'briefing-map-description'},'Starting heading points up. Follow the numbered targets to EXIT. The whole-airspace inset preserves the boundary and landmarks. Every point height is listed.'));
+      svgNode('desc',{id:'briefing-map-description'},'An angled route map. A jet follows the numbered targets to EXIT. Height stems connect each point to the ground. The whole-airspace inset preserves the boundary and landmarks.'));
+    mapElement.append(svgNode('path',{d:briefingGridPath(active.model,map),class:'briefing-ground-grid'}));
+    for(const item of map.route){
+      const foot=map.projectGround(item.position);
+      mapElement.append(svgNode('ellipse',{cx:foot.x,cy:foot.y,rx:8,ry:3,class:'briefing-ground-foot'}),svgNode('path',{d:`M${foot.x} ${foot.y}L${item.x} ${item.y}`,class:'briefing-height-stem'}));
+    }
     for(const lane of map.abStraights)mapElement.append(svgNode('path',{d:`${path(lane.corners)}Z`,class:'briefing-ab-lane','data-ab-lane':lane.id}));
     const quietRoute=svgNode('path',{d:map.path,class:'briefing-route-base'});
     routeLine=svgNode('path',{d:map.path,class:'briefing-route',pathLength:1,'stroke-dasharray':'1 1','stroke-dashoffset':1});
     mapElement.append(quietRoute,routeLine);
-    const tracePoints=map.route.map(item=>({x:item.x,y:item.y,distance:0}));
+    const tracePoints=map.route.map(item=>({id:item.id,x:item.x,y:item.y,distance:0}));
     for(let index=1;index<tracePoints.length;index++)tracePoints[index].distance=tracePoints[index-1].distance+Math.hypot(tracePoints[index].x-tracePoints[index-1].x,tracePoints[index].y-tracePoints[index-1].y);
     routeTrace={points:tracePoints,length:tracePoints.at(-1)?.distance??0};
     // Uniform projection preserves these fractions on resize. Reuse the same
@@ -102,18 +111,24 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
       mapElement.append(svgNode('text',{x:landmark.x,y:landmark.y+4,class:'briefing-landmark','text-anchor':'middle','data-landmark':landmark.id},symbol));
     }
     const start=svgNode('g',{transform:`translate(${map.start.x} ${map.start.y})`,'data-map-point':'start',class:'briefing-start'});
-    start.append(svgNode('path',{d:'M0 -8L5.5 6L0 3L-5.5 6Z'}),svgNode('text',{x:0,y:22,'text-anchor':'middle'},'START'));mapElement.append(start);
+    start.append(svgNode('path',{d:'M0 -8L5.5 6L0 3L-5.5 6Z',transform:`rotate(${Math.atan2(-.22,.72)*180/Math.PI})`}),svgNode('text',{x:0,y:22,'text-anchor':'middle'},'START'));mapElement.append(start);
+    gateNodes=[];
     for(const target of map.targets){
       const group=svgNode('g',{transform:`translate(${target.x} ${target.y})`,class:'briefing-target','data-map-point':target.id,'data-collected':target.completed});
-      group.append(svgNode('circle',{r:9}),svgNode('text',{'text-anchor':'middle',y:3.5},String(target.number)));if(target.pointName)group.append(svgNode('text',{'text-anchor':'middle',y:-14},target.pointName));mapElement.append(group);
+      group.append(svgNode('circle',{r:12}),svgNode('text',{'text-anchor':'middle',y:4},String(target.pointName??target.number)));mapElement.append(group);
+      gateNodes.push({node:group,progress:active.signalPoints.find(point=>point.id===target.id).progress});
     }
     const exit=svgNode('g',{transform:`translate(${map.exit.x} ${map.exit.y})`,class:'briefing-exit','data-map-point':'exit','data-collected':map.exit.completed});
     exit.append(svgNode('path',{d:'M-7 -7H7V7H-7Z'}),svgNode('text',{x:0,y:-14,'text-anchor':'middle'},active.model.exit.pointName?`EXIT · ${active.model.exit.pointName}`:'EXIT'));mapElement.append(exit);
     if(map.current){
-      const you=svgNode('g',{transform:`translate(${map.current.x} ${map.current.y}) rotate(${map.current.rotationDegrees})`,class:'briefing-current','data-map-point':'current','data-heading':map.current.heading});
+      const ahead=map.project({...map.current.position,x:map.current.position.x+Math.sin(map.current.heading),z:map.current.position.z-Math.cos(map.current.heading)});
+      const direction=Math.atan2(ahead.y-map.current.y,ahead.x-map.current.x)*180/Math.PI+90;
+      const you=svgNode('g',{transform:`translate(${map.current.x} ${map.current.y}) rotate(${direction})`,class:'briefing-current','data-map-point':'current','data-heading':map.current.heading});
       you.append(svgNode('path',{d:'M0 -11L7 8L0 4L-7 8Z'}));mapElement.append(you);
     }
-    routeTip=svgNode('circle',{r:3.5,class:'briefing-trace-tip','aria-hidden':'true',visibility:'hidden'});mapElement.append(routeTip);
+    routeTip=svgNode('g',{class:'briefing-trace-tip briefing-aircraft','data-aircraft':'jet','aria-hidden':'true',visibility:'hidden'});
+    routeTip.append(svgNode('path',{d:'M0 -19L3 -7L5 -2L17 9L17 12L5 7L5 13L10 18L10 21L2 17L-2 17L-10 21L-10 18L-5 13L-5 7L-17 12L-17 9L-5 -2L-3 -7Z'}),
+      svgNode('path',{d:'M-3 10V16M3 10V16M0 -10V-3',class:'briefing-aircraft-detail'}));mapElement.append(routeTip);
     const reference=element.querySelector('.briefing-map-reference');
     const northSvg=svgNode('svg',{viewBox:'0 0 42 30',width:42,height:30,'aria-label':'North relative to the starting heading',role:'img'});
     const north=svgNode('g',{transform:'translate(21 19)','data-north-heading':active.model.heading,class:'briefing-north'});
@@ -121,7 +136,7 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
     const scaleSvg=svgNode('svg',{viewBox:'0 0 128 30',width:128,height:30,role:'img','aria-label':`${map.scale.label} route scale`});
     const scale=svgNode('g',{transform:'translate(14 24)',class:'briefing-scale','data-scale-metres':map.scale.metres});
     scale.append(svgNode('path',{d:`M0 -4V1H${map.scale.pixels}V-4`}),svgNode('text',{x:map.scale.pixels/2,y:-7,'text-anchor':'middle'},map.scale.label));scaleSvg.append(scale);
-    const headingNote=document.createElement('span');headingNote.textContent='Starting heading up';reference.replaceChildren(northSvg,headingNote,scaleSvg);
+    const headingNote=document.createElement('span');headingNote.textContent='Angled view · route to EXIT';reference.replaceChildren(northSvg,headingNote,scaleSvg);
     const overviewRect=overview.getBoundingClientRect(),contextMap=fitBriefingMap(active.model,{width:Math.max(70,overviewRect.width),height:Math.max(70,overviewRect.height),padding:12});
     overview.setAttribute('viewBox',`0 0 ${contextMap.width} ${contextMap.height}`);overview.replaceChildren(svgNode('path',{d:`${path(contextMap.boundary)}Z`,class:'briefing-boundary'}),svgNode('path',{d:contextMap.path,class:'briefing-overview-route'}));
     for(const landmark of contextMap.landmarks){
@@ -148,7 +163,7 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
     landmarkKey.querySelector('span').textContent=active.model.arena.landmarks.some(item=>item.kind==='tower')?'Tower':'Landmark';
     element.querySelector('.briefing-you-key').hidden=!active.model.current;
     const positionNote=element.querySelector('.briefing-position-note');
-    positionNote.textContent=active.model.current?'Your position and collected targets are shown.':'Starting heading points up.';
+    positionNote.textContent=active.model.current?'Your position and collected targets are shown.':'Ground grid and height stems show the route in an angled view.';
   }
   function close(closeMethod='programmatic'){
     if(!active||disposed)return null;

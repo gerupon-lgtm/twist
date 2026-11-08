@@ -1,6 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {getCourse} from '../src/course-catalog.js';
+import {APP_VERSION} from '../src/version.js';
+const evidenceVersion=APP_VERSION.replaceAll('.','');
 
 // Real Context/Worklet/PCM and product flow. Platform notifications in the two
 // named lifecycle fixtures are emulated; no physical-phone acceptance is inferred.
@@ -42,12 +44,15 @@ const introHistory=page=>page.evaluate(()=>briefingNative.received.findLast(row=
 async function evidence(page,name,errors){await mkdir('.cache',{recursive:true});
   const value=await page.evaluate(()=>({posts:briefingNative.posts,received:briefingNative.received,vibrations:briefingNative.vibrations,
     contexts:briefingNative.contexts.map(context=>({state:context.state,time:context.currentTime,rate:context.sampleRate})),map:{progress:document.getElementById('briefing-panel')?.dataset.progress,complete:document.getElementById('briefing-panel')?.dataset.drawComplete}}));
-  await writeFile(`.cache/v0137-briefing-native-${name}.json`,JSON.stringify({...value,state:await read(page),errors},null,2));expect(errors).toEqual([]);
+  await writeFile(`.cache/v${evidenceVersion}-briefing-native-${name}.json`,JSON.stringify({...value,state:await read(page),errors},null,2));expect(errors).toEqual([]);
 }
-function milestones(id){const course=getCourse(id),points=[course.start,...course.lights,course.exit];let total=0;const lengths=[0];
-  for(let i=1;i<points.length;i++){total+=Math.hypot(points[i].x-points[i-1].x,points[i].z-points[i-1].z);lengths.push(total);}
-  return lengths.slice(1).map(value=>value/total*3.6);
-}
+// Compare audio with the actual visible route, whose angled projection now
+// includes height. Pure coordinate correctness is tested separately.
+async function milestones(page){return page.locator('#briefing-map').evaluate(svg=>{
+ const points=[...svg.querySelectorAll('[data-map-point]:not([data-map-point="current"])')].map(node=>{const m=node.transform.baseVal.consolidate().matrix;return {x:m.e,y:m.f};});
+ let total=0;const lengths=[0];for(let i=1;i<points.length;i++){total+=Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y);lengths.push(total);}
+ return lengths.slice(1).map(value=>value/total*3.6);
+});}
 const nonzeroVibrations=page=>page.evaluate(()=>briefingNative.vibrations.filter(({pattern})=>Array.isArray(pattern)?pattern.some(value=>value>0):pattern>0).length);
 
 for(const [id,rate]of [['easy',44100],['normal',48000],['hard',48000],['supersonic',48000]])test(`native ready ${id} intro follows its real route with one ${rate}Hz Context and no flight/BGM/haptics`,async({page})=>{
@@ -58,7 +63,7 @@ for(const [id,rate]of [['easy',44100],['normal',48000],['hard',48000],['superson
     const history=await introHistory(page),count=getCourse(id).lights.length;
     expect(history.map(row=>row.kind)).toEqual(['opening',...Array(count).fill('point'),'complete']);
     expect(history.filter(row=>row.kind==='point').map(row=>row.index)).toEqual(Array.from({length:count},(_,index)=>index));
-    const posts=await page.evaluate(()=>briefingNative.posts),dues=milestones(id);
+    const posts=await page.evaluate(()=>briefingNative.posts),dues=await milestones(page);
     expect(posts.filter(row=>row.type==='musicReg')).toEqual([]);
     for(const post of posts.filter(row=>row.type==='briefingTone')){const due=post.kind==='opening'?0:post.kind==='complete'?3.6:dues[post.index];
       expect(post.visibleSeconds-due).toBeGreaterThanOrEqual(-.000001);expect(post.visibleSeconds-due).toBeLessThanOrEqual(.100001);}
@@ -107,9 +112,9 @@ test('native late module preparation consumes past targets and never replays the
   test.setTimeout(16000);const errors=await boot(page,{moduleDelay:700}),id='late-'+Date.now();
   try{await openMap(page);await expect(map(page)).toHaveAttribute('data-draw-complete','true',{timeout:5000});
     await expect.poll(async()=>(await introHistory(page)).at(-1)?.kind,{timeout:2000}).toBe('complete');
-    const history=await introHistory(page),posts=await page.evaluate(()=>briefingNative.posts),begin=posts.find(row=>row.type==='briefingBegin');
+    const history=await introHistory(page),posts=await page.evaluate(()=>briefingNative.posts),begin=posts.find(row=>row.type==='briefingBegin'),dues=await milestones(page);
     expect(begin.visibleSeconds).toBeGreaterThan(.1);expect(history.some(row=>row.kind==='opening')).toBe(false);
-    for(const post of posts.filter(row=>row.type==='briefingTone')){const due=post.kind==='complete'?3.6:milestones('easy')[post.index];expect(post.visibleSeconds-due).toBeLessThanOrEqual(.100001);}
+    for(const post of posts.filter(row=>row.type==='briefingTone')){const due=post.kind==='complete'?3.6:dues[post.index];expect(post.visibleSeconds-due).toBeLessThanOrEqual(.100001);}
     await page.locator('#briefing-skip').click();await evidence(page,id,errors);
   }finally{await evidence(page,id+'-diagnostic',errors);}
 });
