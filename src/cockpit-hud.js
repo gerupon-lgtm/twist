@@ -5,6 +5,7 @@ import { verticalSpeedIndicator } from './cockpit-aids.js';
 import { viewportInsets } from './viewport-insets.js';
 import { heightBandSvg } from './target-height-panel.js';
 import { hudText, hudCockpitWarning, normalizeHudLanguage } from './hud-text.js';
+import {formatSupersonicAltitude} from './supersonic-presentation.js';
 
 const $ = id => document.getElementById(id);
 const point = p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
@@ -59,15 +60,18 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   const language = normalizeHudLanguage(settings.hudLanguage);
   root.setAttribute('aria-label', language === 'ja' ? '操縦席の飛行表示' : 'FLIGHT HUD');
   const { w,h,compassY,powerY,insets } = layout;
-  const readings = cockpitReadings(state);
-  const tape = (value,step,label,unit,extra='') => {
+  const readings = cockpitReadings(state.supersonic?{...state,groundClearance:Number.isFinite(state.altitude)?state.altitude:state.position?.y}:state);
+  const altitudeFormat=state.supersonic?formatSupersonicAltitude:format;
+  const tape = (value,step,label,unit,extra='',display=format) => {
     const base = Math.round(value/step)*step;
-    return `<span>${label} ${unit}</span><small>${Math.max(0,base+step)}</small><strong>${format(value)}</strong><small>${Math.max(0,base-step)}</small>${extra}`;
+    return `<span>${label} ${unit}</span><small>${display===format?Math.max(0,base+step):display(Math.max(0,base+step))}</small><strong>${display(value)}</strong><small>${display===format?Math.max(0,base-step):display(Math.max(0,base-step))}</small>${extra}`;
   };
   $('cockpit-speed').innerHTML = tape(convertSpeed(readings.speed,settings.speedUnit),normalizeSpeedUnit(settings.speedUnit)==='km/h'?10:normalizeSpeedUnit(settings.speedUnit)==='kt'?5:2,hudText(language,'speed'),normalizeSpeedUnit(settings.speedUnit));
   $('cockpit-altitude').innerHTML = heightGuide
-    ? `<span>${hudText(language,'altitude')} m</span><div class="height-tape-scale">${heightBandSvg(heightGuide)}<strong style="top:${Math.max(16,Math.min(84,heightGuide.scale.currentY))}%">${format(readings.altitude)}</strong></div>`
-    : tape(readings.altitude,5,hudText(language,'altitude'),'m');
+    ? `<span>${hudText(language,'altitude')} m</span><div class="height-tape-scale">${heightBandSvg(heightGuide,false,Boolean(state.supersonic))}<strong style="top:${Math.max(16,Math.min(84,heightGuide.scale.currentY))}%">${altitudeFormat(readings.altitude)}</strong></div>`
+    : tape(readings.altitude,5,hudText(language,'altitude'),'m','',altitudeFormat);
+  if(state.supersonic){$('cockpit-altitude').setAttribute('aria-label',`ALT ${readings.altitude.toFixed(1)} m`);$('cockpit-altitude').dataset.supersonic='true';}
+  else if($('cockpit-altitude').dataset.supersonic){$('cockpit-altitude').removeAttribute('aria-label');delete $('cockpit-altitude').dataset.supersonic;}
   $('cockpit-altitude').dataset.heightState=heightGuide?.inside?'inside':heightGuide?.urgent?'urgent':'outside';
   const vario=verticalSpeedIndicator(readings.verticalSpeed),center=50,tip=center+(vario.direction==='up'?-vario.length:vario.length);
   const bar=vario.length?`<path class="vario-bar" d="M8,${center}V${tip}"/><path d="M3,${tip+(vario.direction==='up'?6:-6)}L8,${tip}L13,${tip+(vario.direction==='up'?6:-6)}"/>`:'';
@@ -80,7 +84,7 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   $('cockpit-heading').innerHTML = language==='ja'
     ? `<span>${(heading+350)%360} ┃ ${(heading+355)%360} ┃ <strong>${heading%360}°</strong> ┃ ${(heading+5)%360} ┃ ${(heading+10)%360}</span>`
     : `<span>HDG ${(heading+350)%360}│${(heading+355)%360}│<strong>${heading%360}°</strong>│${(heading+5)%360}│${(heading+10)%360}</span>`;
-  const ground = getGroundProximity(state);
+  const ground = getGroundProximity(state.supersonic?{...state,altitude:state.groundClearance}:state);
   const warning = hudCockpitWarning(state,ground,language);
   const power=$('cockpit-power'),warningMarkup=`<span>${warning}</span>`;
   if(power.innerHTML!==warningMarkup)power.innerHTML=warningMarkup;

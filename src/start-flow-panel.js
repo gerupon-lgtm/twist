@@ -116,14 +116,14 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     refreshPlayControls();
   }
   function setCourses(value=[]){
-    cards=Array.isArray(value)?value:[];const list=$('start-flow-course-cards');list.replaceChildren();
+    cards=Array.isArray(value)?value:[];const list=$('start-flow-course-cards');list.replaceChildren();list.dataset.courseCount=String(cards.length);
     for(const card of cards){
       const element=document.createElement('button');element.type='button';element.className='flow-course-card';element.dataset.flowAction='course-select';element.dataset.courseId=card.id;element.setAttribute('aria-pressed',String(card.id===selectedCourseId));
       const picture=document.createElement('span');picture.className='flow-course-preview';picture.setAttribute('aria-hidden','true');const preview=card.previewSvg??card.previewSVG;
       if(typeof preview==='string')picture.innerHTML=preview;else if(preview?.cloneNode)picture.append(preview.cloneNode(true));
       const description=document.createElement('span');description.className='flow-course-description';
       const title=document.createElement('strong');title.textContent=card.name;
-      const hint=document.createElement('span');hint.textContent=`光${card.targetCount??''}個${card.timeHint?` · ${card.timeHint}`:''}`;
+      const hint=document.createElement('span');hint.textContent=card.detail??`光${card.targetCount??''}個${card.timeHint?` · ${card.timeHint}`:''}`;
       const best=document.createElement('small');best.className='flow-course-best';best.textContent=card.bestLabel??(Number.isFinite(card.bestSeconds)?`自己ベスト ${card.bestSeconds.toFixed(1)}秒`:'自己ベスト まだ記録なし');description.append(title,hint,best);element.append(picture,description);list.append(element);
     }
   }

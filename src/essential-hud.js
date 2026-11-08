@@ -27,7 +27,19 @@ export function updateEssentialHud(state,{phase,mode,camera,language='en'}={}){
   const proposed={left:safe.left+12,right:safe.left+88,top:top+124,bottom:top+124+speedCard.getBoundingClientRect().height};
   const coveredByExploreInputs=!flight&&proposed.left<controls.right&&proposed.right>controls.left&&proposed.top<controls.bottom&&proposed.bottom+8>controls.top;
   const besideRadar=innerWidth>=600&&innerHeight<=500||coveredByExploreInputs;
-  Object.assign(speedCard.style,{left:`${safe.left+(besideRadar?124:12)}px`,top:`${top+(besideRadar?12:124)}px`});
+  // The chase camera looks down, so its real travel/steering marks sit high.
+  // Keep the ordinary speed card below that corridor instead of weakening a
+  // safe steering command to squeeze its ring around the card. Sonic's M/G
+  // cluster retains its separately checked layout.
+  const speedLeft=safe.left+(besideRadar?124:12),practice=$('practice-panel'),practiceBox=practice?.getBoundingClientRect();
+  // Wide practice controls occupy a separate left-hand panel, higher than THR.
+  // A display:contents panel has no box and does not constrain portrait flight.
+  const aboveControls=practiceBox?.width>0&&practiceBox.height>0&&!practice.hidden
+    &&speedLeft<practiceBox.right&&speedLeft+76>practiceBox.left?Math.min(controls.top,practiceBox.top):controls.top;
+  const speedTop=flight&&camera==='chase'&&!state.supersonic
+    ?Math.max(top+12,Math.min(innerHeight*.55,aboveControls-speedCard.getBoundingClientRect().height-12))
+    :top+(besideRadar?12:124);
+  Object.assign(speedCard.style,{left:`${speedLeft}px`,top:`${speedTop}px`});
   Object.assign($('flight-essential-altitude').style,{left:`${innerWidth-safe.right-104}px`,top:`${top+12}px`,width:'92px'});
   if(!flight)$('app').style.setProperty('--explore-toast-bottom',`${Math.max(12,innerHeight-$('bottom-panel').getBoundingClientRect().top+10)}px`);
 }

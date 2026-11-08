@@ -1,4 +1,6 @@
 import workletUrl from './audio-worklet.js?worker&url';
+import {validSonicTransition} from './supersonic-model.js';
+import {COUNTDOWN_AUDIO,validCountdownSession,validCountdownCue} from './countdown-audio.js';
 
 /** AudioContext construction/resume happens only through an explicit start click. */
 export function createGameAudio(){
@@ -6,8 +8,9 @@ export function createGameAudio(){
   let load=0,maxLoad=0,peak=0,musicActive=false,varioActive=false;
   let musicSchedule=null;
   let lastEvent=null;
-  let navigationAcknowledged=null,afterburnerAcknowledged=null,passbyAcknowledged=null;
+  let navigationAcknowledged=null,afterburnerAcknowledged=null,passbyAcknowledged=null,sonicAcknowledged=null;
   let musicPending=[],musicFlush=false,scheduleTime=null;
+  let countdownSession=null,countdownAcknowledged=null,countdownPreparation=null;
   const cancelledMusicTags=new Set();
   const post=m=>node?.port.postMessage(m);
   async function unlock(){
@@ -29,11 +32,13 @@ export function createGameAudio(){
             if(data.navigation)navigationAcknowledged=data.navigation;
             if(data.afterburner)afterburnerAcknowledged=data.afterburner;
             if(data.passby)passbyAcknowledged=data.passby;
+            if(data.sonic)sonicAcknowledged=data.sonic;
+            if(data.countdown)countdownAcknowledged=data.countdown;
           };
           poll=setInterval(()=>post({type:'poll'}),1000);
         }
         status='ready';
-        if(wanted){if(lastState)post(lastState);}else await context.suspend();
+        if(wanted||countdownSession){if(wanted&&lastState)post(lastState);}else await context.suspend();
       })().catch(()=>{status='unavailable';clearInterval(poll);node?.disconnect();node=null;}).finally(()=>{pending=null;});
       await pending;
     }catch{status='unavailable';}
@@ -43,12 +48,56 @@ export function createGameAudio(){
     musicPending.push({addr,value,at,tag});
     if(!musicFlush){musicFlush=true;queueMicrotask(()=>{musicFlush=false;const writes=musicPending.filter(w=>!cancelledMusicTags.has(w.tag));musicPending=[];if(writes.length)post({type:'musicReg',writes});});}
   }
+  function cancelCountdown(session){
+    if(!countdownSession||(session!==undefined&&session!==countdownSession.id))return;
+    const id=countdownSession.id;countdownSession=null;post({type:'countdownCancel',session:id});
+    if(!wanted)context?.suspend().catch(()=>{});
+  }
+  const countdownVisible=()=>typeof document==='undefined'||!document.hidden;
+  const countdownReady=record=>record===countdownSession&&!disposed&&Boolean(node)&&context?.state==='running'&&countdownVisible();
+  function beginCountdownBus(record,settings){
+    if(!countdownReady(record)||!settings.sound||!settings.sfx||settings.volume<=0)return false;
+    if(!record.begun){post({type:'settings',settings});post({type:'countdownBegin',session:record.id});record.begun=true;}
+    return true;
+  }
+  function prepareCountdown(session,settings){
+    cancelCountdown();
+    if(!validCountdownSession(session))return {ready:false,waitMilliseconds:0,reason:'invalid'};
+    const record={id:session,begun:false,seen:new Set()};countdownSession=record;
+    const started=performance.now();
+    const finish=()=>{
+      const ready=beginCountdownBus(record,settings);
+      const result={session,ready,waitMilliseconds:Math.max(0,performance.now()-started),reason:record!==countdownSession?'cancelled':ready?'ready':'unavailable'};
+      if(record===countdownSession)countdownPreparation=result;return result;
+    };
+    if(!settings.sound||!settings.sfx||settings.volume<=0||!context||disposed||!countdownVisible())return finish();
+    // Queue this explicit countdown's resume after halt's suspension, before
+    // awaiting the older unlock. No tone is retained across the bounded wait.
+    let timer;
+    const timeout=new Promise(resolve=>{timer=setTimeout(resolve,COUNTDOWN_AUDIO.prepareTimeoutMs);});
+    const loading=pending;
+    const resuming=Promise.resolve(context.resume()).catch(()=>{}).then(()=>{
+      if(!wanted&&!countdownSession)return context?.suspend().catch(()=>{});
+    });
+    const preparation=Promise.all([loading,resuming]);
+    return Promise.race([preparation,timeout]).then(finish,finish).finally(()=>clearTimeout(timer));
+  }
   return {
     unlock,
+    prepareCountdown,
+    countdownTone(session,cue,settings){
+      const record=countdownSession;
+      if(!record||record.id!==session||!validCountdownCue(cue)||record.seen.has(cue))return false;
+      record.seen.add(cue); // A missed/unready beat is consumed, never retried.
+      if(cue==='go'?!wanted:wanted)return false;
+      if(!beginCountdownBus(record,settings))return false;
+      post({type:'countdownTone',session,cue,launched:wanted,expiresAt:context.currentTime+.1});return true;
+    },
+    cancelCountdown,
     async waitForReady(){if(pending)await pending;return Boolean(node);},
     musicReady:()=>Boolean(node),
     resume:()=>context?context.resume():Promise.resolve(),
-    suspendIfIdle(){if(!wanted)context?.suspend().catch(()=>{});},
+    suspendIfIdle(){if(!wanted&&!countdownSession)context?.suspend().catch(()=>{});},
     musicClock:{
       now:()=>context?.currentTime||0,
       setScheduleTime(time){scheduleTime=time;},
@@ -73,12 +122,19 @@ export function createGameAudio(){
       if(!payload||!['speed','distance','side'].every(key=>Number.isFinite(payload[key])))return;
       post({type:'passby',payload:{id:String(payload.id??''),speed:payload.speed,distance:payload.distance,side:payload.side},settings});
     },
-    stop(){generation++;musicPending=[];wanted=false;varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop'});context?.suspend().catch(()=>{});},
+    sonicTransition(event,settings){
+      // Never resume or await an unavailable context for a transient crossing.
+      if(!node||!wanted||context?.state!=='running'||!settings.sound||!settings.sfx||!validSonicTransition(event))return false;
+      post({type:'sonic',event:{...event},settings});return true;
+    },
+    stop(){generation++;musicPending=[];wanted=false;cancelCountdown();varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop'});context?.suspend().catch(()=>{});},
     snapshot:()=>({status,load,maxLoad,peak,musicActive,varioActive,lastEvent,contextState:context?.state||'none',workletReady:Boolean(node),musicSchedule:musicSchedule?{...musicSchedule}:null,
       afterburner:{requested:lastState?.model?.afterburner?{...lastState.model.afterburner}:null,acknowledged:afterburnerAcknowledged?{...afterburnerAcknowledged}:null},
       passby:passbyAcknowledged?{...passbyAcknowledged}:null,
+      sonic:sonicAcknowledged?{...sonicAcknowledged}:null,
+      countdown:{session:countdownSession?.id??null,preparation:countdownPreparation?{...countdownPreparation}:null,acknowledged:countdownAcknowledged?structuredClone(countdownAcknowledged):null},
       navigation:{requested:lastState?.navigation?{...lastState.navigation}:null,acknowledged:navigationAcknowledged?{...navigationAcknowledged}:null}}),
     resetMetrics(){load=0;maxLoad=0;peak=0;post({type:'resetMetrics'});},
-    dispose(){disposed=true;generation++;wanted=false;musicPending=[];clearInterval(poll);clearTimeout(eventTimer);node?.disconnect();node=null;return context?.close().catch(()=>{})??Promise.resolve();},
+    dispose(){disposed=true;generation++;wanted=false;cancelCountdown();musicPending=[];clearInterval(poll);clearTimeout(eventTimer);node?.disconnect();node=null;return context?.close().catch(()=>{})??Promise.resolve();},
   };
 }

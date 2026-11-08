@@ -1,8 +1,9 @@
 import {projectCockpitObjective,placeObjectiveLabel} from './cockpit-objective.js';
 import { hudTargetLabel, hudHeightDelta, normalizeHudLanguage } from './hud-text.js';
+import {formatNavigationDistance} from './supersonic-units.js';
 const $=id=>document.getElementById(id);
 let geometry=null,drawnShape='';
-export function layoutCockpitObjective(layout) {
+export function layoutCockpitObjective(layout,extraObstacles=[]) {
   geometry=null;if(!layout)return;
   const {w,h,compassY,powerY,insets}=layout;
   const top=compassY+($('cockpit-exit-notice').hidden?70:98);
@@ -10,7 +11,7 @@ export function layoutCockpitObjective(layout) {
   const bounds={left:area.left+17,right:area.right-17,top:area.top+17,bottom:area.bottom-17};
   const obstacles=['start-flow-view-button','radar','flight-essential-speed','flight-essential-altitude','cockpit-speed','cockpit-altitude','cockpit-vario','cockpit-heading','cockpit-target-height','cockpit-exit-notice','practice-panel']
     .map($).filter(el=>el&&!el.hidden&&el.getClientRects().length).map(el=>el.getBoundingClientRect());
-  geometry={w,h,area,bounds,obstacles};
+  geometry={w,h,area,bounds,obstacles:[...obstacles,...extraObstacles]};
 }
 export function updateCockpitObjective(state,active,{language='en'}={}) {
   const svg=$('cockpit-objective'),label=$('cockpit-objective-label');
@@ -31,7 +32,7 @@ export function updateCockpitObjective(state,active,{language='en'}={}) {
   const height=hudHeightDelta(delta,language);
   const suffix=normalizeHudLanguage(language)==='ja'?(mark.behind?'・後ろ':mark.occluded?'・表示の奥':mark.kind==='edge'?'・表示域外':''):'';
   const name=`${hudTargetLabel(state,language)}${suffix}`;
-  const detail=`${Math.round(state.distance)}m　${height}`;
+  const detail=`${formatNavigationDistance(state.distance,Boolean(state.supersonic))}　${height}`;
   const text=`${name} ${detail}`;svg.setAttribute('aria-label',text);
   const placement=placeObjectiveLabel(mark,{bounds:area,obstacles});
   label.hidden=!placement;

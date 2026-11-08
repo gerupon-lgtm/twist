@@ -8,21 +8,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="twist" />
-    <link rel="manifest" href="./manifest.webmanifest?v=0.1.31" />
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.31" />
+    <link rel="manifest" href="./manifest.webmanifest?v=0.1.32" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.32" />
     <meta name="description" content="自分はそのまま、世界を動かす。スマホの動きで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.31" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.32" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
       <div id="ground-edge-warning" class="ground-edge-warning" data-level="clear" aria-hidden="true" hidden></div>
       <header class="topbar">
-        <a class="brand" id="home-link" href="./?v=0.1.31" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <a class="brand" id="home-link" href="./?v=0.1.32" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
         <span class="mode-tag" id="play-mode-label">探索モード</span>
         <details class="feedback-metrics"><summary>計測</summary><p id="feedback-diagnostics" aria-label="操作検証の計測値"></p></details>
-        <span class="version">操作検証 <b>v0.1.31</b></span>
+        <span class="version">操作検証 <b>v0.1.32</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
@@ -130,7 +130,7 @@
         <section class="intro-card" id="intro-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-description">
           <span class="card-symbol" aria-hidden="true">↝</span>
           <p class="card-kicker" id="dialog-kicker">スマホの動きで操作検証</p>
-          <p class="intro-version" id="intro-version">twist <b>v0.1.31</b><span>操作検証版</span></p>
+          <p class="intro-version" id="intro-version">twist <b>v0.1.32</b><span>操作検証版</span></p>
           <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
           <aside id="orientation-notice" class="orientation-notice" role="status" aria-live="polite" hidden><button type="button" aria-label="向き固定の案内を閉じる">×</button><strong data-notice-title></strong><p data-notice-copy></p></aside>
           <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。ピンクの光を3つ集めて出口へ。</p>
@@ -180,7 +180,7 @@
           <p class="installation-advice" id="installation-advice" hidden></p>
           <button class="secondary-button pwa-action" id="install-button" type="button" hidden>ホーム画面に追加</button>
           <button class="secondary-button pwa-action" id="release-screen-button" type="button" hidden>全画面と向き固定を解除</button>
-          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.31" target="_blank" rel="noopener">ブラウザーで開く</a></p>
+          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.32" target="_blank" rel="noopener">ブラウザーで開く</a></p>
           <aside id="update-notice" class="update-notice" role="status" hidden><p>新しい版 <b id="update-version"></b> があります。</p><button id="update-button" type="button">最新版を開く</button></aside>
           <button class="primary-button" id="start-button" type="button">スマホの傾きで始める</button>
           <button class="secondary-button" id="practice-button" type="button">画面で操縦（スマホ傾きは無効）</button>
@@ -205,19 +205,41 @@
             <summary>調整</summary><p id="adjustment-scope-note">機首と旋回の入力角度を別々に調整します。</p>
             <p class="range-help">1回に変える設定は1つだけにすると、効果を比べやすくなります。</p>
             <details id="settings-troubles" class="settings-troubles"><summary>こう感じたら</summary><div id="settings-troubles-list"></div></details>
-            <p class="range-help"><a id="settings-guide-link" href="./settings-guide.html?v=0.1.31" target="_blank" rel="noopener">調整の早見表を開く</a></p>
+            <p class="range-help"><a id="settings-guide-link" href="./settings-guide.html?v=0.1.32" target="_blank" rel="noopener">調整の早見表を開く</a></p>
             <div id="flight-settings-fields"></div>
             <aside id="radar-upgrade-notice" class="update-notice radar-upgrade-notice" role="status" aria-live="polite" hidden><p>ステージが広くなりました。保存中のレーダー半径60mを、新しい初期値180mに更新しますか？</p><button id="radar-upgrade-accept" type="button">180mに更新する（おすすめ）</button><button id="radar-upgrade-keep" type="button">60mのまま使う</button></aside>
             <fieldset class="feedback-settings"><legend>音と振動</legend><div id="feedback-settings-fields"></div><p id="vibration-support"></p><p id="feedback-audio-status"></p><p id="feedback-save-status"></p></fieldset>
-            <!-- 調整パネル内のヘルプへ挿入。設定項目名・操作ボタン・結果の説明文は日本語を保つ。 -->
+<details id="hud-visual-help" class="settings-troubles">
+  <summary>目標と進路の印（図で見る）</summary>
+  <p class="range-help">見失い対策の表示を例にしています。白い印を、青い輪へ近づけます。</p>
+  <svg viewBox="0 0 360 170" width="100%" role="img" aria-labelledby="hud-visual-title" aria-describedby="hud-visual-description">
+    <title id="hud-visual-title">白い実進路を青い案内へ近づける</title>
+    <desc id="hud-visual-description">白い円と短い棒は実際に進む方向。青い輪は今向けたい進路。ピンクのひし形は目標の場所を示し、青い輪とは重ならないことがあります。</desc>
+    <rect width="360" height="170" rx="10" fill="#183346"/>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g transform="translate(78 94)" stroke="#ffffff" stroke-width="2.5"><circle r="8"/><path d="M-21,0H-8 M8,0H21 M0,-8V-18"/></g>
+      <path d="M115 94H167m-8-7 8 7-8 7" stroke="#c9eff6" stroke-width="2"/>
+      <g transform="translate(206 94)" stroke="#54e5ff" stroke-width="3"><circle r="22"/><path d="M-29,0H-23 M23,0H29 M0,-29V-23 M0,23V29"/></g>
+      <g transform="translate(303 42)" stroke="#ff8ccb" stroke-width="2.5"><path d="M0,-14L14,0 0,14 -14,0Z M-3,0H3 M0,-3V3"/></g>
+    </g>
+    <g font-family="sans-serif" font-size="12" text-anchor="middle">
+      <text x="140" y="47" fill="#ffffff">白を青へ近づける</text>
+      <text x="78" y="144" fill="#ffffff">今の進行方向</text>
+      <text x="206" y="144" fill="#54e5ff">向けたい進路</text>
+      <text x="303" y="80" fill="#ff8ccb">目標の場所</text>
+    </g>
+  </svg>
+  <p class="range-help">青は進路の案内、ピンクは目標の場所です。曲がり方の案内や追尾カメラの位置によって、重ならないことがあります。白を青へ合わせた後も飛行を続け、目標の近くを通ると取得します。進路が合うと輪は緑になり、一度離れた白を輪へ合わせ直すと短く光ります。</p>
+</details>
+            <!-- 設定項目名・操作ボタン・結果の説明文は日本語を保つ。 -->
 <details class="settings-troubles">
   <summary>HUDの略語と記号</summary>
   <p class="range-help">HUDは飛行中に重ねて出る表示です。「HUDの表記」で英語と日本語を切り替えられます。</p>
   <p class="range-help">TGT＝次の目標（光）、EXIT＝出口、NEXT＝次の目標への案内、EXIT OPEN＝出口が開いた合図。</p>
-  <p class="range-help">SPD＝速さ（m/s）、ALT＝高度・地面までの高さ（m）、V/S＝昇降速度（m/s）、HDG＝向いている方位（度）、THR＝エンジン出力（%）、BANK＝翼の傾き。</p>
-  <p class="range-help">NOSE＝機首の印、FPM＝実際に進んでいる方向の印、FD＝目標へ向かう輪。輪にFPMを重ねると、目標へ向かう目安になります。TRK＝レーダーの上方向（今の進行方向）。</p>
+  <p class="range-help">SPD＝速さ（設定でkm/h・m/s・kt）、ALT＝高度、V/S＝昇降速度（m/s）、HDG＝向いている方位（度）、THR＝エンジン出力（%）、BANK＝翼の傾き。高速空域ではM＝速さ÷340m/s、G＝今使っている力、1.5k＝1500mです。</p>
+  <p class="range-help">NOSE＝機首の印、FPM＝実際に進んでいる方向の印（白）、FD＝今向けたい進路を示す青い輪。白を青へ近づけます。ピンクは目標の場所で、青が常にピンクを囲むわけではありません。TRK＝レーダーの上方向（今の進行方向）。</p>
   <p class="range-help">TGT ALT＝目標の高度、▲ ＋＝今より上、▼ −＝今より下、ALT OK＝取れる高さの範囲、CLIMB＝上昇の目安、DESCEND＝下降の目安。左右・前後は矢印の向きで確認します。</p>
-  <p class="range-help">TERRAIN＝地面に注意、PULL UP＝地面が近く機首上げを促す警告、STALL＝失速からの復帰補助中、INPUT HOLD＝入力保持中、WINGS LEVEL＝中立で翼を水平へ戻す案内。</p>
+  <p class="range-help">TERRAIN＝地面や海面に注意、PULL UP＝接近していて機首上げを促す警告、STALL＝失速（復帰補助の有無とは別）、INPUT HOLD＝入力保持中、WINGS LEVEL＝中立で翼を水平へ戻す案内。高速空域のALTは中心の高度で、翼などの海面までの余裕は別です。</p>
   <p class="range-help">FPM OUT OF VIEW＝進行方向は画面外、FPM OBSCURED＝進行方向の印は計器の奥、FPM WHEN MOVING＝移動を始めると進行方向を表示、LEVEL TO SHOW GUIDANCE＝姿勢を水平に戻すと案内を表示。</p>
 </details>
 

@@ -1,4 +1,4 @@
-import {getCourse,normalizeCourseId} from './course.js';
+import {getCourse,normalizeCourseId} from './course-catalog.js';
 
 export const COURSE_STORAGE_KEY='twist.course.v1';
 const validId=id=>typeof id==='string'&&normalizeCourseId(id)===id&&getCourse(id).id===id;

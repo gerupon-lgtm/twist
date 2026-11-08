@@ -46,6 +46,7 @@
 .app[data-start-flow=on] .flow-diagram-knob{fill:#117f97;stroke:#edf6f3;stroke-width:5}
 .app[data-start-flow=on] .flow-courses{grid-template-rows:auto minmax(0,1fr) auto auto;gap:12px}
 .app[data-start-flow=on] .flow-course-cards{min-height:0;display:grid;grid-template-rows:repeat(3,minmax(0,1fr));gap:10px}
+.app[data-start-flow=on] .flow-course-cards[data-course-count="4"]{grid-template-rows:repeat(4,minmax(0,1fr))}
 .app[data-start-flow=on] .flow-course-card{display:grid;grid-template-columns:100px minmax(0,1fr);align-items:center;gap:14px;width:100%;min-height:0;text-align:left;border:1px solid #b8cfd5;border-radius:14px;background:#f6faf8;padding:10px 12px;color:#25485a}
 .app[data-start-flow=on] .flow-course-card[aria-pressed=true]{border:2px solid #117f97;padding:9px 11px;background:#edf8f6}
 .app[data-start-flow=on] .flow-course-preview{min-width:0;min-height:0;display:grid;place-items:center;height:100%;max-height:130px}
@@ -94,6 +95,8 @@
 .app[data-start-flow=on] .flow-result-summary .result-readings>div{padding:18px 8px;background:#f8fcf9;border:1px solid #c0d9d9;border-radius:12px}
 .app[data-start-flow=on] .flow-result-summary dt{font-size:12px;color:#5e7c88}
 .app[data-start-flow=on] .flow-result-summary dd{margin:7px 0 0;font-size:27px;font-weight:650;color:#117f97;font-variant-numeric:tabular-nums}
+.app[data-start-flow=on] .flow-result-summary #result-supersonic-summary{grid-column:1/-1;padding:8px 10px}
+.app[data-start-flow=on] .flow-result-summary #result-supersonic-summary dd{font-size:14px;line-height:1.4;margin-top:4px;white-space:pre-line}
 .app[data-start-flow=on] .flow-result-summary>small{font-size:12px;color:#117f97}
 .app[data-start-flow=on] .flow-result-summary .result-outcome{font-size:13px;color:#117f97;margin:0 0 5px}
 .app[data-start-flow=on] .flow-result-actions{display:grid;gap:8px}
@@ -184,6 +187,10 @@
  .app[data-start-flow=on] .flow-tutorial h2{font-size:22px}
  .app[data-start-flow=on] .flow-courses{grid-template-rows:auto minmax(0,1fr) 44px 46px;gap:8px}
  .app[data-start-flow=on] .flow-course-cards{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:1fr;gap:10px}
+ .app[data-start-flow=on] .flow-course-cards[data-course-count="4"]{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:8px}
+ .app[data-start-flow=on] .flow-course-cards[data-course-count="4"] .flow-course-card{grid-template-columns:64px minmax(0,1fr);gap:8px;padding:5px 8px}
+ .app[data-start-flow=on] .flow-course-cards[data-course-count="4"] .flow-course-card[aria-pressed=true]{padding:4px 7px}
+ .app[data-start-flow=on] .flow-course-cards[data-course-count="4"] .flow-course-description{gap:1px}
  .app[data-start-flow=on] .flow-course-card{grid-template-columns:74px minmax(0,1fr);padding:8px;gap:10px}
  .app[data-start-flow=on] .flow-course-card[aria-pressed=true]{padding:7px}
  .app[data-start-flow=on] .flow-course-description strong{font-size:16px}

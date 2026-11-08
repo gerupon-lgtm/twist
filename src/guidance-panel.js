@@ -1,5 +1,8 @@
 import {Vector3} from 'three';
 import {computeDirectionGuidance,headingTargetCue,trueScreenEdge} from './guidance.js';
+import {computeSupersonicGuidance} from './supersonic-guidance.js';
+import {advanceSupersonicGuidanceDirection} from './supersonic-guidance-stability.js';
+import {createGuidanceAlignmentFeedback} from './guidance-alignment-feedback.js';
 import {createGuidanceProjection,placeGuidanceCenter,guidanceDirectionAllowed,guidanceSafeDirections,clampGuidanceDirection} from './guidance-layout.js';
 import {advanceGuidanceTurn} from './guidance-stability.js';
 import {normalizeHudLanguage,hudText,hudTargetLabel,hudHeightDelta} from './hud-text.js';
@@ -36,19 +39,26 @@ function pathCrossesHud(from,to,obstacle){
   return high>0&&low<1;
 }
 let history=null;
+const alignmentFeedback=createGuidanceAlignmentFeedback();
+function showAlignmentFeedback(value){
+  const director=$('guidance-director');if(!director)return;
+  for(const [key,next]of Object.entries({alignmentPulse:String(value.active),alignmentPulseSerial:String(value.serial),alignmentPulseArmed:String(value.armed)}))
+    if(director.dataset[key]!==next)director.dataset[key]=next;
+}
 
 function clear(){
   history=null;show($('guidance-panel'),false);
+  showAlignmentFeedback(alignmentFeedback.reset());
   const toast=$('toast');if(toast){toast.style.left='';toast.style.top='';toast.style.transform='';}
   const panel=$('guidance-panel');if(panel){delete panel.dataset.guidanceDirection;delete panel.dataset.aligned;delete panel.dataset.guidanceReady;}
   const app=$('app');if(app){delete app.dataset.guidanceEdge;delete app.dataset.guidanceDirector;
     delete app.dataset.guidanceDirection;delete app.dataset.guidanceAligned;delete app.dataset.guidanceReady;}
 }
-function obstacleRects(camera){
+function obstacleRects(camera,extra=[]){
   const ids=['start-flow-view-button','radar','flight-essential-speed','flight-essential-altitude','bottom-panel','practice-panel','cockpit-speed','cockpit-altitude','cockpit-vario',
     'cockpit-heading','cockpit-target-height','cockpit-exit-notice','cockpit-power','target-edge-marker','cockpit-objective-label'];
   if(camera!=='cockpit')ids.push('toast');
-  return [...ids.map(id=>rect($(id))),rect(document.querySelector('.navigation')),...['.topbar .brand','.topbar .version','.topbar .feedback-metrics'].map(selector=>rect(document.querySelector(selector)))].filter(Boolean);
+  return [...ids.map(id=>rect($(id))),rect(document.querySelector('.navigation')),...['.topbar .brand','.topbar .version','.topbar .feedback-metrics'].map(selector=>rect(document.querySelector(selector))),...extra].filter(Boolean);
 }
 function preferredPoint(projected,width,height){
   if(projected?.inFront&&Number.isFinite(projected.x)&&Number.isFinite(projected.y))return {x:projected.x,y:projected.y};
@@ -56,16 +66,19 @@ function preferredPoint(projected,width,height){
 }
 function clearEdgePoint(edge,width,height,obstacles){
   if(!edge)return null;
-  const margin=18,candidates=[edge];
+  // Reserve the rendered/stroked SVG, not just its 42px fill envelope. Native
+  // browser box measurements of a diagonal arrow can reach about57px. Use the
+  // same footprint for candidate generation and collision checks.
+  const margin=18,footprint=62,half=footprint/2,candidates=[edge];
   const vertical=Math.abs(edge.x-margin)<.01||Math.abs(edge.x-(width-margin))<.01;
   const horizontal=Math.abs(edge.y-margin)<.01||Math.abs(edge.y-(height-margin))<.01;
   for(const obstacle of obstacles){
-    if(vertical)for(const y of [obstacle.top-21,obstacle.bottom+21])candidates.push({...edge,y:Math.max(margin,Math.min(height-margin,y))});
-    if(horizontal)for(const x of [obstacle.left-21,obstacle.right+21])candidates.push({...edge,x:Math.max(margin,Math.min(width-margin,x))});
+    if(vertical)for(const y of [obstacle.top-half,obstacle.bottom+half])candidates.push({...edge,y:Math.max(margin,Math.min(height-margin,y))});
+    if(horizontal)for(const x of [obstacle.left-half,obstacle.right+half])candidates.push({...edge,x:Math.max(margin,Math.min(width-margin,x))});
   }
   if(vertical)candidates.push({...edge,y:margin},{...edge,y:height-margin});
   if(horizontal)candidates.push({...edge,x:margin},{...edge,x:width-margin});
-  return candidates.filter(point=>!obstacles.some(obstacle=>overlaps(box(point,42,42),obstacle)))
+  return candidates.filter(point=>!obstacles.some(obstacle=>overlaps(box(point,footprint,footprint),obstacle)))
     .sort((a,b)=>Math.hypot(a.x-edge.x,a.y-edge.y)-Math.hypot(b.x-edge.x,b.y-edge.y))[0]??null;
 }
 function safeBounds(width,height){
@@ -110,7 +123,7 @@ function placeHeading(camera,bearing,heading,bounds,obstacles,language){
  * Call after all existing HUD/legacy objective updates, including while paused.
  * Completion still returns targetVisible for the completion-frame timing sample.
  */
-export function updateGuidancePanel(state,{phase='running',camera='overlay',settings={},now,dt}={}){
+export function updateGuidancePanel(state,{phase='running',camera='overlay',settings={},now,dt,extraObstacles=[]}={}){
   const root=$('guidance-panel'),app=$('app');
   if(!root||state?.mode!=='flight'||phase!=='running'){clear();return null;}
   const total=state.total===undefined?3:state.total;
@@ -119,7 +132,8 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
   const width=innerWidth,height=innerHeight;
   const projection=createGuidanceProjection(state,width,height);
   const mathOptions={maxPitch:settings?.maxPitch??15,maxBank:settings?.maxBank??40,turnGravity:settings?.turnGravity??9.8};
-  const rawAdvice=computeDirectionGuidance(state,mathOptions);
+  const computeAdvice=state.supersonic?computeSupersonicGuidance:computeDirectionGuidance;
+  const rawAdvice=computeAdvice(state,mathOptions);
   const target=projection?.target();
   if(!projection||!rawAdvice||!target){clear();return null;}
   const flags=Object.fromEntries(FLAG_NAMES.map(name=>[name,settings?.[name]!==false]));
@@ -132,11 +146,16 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
     ||Math.abs(history.rotation.dot(projection.rotation))<Math.cos(Math.PI/8);
   const seconds=Number.isFinite(dt)&&dt>=0?Math.min(dt,.25):Math.max(0,Math.min(.25,(clock-(history?.now??clock))/1000));
   const turn=advanceGuidanceTurn(rawAdvice,reset?null:history.turn,{now:clock,dt:seconds,targetChanged:Boolean(history&&count!==history.count)});
-  const advice=turn.mode==='recover'?rawAdvice:computeDirectionGuidance(state,{...mathOptions,turnState:{mode:turn.mode,yawDegrees:turn.yawDegrees,climbDegrees:turn.climbDegrees}});
+  const advice=turn.mode==='recover'?rawAdvice:computeAdvice(state,{...mathOptions,turnState:{mode:turn.mode,yawDegrees:turn.yawDegrees,climbDegrees:turn.climbDegrees}});
   if(!advice){clear();return null;}
   let smoothed=vector(advice.direction);
   const previousDirection=!reset&&history.direction?history.direction.clone():null;
-  if(previousDirection){
+  let sonicTrack=null;
+  if(state.supersonic){
+    const next=advanceSupersonicGuidanceDirection(previousDirection?{direction:previousDirection,track:history.sonicTrack}:null,advice.direction,
+      {velocity:state.velocity,heading:state.heading,dt:seconds});
+    smoothed=vector(next.direction);sonicTrack=next.track;
+  }else if(previousDirection){
     const blend=1-Math.exp(-seconds/.2);
     const beforeYaw=Math.atan2(previousDirection.x,-previousDirection.z)*DEG;
     const yaw=(beforeYaw+wrap(Math.atan2(smoothed.x,-smoothed.z)*DEG-beforeYaw)*blend)/DEG;
@@ -158,12 +177,14 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
     notice={until:clock+1800,bearing:bearingDeg,height:delta,target:{collected:count,total,targetLabel:state.targetLabel}};
   }
   if(!flags.nextTargetNotice||notice?.until<=clock)notice=null;
-  history={count,total,courseId,camera,width,height,now:clock,direction:smoothed.clone(),rotation:projection.rotation.clone(),notice,turn};
+  history={count,total,courseId,camera,width,height,now:clock,direction:smoothed.clone(),rotation:projection.rotation.clone(),notice,turn,
+    ...(state.supersonic?{sonicTrack}: {})};
   const targetVisible=target.visible;
   const result={...advice,bearingDeg,travelBearingDeg:advice.targetBearingDegrees,targetVisible,flags,
     direction:plain(smoothed),rawDirection:{...advice.direction},geometricDirection:{...rawAdvice.direction},aligned:false,driverReady:false,
     director:null,directorReason:null,flightPath:null,flightPathReason:null,edge:null};
   if(state.complete){
+    showAlignmentFeedback(alignmentFeedback.reset());
     show(root,false);delete root.dataset.guidanceDirection;delete root.dataset.aligned;delete root.dataset.guidanceReady;
     if(app){delete app.dataset.guidanceEdge;delete app.dataset.guidanceDirector;delete app.dataset.guidanceDirection;delete app.dataset.guidanceAligned;delete app.dataset.guidanceReady;}
     return result;
@@ -182,7 +203,7 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
   if(toast&&flags.flightDirector&&camera!=='cockpit'){
     const toastRect=rect(toast),bottom=rect($('bottom-panel'));
     if(toastRect){
-      const reserved=obstacleRects(camera).filter(r=>r!==toastRect&&!(r.left===toastRect.left&&r.top===toastRect.top));
+      const reserved=obstacleRects(camera,extraObstacles).filter(r=>r!==toastRect&&!(r.left===toastRect.left&&r.top===toastRect.top));
       for(const ray of [smoothed,vector(state.velocity)]){
         const p=ray&&projection.projectDirection(ray);
         if(p?.inFront)reserved.push(box(p,70,70));
@@ -191,7 +212,7 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
       if(placed){toast.style.transform='translateX(-50%)';toast.style.left=`${placed.x}px`;toast.style.top=`${placed.y-toastRect.height/2}px`;}
     }
   }else if(toast){toast.style.left='';toast.style.top='';toast.style.transform='';}
-  const obstacles=obstacleRects(camera);
+  const obstacles=obstacleRects(camera,extraObstacles);
   const headingObstacles=[...obstacles];
   // In a downward-looking chase view, the real velocity projects near the
   // heading band. Give the measured marker and its ring first use of that area.
@@ -247,6 +268,13 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
     result.direction=plain(smoothed);show(director,false);
   }
   show($('guidance-path-caption'),false);
+  // Use the FINAL drawn ray, exactly as the existing aligned green state does.
+  // Raw advice may differ after HUD placement and must not trigger this pulse.
+  const drawn=vector(result.direction),pairError=result.driverReady&&moving&&drawn
+    ?Math.acos(Math.max(-1,Math.min(1,actual.dot(drawn.normalize()))))*DEG:null;
+  result.alignmentFeedback=alignmentFeedback.advance({now:clock,phase,usable:result.driverReady,
+    angularErrorDegrees:pairError,courseId,targetId:`${courseId}:${count}`,camera});
+  showAlignmentFeedback(result.alignmentFeedback);
   const serialized=JSON.stringify(result.direction);
   root.dataset.guidanceReady=String(result.driverReady);app.dataset.guidanceReady=String(result.driverReady);
   if(result.driverReady){

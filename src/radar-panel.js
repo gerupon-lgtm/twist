@@ -1,6 +1,7 @@
 import { projectRadarTarget, placeRadar, rectanglesOverlap } from './radar.js';
 import { viewportInsets } from './viewport-insets.js';
 import { hudText, hudTargetLabel, hudHeightDelta, normalizeHudLanguage } from './hud-text.js';
+import {formatNavigationDistance} from './supersonic-units.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
@@ -9,7 +10,7 @@ const svg = (name, attributes) => {
   for (const [key,value] of Object.entries(attributes)) node.setAttribute(key, value);
   return node;
 };
-export function updateRadar(state, { visibility, phase, range, language='en' }) {
+export function updateRadar(state, { visibility, phase, range, language='en',extraObstacles=[] }) {
   const panel = $('radar');
   const cockpit=document.getElementById('app').dataset.camera==='cockpit';
   panel.hidden = visibility !== 'assisted' || phase !== 'running' || state.complete;
@@ -19,14 +20,14 @@ export function updateRadar(state, { visibility, phase, range, language='en' }) 
   panel.querySelector('.radar-heading').textContent=hudText(language,'radarTrack');
   const rects = ['start-flow-view-button','flight-essential-speed','flight-essential-altitude','bottom-panel','toast','practice-panel'].map($)
     .filter(el => el&&!el.hidden && el.getClientRects().length&&!(cockpit&&el.id==='toast')).map(el => el.getBoundingClientRect());
-  rects.push(document.querySelector('.navigation').getBoundingClientRect(), document.querySelector('.topbar').getBoundingClientRect(),
+  rects.push(...extraObstacles,document.querySelector('.navigation').getBoundingClientRect(), document.querySelector('.topbar').getBoundingClientRect(),
     { left: innerWidth/2-40, right: innerWidth/2+40, top: innerHeight/2-40, bottom: innerHeight/2+40 });
   const safe=cockpit?viewportInsets():{left:0,right:0};
   const placement = placeRadar({ width: innerWidth, height: innerHeight, obstacles: rects, inset:Math.max(12,safe.left+8,safe.right+8) });
   if (!placement) { panel.hidden = true; return; }
   panel.style.left = `${placement.left}px`; panel.style.top = `${placement.top}px`;
   panel.dataset.range = range; panel.dataset.heading = state.radarHeading;
-  $('radar-range').textContent = `${range}m`;
+  $('radar-range').textContent = formatNavigationDistance(range,Boolean(state.supersonic));
   const layer = $('radar-targets'); layer.replaceChildren();
   const targets = [...(state.navigationTargets || [])].sort((a,b) => Number(a.next) - Number(b.next));
   for (const target of targets) {

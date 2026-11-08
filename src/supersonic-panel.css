@@ -1,0 +1,13 @@
+.supersonic-settings{border:1px solid #b6cdd2;border-radius:10px;padding:12px;margin:12px 0;color:var(--ink)}
+.supersonic-settings legend{font-weight:650;padding:0 5px}
+.supersonic-settings>p{font-size:12px;line-height:1.6;margin:6px 0}
+.supersonic-settings>label{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-top:12px;font-size:13px}
+.supersonic-settings>label>select,.supersonic-settings>label>.range-adjuster,.supersonic-settings>label>.range-history{grid-column:1/-1}
+.supersonic-settings select{min-height:44px;width:100%}
+.supersonic-hud{position:absolute;inset:0;z-index:2;pointer-events:none;font-variant-numeric:tabular-nums}
+.supersonic-mach-g{position:absolute;box-sizing:border-box;width:88px;min-height:60px;display:flex;flex-direction:column;justify-content:center;gap:1px;padding:5px;border:1px solid #c9e4e9;border-radius:7px;background:#edf6f2ed;color:#214d58;text-align:center;line-height:1.1}
+.supersonic-mach-g strong{font-size:20px;font-weight:700;white-space:nowrap}
+.supersonic-mach-g>span{font-size:12px;white-space:nowrap}
+.supersonic-mach-g>small{font-size:8px;line-height:12px;white-space:nowrap}
+.supersonic-mach-g[data-camera=cockpit]{color:#d4ffb4;background:#102a18b8;border-color:#b4ff8a88;text-shadow:0 0 3px #102a18}
+.supersonic-mach-g[data-transition=supersonic]{border-color:#85cbe0}

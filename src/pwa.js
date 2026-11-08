@@ -3,7 +3,7 @@ import { isIPhone, isAndroid, launchMethod, installationAdvice, orientationType,
 import { createOrientationToast } from './orientation-toast.js';
 
 const $ = id => document.getElementById(id);
-export function createPwaController({ getPhase, pause, showDialog, allPlatforms = false }) {
+export function createPwaController({ getPhase, pause, showDialog, allPlatforms = false, isCountdownActive = () => false }) {
   const userAgent = navigator.userAgent;
   const iphone = isIPhone(userAgent), android = isAndroid(userAgent);
   const launch = launchMethod({ standalone: navigator.standalone === true,
@@ -33,7 +33,7 @@ export function createPwaController({ getPhase, pause, showDialog, allPlatforms 
   }
   function orientationChanged() {
     if (iphone) {
-      const result = guard.check(currentOrientation(),getPhase() === 'running');
+      const result = guard.check(currentOrientation(),getPhase() === 'running'||isCountdownActive());
       if (result === 'changed') pause('画面の向きが変わりました。開始したときの向きに戻してください。');
       if (result === 'waiting') {
         if (['waiting','ready'].includes(getPhase())) pause('開始したときの向きに戻してください。');

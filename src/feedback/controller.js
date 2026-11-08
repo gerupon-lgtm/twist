@@ -8,6 +8,7 @@ import { createMusicPlayer } from '../music/player.js';
 import { createRangeEditor } from '../range-editor.js';
 import { changedSettings,initialSettingText } from '../setting-differences.js';
 import { FEEDBACK_HELP } from '../settings-help.js';
+import {createSonicEventConsumer} from './supersonic-model.js';
 
 export function createFeedbackController(){
   let storage;try{storage=localStorage;}catch{/* Defaults work without storage. */}
@@ -18,6 +19,7 @@ export function createFeedbackController(){
   let frames=0,frameSum=0,frameMax=0;
   const audio=createGameAudio(),jitter=createSensorJitter();
   const music=createMusicPlayer(audio);music.setSettings(settings);
+  const sonicEvents=createSonicEventConsumer();
   const supported=!isIPhone(navigator.userAgent)&&typeof navigator.vibrate==='function';
   const haptics=createHaptics(supported?navigator.vibrate.bind(navigator):null);
   const fields=document.getElementById('feedback-settings-fields');
@@ -99,6 +101,12 @@ export function createFeedbackController(){
   refresh();
   return {
     unlock(){stopPreview();haptics.arm();if(settings.sound){void audio.unlock();void music.preload();}},
+    countdownAudio(signal){
+      if(signal?.type==='cancel'){audio.cancelCountdown(signal.session);return;}
+      if(signal?.type==='prepare'){audio.configure(settings);return audio.prepareCountdown(signal.session,settings);}
+      if(signal?.type==='tick')return audio.countdownTone(signal.session,signal.number,settings);
+      if(signal?.type==='go'&&active)return audio.countdownTone(signal.session,'go',settings);
+    },
     start({flightNumber=1}={}){stopPreview();active=true;lastAfterburner=null;lastModel=null;music.setFlightNumber(flightNumber);audio.start();audio.configure(settings);void music.play('flight');},
     stop(){stopPreview();active=false;lastAfterburner=null;lastModel=null;music.stop();audio.stop();haptics.stop();jitter.clearWindow();},
     event(kind){haptics.event(kind,settings,performance.now());
@@ -107,19 +115,21 @@ export function createFeedbackController(){
     },
     passBy(payload){if(active&&settings.sound&&settings.sfx&&settings.passbySound!==false&&!['ground','stall','buffet'].includes(lastModel?.cue))audio.passBy(payload,settings);},
     update(state,angles,inputMode,steering,now,navigation=null){
+      const crossings=sonicEvents.consume(state);
       if(!active)return;
       if(inputMode==='sensor')jitter.add(now,angles.pitch,steering==='twist'?angles.twist:angles.steer);
       const model=flightFeedback(state,settings),phase=haptics.update(model,settings,now);
       const cueChanged=lastModel?.cue!==model.cue;lastModel=model;
       music.setAfterburner(state.mode==='flight'&&state.afterburner?.active===true);
       const afterburnerChanged=lastAfterburner!==model.afterburner.active;lastAfterburner=model.afterburner.active;
-      if(now-lastAudio>=40||phase?.restarted||afterburnerChanged||cueChanged){audio.update(model,settings,phase,navigation);lastAudio=now;}
+      if(now-lastAudio>=40||phase?.restarted||afterburnerChanged||cueChanged||crossings.length){audio.update(model,settings,phase,navigation);lastAudio=now;}
+      for(const event of crossings){haptics.sonic(event,settings,now,model);audio.sonicTransition(event,settings);}
     },
     frameTiming(ms){if(active&&Number.isFinite(ms)){frames++;frameSum+=ms;frameMax=Math.max(frameMax,ms);}},
-    reset(){jitter.reset();music.reset();audio.resetMetrics();frames=0;frameSum=0;frameMax=0;},
+    reset(){jitter.reset();music.reset();audio.resetMetrics();sonicEvents.reset();frames=0;frameSum=0;frameMax=0;},
     exitOpened(){if(active)audio.event('exitOpen',settings);},
     report(){return {settings:{...settings},changedSettings:changedSettings(FEEDBACK_FIELDS,settings),vibrationSupported:supported,sensorJitter:jitter.snapshot(),
-      audio:audio.snapshot(),music:music.snapshot(),frameCpu:{meanMs:frames?frameSum/frames:0,maxMs:frameMax}};},
+      audio:audio.snapshot(),music:music.snapshot(),sonicTransitions:sonicEvents.snapshot(),frameCpu:{meanMs:frames?frameSum/frames:0,maxMs:frameMax}};},
     updateDiagnostics(){
       if(!adjustments.hidden)refreshPreview();
       const s=audio.snapshot(),j=jitter.snapshot();

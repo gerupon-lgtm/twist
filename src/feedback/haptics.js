@@ -1,4 +1,5 @@
 import { EVENT_FEEDBACK, scaledPattern } from './model.js';
+import {SONIC_TRANSITION,sonicWarning,validSonicTransition} from './supersonic-model.js';
 export function createHaptics(vibrate) {
   let armed=false,next=0,cue='',eventUntil=0,eventTimer=null,cueAt=0;
   const send=pattern=>{try {vibrate?.(pattern);}catch{/* Vibration rejection never stops flight. */}};
@@ -7,6 +8,7 @@ export function createHaptics(vibrate) {
     update(model,settings,now){
       if(!armed||!vibrate)return;
       if(!settings.vibration||settings.vibrationScale===0){if(cue||eventUntil)this.stop();return;}
+      if(cue==='sonic'&&sonicWarning(model.cue))this.stop();
       if(now<eventUntil)return;
       if(eventUntil){clearTimeout(eventTimer);eventUntil=0;cue='';next=0;}
       if(!model.pattern.some(n=>n>0)){if(cue)this.stop();return;}
@@ -25,6 +27,12 @@ export function createHaptics(vibrate) {
       if(now<eventUntil&&EVENT_FEEDBACK[cue]?.priority>event.priority)return;
       send(0);send(scaledPattern(event.pattern,settings.vibrationScale));eventUntil=now+event.duration;cue=kind;next=eventUntil;
       clearTimeout(eventTimer);eventTimer=setTimeout(()=>this.stop(),event.duration);
+    },
+    sonic(event,settings,now,model){
+      if(!validSonicTransition(event)||!armed||!vibrate||!settings.vibration||!settings.vibrationScale||now<eventUntil||sonicWarning(model?.cue))return false;
+      send(0);send(scaledPattern(SONIC_TRANSITION.pattern,settings.vibrationScale));
+      cue='sonic';eventUntil=now+SONIC_TRANSITION.duration;next=eventUntil;
+      clearTimeout(eventTimer);eventTimer=setTimeout(()=>this.stop(),SONIC_TRANSITION.duration);return true;
     },
     stop(){clearTimeout(eventTimer);if(armed)send(0);next=0;cue='';eventUntil=0;},
   };

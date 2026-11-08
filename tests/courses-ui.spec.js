@@ -29,8 +29,9 @@ async function copySettings(page){
   await page.locator('#settings-copy').click();return page.evaluate(()=>JSON.parse(window.__courseUiCopy));
 }
 async function primaryOptions(page){
-  // A legacy deep-link may have a hidden selected label, but never a fourth primary choice.
-  expect(await page.locator('#course-select option:not([hidden])').evaluateAll(options=>options.map(option=>option.value))).toEqual(courseIds);
+  // The three protected routes remain intact; the high-speed prototype is a fourth flight-only choice.
+  const flight=await page.locator('#app').getAttribute('data-play-mode')==='flight';
+  expect(await page.locator('#course-select option:not([hidden])').evaluateAll(options=>options.map(option=>option.value))).toEqual(flight?[...courseIds,'supersonic']:courseIds);
 }
 async function initialCourseState(page,id){
   const course=getCourse(id),count=course.lights.length;

@@ -28,7 +28,7 @@ export function createFlightSession() {
   };
 }
 
-export function flightReport({ version, pitch, steer, display = 'bank', camera = 'overlay', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted', feedback, input, segments, approaches, abStraights, passbys, courseTime, exitDiscovery, targetViews, course, stageSize, afterburner, startup,briefing,launch = 'browser', fullscreen = false }) {
+export function flightReport({ version, pitch, steer, display = 'bank', camera = 'overlay', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted', feedback, input, segments, approaches, abStraights, passbys, courseTime, exitDiscovery, targetViews, course, stageSize, afterburner, startup,briefing,supersonic,launch = 'browser', fullscreen = false }) {
   const normalized=normalizeFlightSettings(settings);
   const inactiveSettings = [...(pitch === 'rate' ? [...(mode==='flight'&&normalized.flightDirector?[]:['maxPitch']), 'timeConstant'] : []),
     ...(display !== 'fixed' ? ['displayTimeConstant'] : []), ...(view !== 'assisted' ? ['radarRange'] : []),
@@ -40,6 +40,7 @@ export function flightReport({ version, pitch, steer, display = 'bank', camera =
   if(mode!=='flight')inactiveSettings.push('speedFov','highSpeedShake','autoAfterburner','autoAfterburnerAngle');
   if(mode!=='flight')inactiveSettings.push('flightDirector','targetHeadingCue','edgeGuidance','nextTargetNotice','audioGuidance');
   if (mode === 'explore') for (const key of ['deadzone','maxTilt','maxPitch','timeConstant','maxBank','turnGravity','displayTimeConstant','maxSteerTilt','maxSteerTwist','steerTiltDeadzone','steerTwistDeadzone','steerCurve']) if (!inactiveSettings.includes(key)) inactiveSettings.push(key);
+  if(supersonic)for(const key of ['maxPitch','timeConstant','maxBank','turnGravity','radarRange','groundPatternStrength'])if(!inactiveSettings.includes(key))inactiveSettings.push(key);
   return { version, mode, view, pitch, steer, launch: launch === 'installed' ? 'installed' : 'browser', fullscreen: Boolean(fullscreen), camera: mode === 'flight' && ['chase','cockpit'].includes(camera) ? camera : 'overlay', display: display === 'fixed' ? 'fixed' : 'bank',
     ...(['clear', 'grounded'].includes(result) ? { result } : {}),
     settings: normalized, changedSettings:changedSettings(FLIGHT_SETTING_FIELDS,normalized), inactiveSettings,
@@ -47,6 +48,7 @@ export function flightReport({ version, pitch, steer, display = 'bank', camera =
     ...(input ? {input:structuredClone(input)} : {}),
     ...(startup ? {startup:structuredClone(startup)} : {}),
     ...(briefing ? {briefing:structuredClone(briefing)} : {}),
+    ...(supersonic ? {supersonic:structuredClone(supersonic)} : {}),
     ...(segments ? {segments:structuredClone(segments)} : {}),
     ...(approaches ? {approaches:structuredClone(approaches)} : {}),
     ...(abStraights ? {abStraights:structuredClone(abStraights)} : {}),

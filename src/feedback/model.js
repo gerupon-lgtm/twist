@@ -1,6 +1,7 @@
 import { getGroundProximity } from '../ground-proximity.js';
 import { varioCue } from '../cockpit-aids.js';
 import { NAVIGATION_BURST_MS,NAVIGATION_TONE_HZ,NAVIGATION_VOLUME } from './navigation-audio.js';
+import {supersonicFeedback,applySonicRegisters,SONIC_TRANSITION} from './supersonic-model.js';
 const clamp = (n,min,max) => Math.max(min,Math.min(max,Number.isFinite(n)?n:min));
 export const FEEDBACK_TUNING = Object.freeze({ buffetStart: 14, stallStart: 20, stallEnd: 70,
   engineCycle: 400, enginePulse: 5, groundPattern: [85,100,85,430], stallPattern: [100,45,55,90,160,110],
@@ -43,7 +44,7 @@ export function flightFeedback(state={},settings={}) {
   const power=clamp(state.throttle,0,1),speed=clamp(state.speed,0,45);
   const afterburner=afterburnerState(state.afterburner),boost=FEEDBACK_TUNING.afterburner;
   let cue='quiet',pattern=[];
-  if(state.mode!=='explore'&&getGroundProximity(state).level==='danger') {cue='ground';pattern=[...FEEDBACK_TUNING.groundPattern];}
+  if(state.mode!=='explore'&&getGroundProximity(state.supersonic?{...state,altitude:state.groundClearance}:state).level==='danger') {cue='ground';pattern=[...FEEDBACK_TUNING.groundPattern];}
   else if(angle>=FEEDBACK_TUNING.stallStart){cue='stall';pattern=scaledPattern(FEEDBACK_TUNING.stallPattern,.6+.4*clamp((angle-FEEDBACK_TUNING.stallStart)/(FEEDBACK_TUNING.stallEnd-FEEDBACK_TUNING.stallStart),0,1));}
   else if(angle>=FEEDBACK_TUNING.buffetStart){cue='buffet';const on=Math.round(15+(angle-FEEDBACK_TUNING.buffetStart)/(FEEDBACK_TUNING.stallStart-FEEDBACK_TUNING.buffetStart)*70);pattern=[on,300-on];}
   else if(afterburner.active&&settings.engineVibration!==false){cue='afterburner';pattern=[boost.classicOn,FEEDBACK_TUNING.engineCycle-boost.classicOn];}
@@ -57,9 +58,10 @@ export function flightFeedback(state={},settings={}) {
     vibrationPattern=Array.from({length:FEEDBACK_TUNING.finePulses},()=>[boost.fineOn,FEEDBACK_TUNING.fineCycle-boost.fineOn]).flat();
   } else if(cue==='stall') vibrationPattern=scaledPattern(FEEDBACK_TUNING.strongStallPattern,.75+.25*clamp((angle-20)/50,0,1));
   const vibration=scaledPattern(vibrationPattern,clamp(settings.vibrationScale??1,0,2));
-  return { cue, pattern:vibration, soundPattern:pattern, cycle:vibrationPattern.reduce((a,b)=>a+b,0),
+  const model={ cue, pattern:vibration, soundPattern:pattern, cycle:vibrationPattern.reduce((a,b)=>a+b,0),
     angleOfAttack:angle,power,speed,engineHz:55+power*120,wind:speed/45,
     vario:varioCue(state.verticalSpeed,settings.vario!==false&&state.mode==='flight'),afterburner };
+  return state.supersonic?supersonicFeedback(state,model):model;
 }
 
 const COLLECT_NOTES=[523,784,1047],CLEAR_NOTES=[523,659,784,1047,784,1047];
@@ -73,7 +75,8 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
   regs.fill(0);let mixer=0x3f;
   const eventActive=Boolean(event && EVENT_FEEDBACK[event] && eventMs<EVENT_FEEDBACK[event].duration);
   const warning=['ground','stall','buffet'].includes(model.cue);
-  const navigationActive=Boolean(navigation&&!eventActive&&!model.vario?.active&&!warning
+  const sonicActive=Boolean(model.supersonic&&effects.sonic&&Number.isFinite(effects.sonic.elapsedMs)&&effects.sonic.elapsedMs>=0&&effects.sonic.elapsedMs<SONIC_TRANSITION.duration&&!eventActive&&!warning);
+  const navigationActive=Boolean(navigation&&!eventActive&&!sonicActive&&!model.vario?.active&&!warning
     &&Number.isFinite(navigation.elapsedMs)&&navigation.elapsedMs>=0&&navigation.elapsedMs<NAVIGATION_BURST_MS);
   const boost=FEEDBACK_TUNING.afterburner,phase=afterburnerPhase(model,afterburnerSeconds);
   const release=phase==='off'?clamp(effects.afterburnerRelease,0,1):0;
@@ -110,7 +113,7 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
     mixer=voice(regs,1,900+sharpness*1500-t*700,(8+sharpness*6)*envelope,true,mixer);
     regs[6]=Math.round(14-sharpness*9+t*8);
   }
-  if(varioMaySound(model,eventActive)
+  if(!sonicActive&&varioMaySound(model,eventActive)
     &&varioMs%model.vario.periodMs<model.vario.onMs) {
     mixer=voice(regs,2,model.vario.hz,6,false,mixer);
   }
@@ -119,5 +122,6 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
     mixer=voice(regs,2,NAVIGATION_TONE_HZ,NAVIGATION_VOLUME*envelope,false,mixer);
   }
   regs[7]=mixer;
+  if(model.supersonic&&!eventActive&&!warning)applySonicRegisters(regs,effects.sonic,effects.sonic?.elapsedMs);
   return regs;
 }

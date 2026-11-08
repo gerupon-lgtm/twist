@@ -40,9 +40,22 @@ function setup(t,{userAgent='desktop',allPlatforms=false,installed=false,fullscr
   document.exitFullscreen=async()=>{calls.push(['exit']);document.fullscreenElement=null;document.dispatchEvent(new Event('fullscreenchange'));};
   for(const [name,value]of Object.entries({document,window,navigator:{userAgent,standalone:installed},screen:{orientation},innerWidth:390,innerHeight:844,matchMedia:()=>({matches:false}),performance:{now:()=>state.time}}))define(name,value);
   t.after(()=>{for(const [name,descriptor]of previous){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}});
-  const controller=createPwaController({allPlatforms,getPhase:()=>state.phase,pause:reason=>{pauses.push(reason);state.phase='paused';},showDialog:dialog=>dialogs.push(dialog)});
+  const controller=createPwaController({allPlatforms,getPhase:()=>state.phase,isCountdownActive:()=>state.countdown===true,pause:reason=>{pauses.push(reason);state.phase='paused';},showDialog:dialog=>dialogs.push(dialog)});
   return {controller,calls,pauses,dialogs,state,document,window,elements};
 }
+
+test('only an active iPhone countdown treats screen rotation as an interrupted start',t=>{
+  const {controller,state,pauses,dialogs}=setup(t,{userAgent:iphone,allPlatforms:true});
+  state.phase='ready';controller.begin();
+  state.orientation='landscape-primary';controller.orientationChanged();
+  assert.equal(pauses.length,0);assert.equal(controller.canResume(),true);
+  state.orientation='portrait-primary';state.countdown=true;
+  state.orientation='landscape-primary';controller.orientationChanged();
+  assert.equal(pauses.length,1);assert.equal(state.phase,'paused');assert.equal(controller.canResume(),false);
+  state.countdown=false;controller.orientationChanged();assert.equal(pauses.length,1);
+  state.orientation='portrait-primary';controller.orientationChanged();
+  assert.equal(controller.canResume(),true);assert.match(dialogs.at(-1).description,/自動では動き出しません/);
+});
 
 test('the title requests fullscreen separately from locking the orientation held at pose time',async t=>{
   const {controller,calls,state}=setup(t,{userAgent:'desktop',allPlatforms:true});

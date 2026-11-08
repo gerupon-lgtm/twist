@@ -9,7 +9,16 @@ import './boundary.css';
 import './speedfeel-results.css';
 import './essential-hud.css';
 import {updateEssentialHud} from './essential-hud.js';
-import {getCourse,COURSE_CRITERIA} from './course.js';
+import {getCourse,COURSE_CRITERIA,NORMAL_COURSE_IDS,PLAYABLE_COURSE_IDS,isSupersonicCourse} from './course-catalog.js';
+import {createSupersonicStage} from './supersonic/stage.js';
+import {createSupersonicProfile} from './supersonic/profile.js';
+import {supersonicIntent} from './supersonic/intent.js';
+import {loadSupersonicSettings} from './supersonic/settings.js';
+import {supersonicSummary,supersonicBestKey} from './supersonic/records.js';
+import {createSupersonicBestStore} from './supersonic-bests.js';
+import {createSupersonicActivity} from './supersonic-activity.js';
+import {createSupersonicPanel,formatSupersonicAltitude} from './supersonic-panel.js';
+import {formatNavigationDistance} from './supersonic-units.js';
 import {loadCourseChoice,saveCourseChoice} from './course-choice.js';
 import {STAGE_HALF_EXTENT} from './boundary.js';
 import {updateBoundaryPanel} from './boundary-panel.js';
@@ -64,6 +73,7 @@ app.dataset.startFlow=flowEnabled?'on':'legacy';
 let selectedCourse=getCourse(loadCourseChoice(courseStorage,location.search));
 let phase = 'intro';
 let playMode = flowEnabled ? flowDev&&flowParameters.get('mode')==='explore'?'explore':'flight' : flowParameters.get('mode')==='flight'?'flight':'explore';
+if(playMode==='explore'&&isSupersonicCourse(selectedCourse))selectedCourse=getCourse('easy');
 let visibility = normalizeVisibility(new URLSearchParams(location.search).get('view'));
 // URL names stay compatible: tilt = ひねる (raise/lower phone sides), twist = 回す (in-plane turn).
 let flightSteering = new URLSearchParams(location.search).get('steer') === 'twist' ? 'twist' : 'tilt';
@@ -75,26 +85,57 @@ const afterburnerSession=createAfterburnerSession();
 const routeTiming=createRouteTiming(selectedCourse.lights.length);
 const approaches=createApproachRecords(selectedCourse.lights.length),straights=createStraightRecords(selectedCourse.abStraights),passbys=createPassByTracker();
 const courseBests=createCourseBestStore(courseStorage);let courseTime=null,radarOffer=radarUpgradeOffer(courseStorage);
+const sonicBests=createSupersonicBestStore(courseStorage),sonicActivity=createSupersonicActivity();
+let sonicPanel=null;
 let passScenery=null,passTargetId=null,passCandidates=[];
 const feedback = createFeedbackController();
-const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dialog,allPlatforms:flowEnabled });
+const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dialog,allPlatforms:flowEnabled,isCountdownActive:()=>flowEnabled&&flowCoordinator?.snapshot().step==='countdown' });
 let inputMode = null;
 let inputHeld=false,lastPauseReason='',exitNoticeUntil=0,activeFrameAt=0;
 const inputTransitions=[];
-function recordedSegments(){const records=approaches.snapshot();return routeTiming.snapshot().map((segment,index)=>({...segment,...records[index]}));}
-function courseTimeSnapshot(){return courseTime?{...courseTime}:{courseId:selectedCourse.id,courseKey:courseBestKey(selectedCourse,playMode),mode:playMode,seconds:null,bestSeconds:courseBests.best(selectedCourse,playMode),newBest:false,saved:null};}
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length}, stageSize:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2}, ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...pwa.report() }));
+function sonicMode(){return playMode==='flight'&&isSupersonicCourse(selectedCourse);}
+function effectivePitchMode(){return sonicMode()?'angle':pitchMode;}
+function currentSonicProfile(state=stage?.getStatus()){return createSupersonicProfile(state?.supersonic?.effectiveSettings??sonicPanel?.getSettings()??loadSupersonicSettings(courseStorage));}
+function sonicBestKey(){return supersonicBestKey(currentSonicProfile(),selectedCourse);}
+function recordedSegments(){
+  if(sonicMode()){
+    const rows=stage?.getStatus().supersonic?.gateResults??[];
+    return selectedCourse.gates.map((gate,index)=>({id:gate.id,index,label:index===0?'開始→門1':gate.kind==='exit'?`門${index}→出口`:`門${index}→門${index+1}`,
+      seconds:rows[index]?.segmentSeconds??null,closestDistance:rows[index]?.minimumCenterDistance??null,nearMisses:rows[index]?.missCount??0,passedAtSeconds:rows[index]?.passedAtSeconds??null}));
+  }
+  const records=approaches.snapshot();return routeTiming.snapshot().map((segment,index)=>({...segment,...records[index]}));
+}
+function courseTimeSnapshot(){
+  if(courseTime)return {...courseTime};
+  if(sonicMode()){const key=sonicBestKey();return {courseId:selectedCourse.id,courseKey:key,mode:'flight',seconds:null,bestSeconds:sonicBests.best(key),newBest:false,saved:null};}
+  return {courseId:selectedCourse.id,courseKey:courseBestKey(selectedCourse,playMode),mode:playMode,seconds:null,bestSeconds:courseBests.best(selectedCourse,playMode),newBest:false,saved:null};
+}
+function sonicReport(){
+  const state=stage?.getStatus();if(!sonicMode()||!state?.supersonic)return null;
+  return {...supersonicSummary(state.supersonic,sonicActivity.snapshot()),configuredSettings:sonicPanel?.getSettings(),renderOrigin:state.supersonic.renderDiagnostics?.origin,renderDiagnostics:state.supersonic.renderDiagnostics,
+    activityClockMeaning:{activeSeconds:'observed-running-frame-time-excluding-terminal-remainder',interruptedSeconds:'unprocessed-active-time-not-menu-or-pause-duration'}};
+}
+function stageDimensions(){return sonicMode()?{halfExtent:20000,width:40000,depth:40000,minHeight:0,maxHeight:6000}:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2};}
+const flightPanel = createFlightPanel(() => ({ pitch: effectivePitchMode(), steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length}, stageSize:stageDimensions(), ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...(sonicMode()?{supersonic:sonicReport()}:{}),...pwa.report() }));
+sonicPanel=createSupersonicPanel({storage:courseStorage,settingsHost:$('flight-settings-fields'),onChange:()=>{lastHudAt=0;if(stage)updateHud(performance.now(),stage.getStatus());}});
+function makeStage(){
+  return sonicMode()?createSupersonicStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,supersonicSettings:sonicPanel.getSettings()})
+    :createStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,turnGravity:flightPanel.getSettings().turnGravity});
+}
 const radarNotice=$('radar-upgrade-notice'),radarAdjustments=$('flight-adjustments');let radarOfferSeen=false;
 $('setting-radarRange').closest('label').after(radarNotice);
 function resetRouteRecords(){routeTiming.reset(selectedCourse.lights.length);approaches.reset(selectedCourse.lights.length);straights.reset(selectedCourse.abStraights);passbys.reset();courseTime=null;passScenery=null;passTargetId=null;passCandidates=[];}
-function resetRoute(){stage.reset();afterburnerSession.beginLeg();resetRouteRecords();exitNoticeUntil=0;}
+function resetRoute(){
+  if(sonicMode()){stage.reset({supersonicSettings:sonicPanel.getSettings()});sonicActivity.begin(stage.getStatus().supersonic);}else stage.reset();
+  afterburnerSession.beginLeg();resetRouteRecords();exitNoticeUntil=0;
+}
 function passObjects(state){
   const scenery=stage.getPassObjects(),targetId=state.collected<state.total?`target-${selectedCourse.id}-${state.collected+1}`:null;
   if(scenery!==passScenery||targetId!==passTargetId){passScenery=scenery;passTargetId=targetId;passCandidates=targetId?[...scenery,{id:targetId,position:{...state.targetPosition},radius:state.targetRadius}]:scenery;}
   return passCandidates;
 }
 function renderRadarUpgrade(){
-  const open=phase==='paused'&&!radarAdjustments.hidden&&radarAdjustments.open;
+  const open=!sonicMode()&&phase==='paused'&&!radarAdjustments.hidden&&radarAdjustments.open;
   if(radarOffer&&(!open&&radarOfferSeen||flightPanel.getSettings().radarRange!==radarOffer.current))radarOffer=null;
   radarNotice.hidden=!(radarOffer&&open);
 }
@@ -166,11 +207,11 @@ function setPhase(next) {
   renderRadarUpgrade();
 }
 
-const modeNote = () => playMode === 'flight'
-  ? (pitchMode === 'angle' ? '中立で機首も水平へ戻ります。上昇で減速、下降で加速。出力50%で出発します。' : '中立でも機首の角度は残ります。逆へ倒して水平へ戻し、出力を上げて失速から復帰。')
+const modeNote = () => sonicMode()?'角度方式で操縦します。出力50%・200m/sで出発し、右端の先へ出力を動かすとAB。再開は慣性を保ちます。':playMode === 'flight'
+  ? (effectivePitchMode() === 'angle' ? '中立で機首も水平へ戻ります。上昇で減速、下降で加速。出力50%で出発します。' : '中立でも機首の角度は残ります。逆へ倒して水平へ戻し、出力を上げて失速から復帰。')
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
 const lightColor = () => visibility === 'assisted' ? 'ピンクの' : '金色の';
-const modeIntroduction = () => playMode === 'flight'
+const modeIntroduction = () => sonicMode()?'40km四方の高速空域。5枚の門を順番にくぐり、最後の出口へ。ABを使って音速を超える試作です。':playMode === 'flight'
   ? `${flightPanel.getSettings().flightDirector ? '白い進行方向の印を輪へ近づけます。重なると輪が緑になります。' : flightDisplay === 'fixed' ? '自機の上向きを保ち、景色が回ります。' : '自機は画面中央。右へ曲がると機体も右へ傾きます。'}${lightColor()}光を${selectedCourse.lights.length}つ集めて出口へ。`
   : `自機はスマホと一緒に傾かず、最初の上向きを保ちます。${lightColor()}光を${selectedCourse.lights.length}つ集めて出口へ。`;
 
@@ -245,16 +286,19 @@ for (const value of ['overlay','chase','cockpit']) $(`camera-${value}`).addEvent
 
 function applyCourseUI(){
   const select=$('course-select');
+  if(playMode==='flight'&&!select.querySelector('option[value="supersonic"]')){const option=document.createElement('option');option.value='supersonic';option.textContent='高速空域（試作）';select.append(option);}
+  const sonicOption=select.querySelector('option[value="supersonic"]');if(sonicOption){sonicOption.hidden=playMode!=='flight';sonicOption.disabled=playMode!=='flight';}
   if(selectedCourse.id==='legacy'&&!select.querySelector('option[value="legacy"]')){
     const option=document.createElement('option');option.value='legacy';option.hidden=true;option.textContent='比較用（旧配置）';select.append(option);
   }
   select.value=selectedCourse.id;
   const range=COURSE_CRITERIA.difficulties?.[selectedCourse.id]?.cruiseTimeRange;
-  $('course-note').textContent=selectedCourse.id==='legacy'?'v0.1.25 比較用（旧配置）':`光${selectedCourse.lights.length}個${range?`・約${range[0]}〜${range[1]}秒`:''}`;
+  $('course-note').textContent=sonicMode()?'40km四方・門5枚＋出口・ABでM2を試す':selectedCourse.id==='legacy'?'v0.1.25 比較用（旧配置）':`光${selectedCourse.lights.length}個${range?`・約${range[0]}〜${range[1]}秒`:''}`;
 }
 function applyModeUI() {
   applyCourseUI();
   const flight = playMode === 'flight';
+  sonicPanel?.setActive(sonicMode());app.dataset.profile=sonicMode()?'supersonic':'normal';
   const twistSteering = flightSteering === 'twist';
   const basics = $('basic-controls'), guide = $('control-guide');
   if (flight) basics.append(guide);
@@ -268,14 +312,14 @@ function applyModeUI() {
   app.dataset.playMode = playMode;
   app.dataset.controlBasis = flight ? 'screen' : 'craft';
   app.dataset.flightSteering = flightSteering;
-  app.dataset.pitchMode = pitchMode;
-  $('flight-pitch-picker').hidden = !flight;
+  app.dataset.pitchMode = effectivePitchMode();
+  $('flight-pitch-picker').hidden = !flight||sonicMode();
   $('flight-display-picker').hidden = !flight;
   $('flight-camera-picker').hidden = !flight;
   $('basic-controls').open = !flight;
-  $('pitch-angle').setAttribute('aria-pressed', String(pitchMode === 'angle'));
-  $('pitch-rate').setAttribute('aria-pressed', String(pitchMode === 'rate'));
-  $('pitch-note').textContent = pitchMode === 'angle' ? '中立へ戻すと、機首も水平へ' : '中立でも機首角度を保つ。逆へ倒して戻す';
+  $('pitch-angle').setAttribute('aria-pressed', String(effectivePitchMode() === 'angle'));
+  $('pitch-rate').setAttribute('aria-pressed', String(effectivePitchMode() === 'rate'));
+  $('pitch-note').textContent = effectivePitchMode() === 'angle' ? '中立へ戻すと、機首も水平へ' : '中立でも機首角度を保つ。逆へ倒して戻す';
   $('play-mode-label').textContent = flight ? '飛行機モード' : '探索モード';
   $('flight-attitude').hidden = !flight;
   $('flight-throttle').hidden = !flight;
@@ -295,7 +339,7 @@ function applyModeUI() {
   $('practice-summary').hidden = false;
   $('mode-explore').setAttribute('aria-pressed', String(!flight));
   $('mode-flight').setAttribute('aria-pressed', String(flight));
-  $('pitch-caption').textContent = flight ? (pitchMode === 'angle' ? '画面上辺で機首角度・中立で水平' : '画面上辺を起こすと機首上げ') : '先端側で加速・逆で制動';
+  $('pitch-caption').textContent = flight ? (effectivePitchMode() === 'angle' ? '画面上辺で機首角度・中立で水平' : '画面上辺を起こすと機首上げ') : '先端側で加速・逆で制動';
   $('steer-caption').textContent = flight ? '下げた側へ旋回' : '下げた側へ曲がる';
   $('twist-caption').textContent = flight ? '右回しで右・左回しで左旋回' : '右回しで上・左回しで下';
   $('stop-hint').textContent = flight ? '停止は一時停止ボタン' : `加減速は${CONTROL_LIMITS.throttleMaximum}°で最大`;
@@ -304,14 +348,14 @@ function applyModeUI() {
   $('ground-height-meter').hidden = !flight;
   $('ground-warning-text').hidden = !flight;
   $('guide-pitch-title').textContent = flight ? '画面の上辺を起こす・倒す' : '自機の先端側へ倒す';
-  $('guide-pitch-text').textContent = flight ? (pitchMode === 'angle' ? '起こすと上、倒すと下。中立で水平へ' : '起こすと機首上げ、前へ倒すと機首下げ') : '先端側で加速、逆側でブレーキ';
+  $('guide-pitch-text').textContent = flight ? (effectivePitchMode() === 'angle' ? '起こすと上、倒すと下。中立で水平へ' : '起こすと機首上げ、前へ倒すと機首下げ') : '先端側で加速、逆側でブレーキ';
   $('guide-steer-title').textContent = flight ? (twistSteering ? '面を保って左右に回す' : '左右の端を上下にひねる') : '自機の左右へ倒す';
   $('guide-steer-text').textContent = flight ? (twistSteering ? '回した側へ旋回。戻すと翼が水平へ' : '下げた側へ旋回。戻すと翼が水平へ') : '下げた側へ曲がり続ける';
   $('guide-steer-glyph').textContent = flight && twistSteering ? '↻' : '↔';
   $('guide-steer-glyph').classList.toggle('twist-glyph', flight && twistSteering);
   $('guide-steer-glyph').classList.toggle('steer-glyph', !flight || !twistSteering);
   $('guide-twist-title').textContent = flight ? '画面下のスロットル' : 'スマホを左右に回して保つ';
-  $('guide-twist-text').textContent = flight ? '光・低空でAB補充／110%点火・100%解除' : '右回しで上、左回しで下へ曲がる';
+  $('guide-twist-text').textContent = sonicMode()?'110%でAB点火・100%へ戻すと解除。燃料は設定で無制限／ゲージを選べます。':flight ? '光・低空でAB補充／110%点火・100%解除' : '右回しで上、左回しで下へ曲がる';
   $('guide-third-glyph').textContent = flight ? '⇄' : '↻';
   $('guide-third-glyph').classList.toggle('twist-glyph', !flight);
   $('keyboard-guide').textContent = flight ? 'W・S 機首の上・下\nA・D 旋回 / Q・E 出力の弱・強' : 'W 加速 / S ブレーキ\nA・D 左右 / Q・E 下・上';
@@ -337,6 +381,7 @@ $('steering-twist').addEventListener('click', () => selectSteering('twist'));
 $('steering-tilt').addEventListener('click', () => selectSteering('tilt'));
 
 function selectPitch(next) {
+  if(sonicMode())return;
   if (!stage || next === pitchMode || !['angle', 'rate'].includes(next) || ['waiting', 'ready', 'running'].includes(phase)) return;
   pitchMode = next;
   applyModeUI();
@@ -352,6 +397,7 @@ $('pitch-rate').addEventListener('click', () => selectPitch('rate'));
 
 function selectMode(next) {
   if (!stage || next === playMode || ['waiting', 'ready', 'running'].includes(phase)) return;
+  if(next==='explore'&&isSupersonicCourse(selectedCourse))selectCourse('easy');
   const resume = Boolean(inputMode) && phase !== 'error';
   permissionAttempt++;
   halt();
@@ -386,18 +432,19 @@ function selectMode(next) {
 }
 function selectCourse(id){
   const next=getCourse(id);
+  if(playMode==='explore'&&isSupersonicCourse(next))return;
   if(!stage||next.id===selectedCourse.id||['waiting','ready','running'].includes(phase))return;
   const resume=Boolean(inputMode)&&phase!=='error';
   permissionAttempt++;halt();pwa.clearOrientation();
   selectedCourse=next;saveCourseChoice(courseStorage,next.id);
   stage.dispose();
-  try{stage=createStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,turnGravity:flightPanel.getSettings().turnGravity});}
+  try{stage=makeStage();if(sonicMode())sonicActivity.begin(stage.getStatus().supersonic);}
   catch(error){stage=null;setPhase('error');dialog({title:'コースを開けませんでした',description:'ページを再読み込みして、もう一度お試しください。',action:'再読み込みする',error:error.message});return;}
   reference=null;previousCollected=0;exitNoticeUntil=0;resetRouteRecords();flightSession.reset();afterburnerSession.reset();feedback.reset();
   $('toast').hidden=true;flightPanel.showResult(null);resize();stage.update(0,{mode:playMode,speed:0,craftQuaternion});
   const url=new URL(location.href);url.searchParams.set('course',next.id);url.searchParams.set('v',APP_VERSION);history.replaceState(null,'',url);
   applyModeUI();
-  if(resume){setPhase('paused');dialog({title:'コースを変更しました',description:`${next.name}。光${next.lights.length}個を集めて出口へ。最初から始めます。`,note:modeNote(),action:inputMode==='sensor'?'この持ち方で再開する':'画面操作を再開する',guide:true});}
+  if(resume){setPhase('paused');dialog({title:'コースを変更しました',description:sonicMode()?modeIntroduction():`${next.name}。光${next.lights.length}個を集めて出口へ。最初から始めます。`,note:modeNote(),action:inputMode==='sensor'?'この持ち方で再開する':'画面操作を再開する',guide:true});}
   else{setInputMode(null,'course-reset');setPhase('intro');dialog({title:'自分はそのまま。世界を動かそう。',description:modeIntroduction(),note:modeNote(),action:'スマホの傾きで始める',guide:true});}
 }
 $('course-select').addEventListener('change',event=>selectCourse(event.target.value));
@@ -449,7 +496,7 @@ function halt() {
   setThrottle(0);
   angles = { pitch: 0, steer: 0, twist: 0 };
   zeroPractice();
-  if (stage) stage.update(0, { ...rates, mode: playMode, speed, craftQuaternion });
+  if (stage) stage.update(0, { ...rates, mode: playMode, speed, craftQuaternion,...(sonicMode()?{paused:true}:{}) });
   wakeLock?.release().catch(() => {});
   wakeLock = null;
 }
@@ -494,8 +541,8 @@ function run(mode,reason) {
   else craftQuaternion.identity();
   setPhase('running');
   activeFrameAt=performance.now();
-  if(flowEnabled)previousFrame=activeFrameAt;
-  const initial=stage.getStatus();routeTiming.advance(0,{...initial,targetVisible:targetCenterInViewport(initial)});approaches.advance(0,initial);straights.advance(initial);passbys.advance(0,{...initial,objects:passObjects(initial)});
+  if(flowEnabled||sonicMode())previousFrame=activeFrameAt;
+  const initial=stage.getStatus();if(sonicMode())sonicActivity.begin(initial.supersonic);routeTiming.advance(0,{...initial,targetVisible:targetCenterInViewport(initial)});approaches.advance(0,initial);straights.advance(initial);passbys.advance(0,{...initial,objects:passObjects(initial)});
   feedback.start({flightNumber:flightSession.snapshot().legs});
   $('pause-button').focus({ preventScroll: true });
   keepAwake();
@@ -675,7 +722,7 @@ $('recenter-button').addEventListener('click', () => {
 $('help-button').addEventListener('click', () => {
   if(flowEnabled){pause();void flowCoordinator.action('help');return;}
   if (phase !== 'running') return;
-  pause(playMode === 'flight' ? `画面の上辺を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、${pitchMode === 'angle' ? '機首も水平へ戻ります。' : '機首は今の角度を保ちます。'}画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
+  pause(playMode === 'flight' ? `画面の上辺を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、${effectivePitchMode() === 'angle' ? '機首も水平へ戻ります。' : '機首は今の角度を保ちます。'}画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
   $('control-guide').hidden = false;
   $('basic-controls').hidden = playMode !== 'flight';
   $('basic-controls').open = true;
@@ -766,7 +813,8 @@ function updateGroundProximity(state, language='en') {
   const level = flight ? proximity.level : 'clear';
   $('ground-proximity').dataset.level = level;
   $('ground-height-meter').style.setProperty('--clearance-ratio', String(proximity.ratio));
-  $('altitude-value').textContent = proximity.known ? proximity.clearance.toFixed(1) : '—';
+  $('altitude-value').textContent = state.supersonic?formatSupersonicAltitude(state.altitude??state.position.y):proximity.known ? proximity.clearance.toFixed(1) : '—';
+  if(state.supersonic)$('altitude-value').setAttribute('aria-label',`ALT ${state.altitude??state.position.y} m`);else $('altitude-value').removeAttribute('aria-label');
   const message = hudGroundWarning(level,language);
   if ($('ground-warning-text').textContent !== message) $('ground-warning-text').textContent = message;
   if($('ground-warning-text').dataset.level!==level)$('ground-warning-text').dataset.level=level;
@@ -779,7 +827,7 @@ function updateGroundProximity(state, language='en') {
   app.dataset.groundClearance = proximity.known ? String(proximity.clearance) : '';
 }
 
-function updateEdgeMarker(state, language='en') {
+function updateEdgeMarker(state, language='en',extraObstacles=[]) {
   const marker = $('target-edge-marker');
   marker.dataset.target=state.collected===state.total?'exit':'light';
   if(playMode==='flight'&&cameraMode==='cockpit'&&visibility==='assisted'&&phase==='running'){
@@ -815,15 +863,15 @@ function updateEdgeMarker(state, language='en') {
   if (!projected.visible) return;
   const cockpitObstacles = cameraMode === 'cockpit' && playMode === 'flight'
     ? ['cockpit-speed','cockpit-altitude','cockpit-heading','cockpit-target-height','cockpit-power','cockpit-vario'].filter(id=>!$(id).hidden).map(id=>$(id).getBoundingClientRect()) : [];
-  const placed = avoidRadarMarker(projected, { left:left+50,top:top+25,right:right-50,bottom:bottom-25 }, cockpitObstacles);
+  const placed = avoidRadarMarker(projected, { left:left+50,top:top+25,right:right-50,bottom:bottom-25 }, [...cockpitObstacles,...extraObstacles]);
   marker.style.left = `${placed.x}px`;
   marker.style.top = `${placed.y}px`;
   $('edge-arrow').style.transform = `rotate(${language==='en'&&projected.behind?Math.atan2(state.targetLocal.x,-state.targetLocal.z)*180/Math.PI:projected.rotation}deg)`;
   $('edge-label').textContent = hudTargetLabel(state,language);
   const vertical = Math.abs(state.elevation) > 0.13 ? (state.elevation > 0 ? '上' : '下') : '';
   $('edge-detail').textContent = language==='ja'
-    ? `${[projected.behind ? '後ろ' : '', vertical].filter(Boolean).join('・')} ${Math.round(state.distance)}m`.trim()
-    : `${Math.round(state.distance)}m ${hudHeightDelta(state.targetPosition.y-state.position.y,language)}`;
+    ? `${[projected.behind ? '後ろ' : '', vertical].filter(Boolean).join('・')} ${formatNavigationDistance(state.distance,Boolean(state.supersonic))}`.trim()
+    : `${formatNavigationDistance(state.distance,Boolean(state.supersonic))} ${hudHeightDelta(state.targetPosition.y-state.position.y,language)}`;
   marker.setAttribute('aria-label', `${hudTargetLabel(state,language)} ${$('edge-detail').textContent}`);
 }
 
@@ -877,7 +925,7 @@ function updateHud(now, state) {
     : rates.brake > 0 ? 'ブレーキ' : rates.acceleration > 0 ? '加速中' : '速度維持';
   $('motion-state').textContent = hudStatusLabel(motionLabel,language);
   $('target-label').textContent = state.complete ? hudText(language,'arrived') : hudTargetLabel(state,language);
-  $('target-distance').textContent = `${Math.round(state.distance)} m`;
+  $('target-distance').textContent = formatNavigationDistance(state.distance,Boolean(state.supersonic),{space:true});
   $('collection-count').textContent = state.collected;
   $('collection-total').textContent='/ '+state.total;
   $('objective').textContent = hudObjectiveText(state,language);
@@ -900,6 +948,7 @@ function updateHud(now, state) {
   app.dataset.afterburner=JSON.stringify(state.afterburner??{});
   app.dataset.speedEffects=JSON.stringify(state.speedEffects??{});
   app.dataset.recoveryAssist = String(state.recoveryAssist || 0);
+  app.dataset.angleOfAttack = String(state.angleOfAttack);
   app.dataset.session = JSON.stringify(flightSession.snapshot());
   app.dataset.pitchTarget = String(rates.pitchTarget || 0);
   app.dataset.grounded = String(Boolean(state.grounded));
@@ -925,16 +974,26 @@ function updateHud(now, state) {
   app.dataset.exitDiscovery=JSON.stringify(routeTiming.exitSnapshot());
   app.dataset.targetViews=JSON.stringify(routeTiming.targetViewsSnapshot());
   app.dataset.course=JSON.stringify(state.course);app.dataset.stageSize=JSON.stringify(state.stageSize);app.dataset.turnGravity=String(state.turnGravity);app.dataset.boundary=JSON.stringify(state.boundary);
+  app.dataset.supersonic=JSON.stringify(state.supersonic??null);
   const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
   $('cockpit-exit-notice').hidden=!(cockpitActive&&visibility==='assisted'&&state.collected===state.total&&now<exitNoticeUntil);
   $('cockpit-exit-notice').textContent=hudText(language,'exitOpen');
   const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive,language,inlineParent:$('flight-essential-height')});
   updateEssentialHud({...state,inputHeld},{phase,mode:playMode,camera:cameraMode,language});
-  updateRadar(state, { phase, visibility, range: settings.radarRange,language });
+  updateRadar(state, { phase, visibility, range: state.supersonic?sonicPanel.getSettings().radarRange:settings.radarRange,language,extraObstacles:state.supersonic?sonicPanel.getObstacleRects():[] });
   const cockpitLayout = layoutCockpitHud(cockpitActive);
-  updateEdgeMarker(state,language);
-  updateCockpitHud({...state,inputHeld}, cockpitActive, cockpitLayout, {...settings,hudLanguage:language}, heightGuide);
-  layoutCockpitObjective(cockpitLayout);
+  if(state.supersonic){
+    updateCockpitHud({...state,inputHeld},cockpitActive,cockpitLayout,{...settings,hudLanguage:language},heightGuide);
+    sonicPanel.updateState(state,{phase,camera:cameraMode,now,hudLanguage:language});
+    const sonicObstacles=sonicPanel.getObstacleRects();
+    updateRadar(state,{phase,visibility,range:sonicPanel.getSettings().radarRange,language,extraObstacles:sonicObstacles});
+    updateEdgeMarker(state,language,sonicObstacles);layoutCockpitObjective(cockpitLayout,sonicObstacles);
+  }else{
+    updateEdgeMarker(state,language);
+    updateCockpitHud({...state,inputHeld}, cockpitActive, cockpitLayout, {...settings,hudLanguage:language}, heightGuide);
+    layoutCockpitObjective(cockpitLayout);
+  }
+  app.dataset.supersonicPanel=JSON.stringify(sonicPanel.snapshot());
   flowUI?.refreshPlayControls();
   if(flowEnabled&&flowCoordinator){const flow=flowCoordinator.snapshot();app.dataset.startup=JSON.stringify(flow.startup);app.dataset.briefing=JSON.stringify(flow.briefing);}
 }
@@ -944,12 +1003,13 @@ function frame(now) {
   const frameStart=performance.now();
   // A queued rAF can precede the click/timer that launched this flight.
   // Keep both movement and active-time records at the actual start boundary.
-  const clock=flowEnabled?advanceFrameClock(previousFrame,now):null;
-  const dt = clock?clock.dt:Math.min((now - previousFrame) / 1000, 0.05);
+  const clock=flowEnabled||sonicMode()?advanceFrameClock(previousFrame,now):null;
+  const rawDt=clock?Math.max(0,(clock.time-previousFrame)/1000):null;
+  const dt = sonicMode()?rawDt:clock?clock.dt:Math.min((now - previousFrame) / 1000, 0.05);
   if(clock)now=clock.time;
   previousFrame = now;
   if (stage) {
-    stage.setGroundPatternStrength(flightPanel.getSettings().groundPatternStrength);
+    stage.setGroundPatternStrength(sonicMode()?.8:flightPanel.getSettings().groundPatternStrength);
     if (phase === 'running') {
       if (inputMode === 'sensor') {
         // An unchanged held pose may produce no new events. Keep its last valid value while visible.
@@ -959,7 +1019,7 @@ function frame(now) {
         }
       } else {
         if (keyboardActive) {
-          const pitchExtent = pitchMode === 'angle' ? flightPanel.getSettings().maxTilt : 18;
+          const pitchExtent = effectivePitchMode() === 'angle' ? flightPanel.getSettings().maxTilt : 18;
           const pitch = playMode === 'flight' ? (heldKeys.has('w') ? pitchExtent : 0) - (heldKeys.has('s') ? pitchExtent : 0) : (heldKeys.has('s') ? 22 : 0) - (heldKeys.has('w') ? 18 : 0);
           const lateral = (heldKeys.has('d') ? 18 : 0) - (heldKeys.has('a') ? 18 : 0);
           const steer = playMode === 'flight' && flightSteering === 'twist' ? 0 : lateral;
@@ -974,11 +1034,13 @@ function frame(now) {
         angles = preserveTiltInput(angles,readPose(pose, pose, neutralQuaternion, neutralQuaternion));inputHeld=angles.held;
       }
     }
-    rates = phase === 'running' ? (playMode === 'flight' ? flightCommands(angles, { pitchMode, steering: flightSteering, settings: flightPanel.getSettings(), currentPitch: stage.getStatus().controlPitch, dt }) : controlRates(angles)) : { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };
+    const sonicInput=sonicMode()?supersonicIntent(angles,{steering:flightSteering,normalSettings:flightPanel.getSettings(),effectiveSettings:stage.getStatus().supersonic.effectiveSettings,throttle:Math.min(1,throttle),manualAfterburner}):null;
+    rates = phase === 'running' ? (sonicInput?{pitchRate:0,yawRate:0,bankAngle:sonicInput.bankDemand*Math.atan(Math.sqrt(stage.getStatus().supersonic.effectiveSettings.maxG**2-1)),pitchTarget:sonicInput.pitchDemandRadians,acceleration:0,brake:0}
+      :playMode === 'flight' ? flightCommands(angles, { pitchMode, steering: flightSteering, settings: flightPanel.getSettings(), currentPitch: stage.getStatus().controlPitch, dt }) : controlRates(angles)) : { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };
     const wasRunning=phase==='running',wasFlying = wasRunning && playMode === 'flight';
-    if (phase === 'running' && (!flowEnabled || dt > 0)) {
+    if (phase === 'running' && (!(flowEnabled||sonicMode()) || dt > 0)) {
       if (playMode === 'explore') speed = advanceSpeed(speed, dt, rates);
-      stage.update(dt, { ...rates, mode: playMode, speed, throttle:Math.min(1,throttle), manualAfterburner, pitchInputDegrees:angles.pitch, speedSettings:flightPanel.getSettings(), craftQuaternion,
+      stage.update(dt, { ...rates, mode: playMode, speed, throttle:Math.min(1,throttle), manualAfterburner, pitchInputDegrees:angles.pitch, speedSettings:flightPanel.getSettings(), craftQuaternion,...(sonicInput?{supersonic:sonicInput}:{}),
         ...(playMode === 'flight' ? { displayTwist: angles.twist,
           displayScreenOffset: inputMode === 'sensor' ? screenAngle() - referenceScreenAngle : 0,
           displayTimeConstant: flightPanel.getSettings().displayTimeConstant,
@@ -986,7 +1048,9 @@ function frame(now) {
           cockpitFov: flightPanel.getSettings().cockpitFov, turnGravity:flightPanel.getSettings().turnGravity, maxBank:flightPanel.getSettings().maxBank } : {}) });
     }
     const state = stage.getStatus();
-    const activeSeconds=wasRunning?Math.max(0,(now-activeFrameAt)/1000):0;
+    if(state.supersonic)sonicPanel.observeEvents(state,{phase,now});
+    let activeSeconds=wasRunning?Math.max(0,(now-activeFrameAt)/1000):0;
+    if(wasRunning&&state.supersonic){sonicActivity.advance(activeSeconds,state.supersonic);activeSeconds=Math.max(0,activeSeconds-(state.supersonic.timing?.terminalRemainder??0));}
     if(wasRunning){
       const targetVisible=targetCenterInViewport(state);
       routeTiming.advance(activeSeconds,{...state,targetVisible,exitVisible:state.collected===state.total&&targetCenterInPlayArea(state)});activeFrameAt=now;
@@ -1006,12 +1070,12 @@ function frame(now) {
       else showToast(hudCollectedNotice(state,language));
     }
     if (state.complete && phase === 'running') {
-      const segments=routeTiming.snapshot();
-      if(segments.every(segment=>Number.isFinite(segment.seconds)))courseTime=courseBests.complete(selectedCourse,playMode,segments.reduce((sum,segment)=>sum+segment.seconds,0));
+      const segments=sonicMode()?recordedSegments():routeTiming.snapshot();
+      if(segments.every(segment=>Number.isFinite(segment.seconds)))courseTime=sonicMode()?sonicBests.complete(sonicBestKey(),sonicActivity.snapshot().activeSeconds):courseBests.complete(selectedCourse,playMode,segments.reduce((sum,segment)=>sum+segment.seconds,0));
       halt();
       setPhase('complete');
       feedback.event('clear');
-      dialog({ title: '出口に到着しました', description: playMode === 'flight' ? `${state.total}つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？` : `${state.total}つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？`, note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
+      dialog({ title: '出口に到着しました', description: sonicMode()?'5枚の門と出口を通過しました。高速空域クリア。':playMode === 'flight' ? `${state.total}つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？` : `${state.total}つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？`, note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
       flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'clear', flightSession.lastLegSnapshot()));
       flowCoordinator?.result();
     }
@@ -1025,16 +1089,18 @@ function frame(now) {
           : `${s.inputPitch < 0 ? '前倒し' : '手前へ起こし'}${Math.round(Math.abs(s.inputPitch))}°`;
         description = `接地直前：出力${Math.round(s.throttle * 100)}%・${noseText}・下降${Math.max(0, -s.verticalSpeed).toFixed(1)}m/s。前後操作：${operation}。`;
       }
-      pause('地面に接触して停止しました。最初から飛び直せます。');
+      if(sonicMode())description=`機体の一部が海面に接触しました。中心高度${state.altitude.toFixed(2)}m／最下部の海面からの高さ${state.groundClearance.toFixed(2)}m。`;
+      pause(sonicMode()?'機体が海面に接触して停止しました。最初から飛び直せます。':'地面に接触して停止しました。最初から飛び直せます。');
       feedback.event('crash');
-      dialog({ title: '地面に接触して停止', description, note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
+      dialog({ title: sonicMode()?'海面に接触して停止':'地面に接触して停止', description, note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
       flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'grounded', flightSession.lastLegSnapshot()));
-      flowCoordinator?.result();
+      flowCoordinator?.result(sonicMode()?{title:'海面に接触しました',description}:undefined);
     }
     updateHud(now, state);
     updateCockpitObjective(state,playMode==='flight'&&cameraMode==='cockpit'&&phase==='running',{language:phase==='running'?flightPanel.getSettings().hudLanguage:'ja'});
-    const guidance=updateGuidancePanel(state,{phase,camera:cameraMode,settings:flightPanel.getSettings(),now,dt});
-    updateBoundaryPanel(state,{phase,settings:flightPanel.getSettings()});
+    const sonicObstacles=state.supersonic?sonicPanel.getObstacleRects():[];
+    const guidance=updateGuidancePanel(state,{phase,camera:cameraMode,settings:flightPanel.getSettings(),now,dt,extraObstacles:sonicObstacles});
+    updateBoundaryPanel(state,{phase,settings:flightPanel.getSettings(),extraObstacles:sonicObstacles});
     feedback.update(state,angles,inputMode,flightSteering,now,{enabled:phase==='running'&&playMode==='flight'&&flightPanel.getSettings().audioGuidance,bearingDeg:guidance?.bearingDeg});
     if(phase==='running')for(const event of passbys.advance(activeSeconds,{...state,objects:passObjects(state)}))feedback.passBy(event);
   }
@@ -1050,6 +1116,12 @@ function prepareFlowFresh({preserveSession=false}={}){
   reference=null;craftReference=null;resetRoute();previousCollected=0;setInputMode(null,'new-course-flow');
   $('toast').hidden=true;flightPanel.showResult(null);setPhase('intro');updateHud(performance.now(),stage.getStatus());return true;
 }
+function courseCard(id){
+  const course=getCourse(id),range=COURSE_CRITERIA.difficulties[id]?.cruiseTimeRange;
+  const bestSeconds=id==='supersonic'?sonicBests.best(supersonicBestKey(createSupersonicProfile(sonicPanel.getSettings()),course)):courseBests.best(course,playMode);
+  return {id,name:course.name,targetCount:course.lights.length,timeHint:range?'目安 '+range[0]+'〜'+range[1]+'秒':'',bestSeconds,bestLabel:formatCourseTime(bestSeconds),previewSvg:createCoursePreviewSVG(course),
+    ...(id==='supersonic'?{detail:'門5枚＋出口 · 40km四方 · ABでM2'}:{})};
+}
 function cancelFlowPending(fresh){
   permissionAttempt++;flowPermissionAwaiting=false;pendingCalibration=false;clearTimeout(waitingTimer);pwa.cancelEntry();halt();reference=null;
   if(['waiting','ready','error'].includes(phase))setPhase(fresh?'intro':'paused');
@@ -1061,10 +1133,10 @@ function setupStartFlow(){
   flowCoordinator=createStartFlowController({ui:flowUI,map:briefingUI,pwa,preferences:startPreferences,briefingPreferences,record:startRecord,
     read:()=>({phase,mode:playMode,camera:cameraMode,steering:flightSteering,input:inputMode,course:selectedCourse,state:stage?.getStatus()??{grounded:false},pauseReason:lastPauseReason}),
     actions:{
-      courseCards:()=>['easy','normal','hard'].map(id=>{const course=getCourse(id),range=COURSE_CRITERIA.difficulties[id]?.cruiseTimeRange,bestSeconds=courseBests.best(course,playMode);return {id,name:course.name,targetCount:course.lights.length,timeHint:range?'目安 '+range[0]+'〜'+range[1]+'秒':'',bestSeconds,bestLabel:formatCourseTime(bestSeconds),previewSvg:createCoursePreviewSVG(course)};}),
+      courseCards:()=>(playMode==='flight'?PLAYABLE_COURSE_IDS:NORMAL_COURSE_IDS).map(courseCard),
       prepareFresh:prepareFlowFresh,cancelPending:cancelFlowPending,
       selectCourse:id=>selectCourse(id),selectMode:mode=>{if(flowDev)selectMode(mode);},setCamera:value=>selectCamera(value),
-      ready:()=>setPhase('ready'),launch:(mode,reason)=>run(mode,reason),unlock:()=>feedback.unlock(),
+      ready:()=>setPhase('ready'),launch:(mode,reason)=>run(mode,reason),unlock:()=>feedback.unlock(),countdownAudio:signal=>feedback.countdownAudio(signal),
       hold:mode=>{
         if(!stage){location.reload();return;}
         feedback.unlock();
@@ -1082,9 +1154,9 @@ function setupStartFlow(){
 
 applyModeUI();
 try {
-  stage = createStage(canvas, { visibility, display: flightDisplay, cameraMode, course:selectedCourse, turnGravity:flightPanel.getSettings().turnGravity });
+  stage = makeStage();if(sonicMode())sonicActivity.begin(stage.getStatus().supersonic);
   stage.update(0, { mode: playMode, speed: 0, craftQuaternion });
-  stage.setGroundPatternStrength(flightPanel.getSettings().groundPatternStrength);renderRadarUpgrade();
+  stage.setGroundPatternStrength(sonicMode()?.8:flightPanel.getSettings().groundPatternStrength);renderRadarUpgrade();
   resize();
   setupStartFlow();
   pwa.initialize();

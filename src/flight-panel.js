@@ -17,6 +17,10 @@ export function createFlightPanel(getModes) {
   try { storage = window.localStorage; } catch { /* Defaults also work without storage access. */ }
   let settings = loadFlightSettings(storage);
   let result = null;
+  const sonicSummary=document.createElement('div');sonicSummary.id='result-supersonic-summary';sonicSummary.hidden=true;
+  const sonicSummaryLabel=document.createElement('dt'),sonicSummaryValue=document.createElement('dd');sonicSummaryLabel.textContent='高速空域の記録';sonicSummary.append(sonicSummaryLabel,sonicSummaryValue);
+  $('flight-result').querySelector('.result-readings').append(sonicSummary);
+  const sonicDetails=document.createElement('section');sonicDetails.id='result-supersonic-details';sonicDetails.hidden=true;$('result-flight-stats').after(sonicDetails);
   const rangeEditors={};let beforeReset=null;
   const fovAuto=document.createElement('input');fovAuto.type='checkbox';fovAuto.id='cockpit-fov-auto';
   for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
@@ -137,6 +141,16 @@ export function createFlightPanel(getModes) {
       $('flight-result').hidden = !report;
       $('result-copy-text').hidden = true; $('result-copy-status').textContent = '';
       if (!report) return;
+      const sonic=report.supersonic;sonicSummary.hidden=!sonic;sonicDetails.hidden=!sonic;
+      if(sonic){
+        const number=(value,digits=1,unit='')=>Number.isFinite(value)?value.toFixed(digits)+unit:'未到達';
+        sonicSummaryValue.textContent=`最高 M ${number(sonic.maximumMach,2)} · 最大 ${number(sonic.maximumG,1,'G')}\nM1 ${number(sonic.firstMach1ActiveSeconds,1,'秒')} / M2 ${number(sonic.firstMach2ActiveSeconds,1,'秒')}`;
+        const heading=document.createElement('h3');heading.textContent='高速空域（最後の1回）';const list=document.createElement('dl');list.className='result-readings';
+        for(const [name,value] of [['最高マッハ数',number(sonic.maximumMach,2)],['M1まで（活動時間）',number(sonic.firstMach1ActiveSeconds,3,'秒')],['M2まで（活動時間）',number(sonic.firstMach2ActiveSeconds,3,'秒')],['最大G',number(sonic.maximumG,2,'G')],['最低の中心高度',number(sonic.minimumSeaAltitude,2,'m')],['機体最下部の最低高さ',number(sonic.minimumSeaClearance,2,'m')],['燃料方式',sonic.fuelMode==='unlimited'?'無制限':'ゲージ']]){
+          const row=document.createElement('div'),label=document.createElement('dt'),valueElement=document.createElement('dd');label.textContent=name;valueElement.textContent=value;row.append(label,valueElement);list.append(row);
+        }
+        sonicDetails.replaceChildren(heading,list);
+      }
       const stats=report.stats??{elapsedSeconds:0,groundContacts:0,recoverySeconds:0};
       const flight=report.mode==='flight';$('result-flight-stats').hidden=!flight;
       $('result-title').textContent=flight?'今回の飛行記録':'今回の探索記録';$('flight-result').setAttribute('aria-label',$('result-title').textContent);
@@ -168,8 +182,9 @@ export function createFlightPanel(getModes) {
       $('result-approaches').replaceChildren(...(report.segments??[]).map(segment=>{
         const row=document.createElement('div');row.dataset.approachId=segment.id;
         const label=document.createElement('dt');label.textContent=segment.label;
-        const value=document.createElement('dd');value.textContent=`最接近 ${Number.isFinite(segment.closestDistance)?segment.closestDistance.toFixed(1)+'m':'未到達'} / 近くの未取得通過 ${segment.nearMisses??0}回`;row.append(label,value);return row;
+        const value=document.createElement('dd');value.textContent=`最接近 ${Number.isFinite(segment.closestDistance)?segment.closestDistance.toFixed(1)+'m':'未到達'} / ${sonic?'門の外を通過':'近くの未取得通過'} ${segment.nearMisses??0}回`;row.append(label,value);return row;
       }));
+      const approachHelp=$('result-approaches').nextElementSibling;if(approachHelp?.tagName==='SMALL')approachHelp.textContent=sonic?'門の面を輪の外で横切った回数です。戻って同じ門を通り直せます。':'目標の15m以内へ入り、取らずに18m以上離れると1回として数えます。';
       $('result-straights-heading').hidden=!flight||!report.abStraights?.length;
       $('result-straights').hidden=!flight||!report.abStraights?.length;
       $('result-straights').replaceChildren(...(flight?report.abStraights??[]:[]).map((lane,index)=>{
@@ -186,13 +201,16 @@ export function createFlightPanel(getModes) {
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = phase !== 'paused';
       const inactiveSteering = getModes().steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone'];
+      const sonic=getModes().course?.id==='supersonic';
       for (const label of $('flight-settings-fields').querySelectorAll('label[data-setting-key]')) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','speedUnit','streakAmount','groundPatternStrength'].includes(label.dataset.settingKey))
-        || inactiveSteering.includes(label.dataset.settingKey);
+        || inactiveSteering.includes(label.dataset.settingKey)||(sonic&&['maxPitch','timeConstant','maxBank','turnGravity','radarRange','groundPatternStrength'].includes(label.dataset.settingKey));
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       refreshLayout();
       refreshTroubles();
       $('flight-settings-help').hidden = mode !== 'flight';
       $('settings-reset').textContent = mode === 'flight' ? '操縦をすべて初期値へ' : '目印をすべて初期値へ';
+      $('settings-reset').hidden=sonic;
+      $('settings-undo-reset').hidden=sonic||!beforeReset;
       $('adjustment-scope-note').textContent = mode === 'flight'
         ? '機首と旋回の入力角度を別々に調整します。選んだ旋回方式の項目だけ表示します。'
         : 'レーダー・目標高度・速度単位・流線・地面の模様を調整します。探索の操縦には影響しません。';

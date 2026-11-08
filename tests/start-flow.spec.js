@@ -81,7 +81,7 @@ test('real first start, tutorial, map, countdown, easy success and retry keep st
   await expect(page.locator('#mode-explore')).toBeHidden();await expect(page.locator('#practice-button')).toBeHidden();
   await page.locator('#start-flow-title-settings').click();await step(page,'settings');await expect(page.locator('#start-flow-input-method')).toHaveValue('sensor');await page.locator('#start-flow-input-method').selectOption('practice');await page.locator('#start-flow-settings-close').click();await step(page,'title');
   expect(await page.evaluate(()=>({flight:localStorage.getItem('twist.flight-settings.v1'),audio:localStorage.getItem('twist.feedback-settings.v1')}))).toEqual(saved);
-  await startToCourses(page,{first:true});await expect(page.locator('[data-course-id]')).toHaveCount(3);await page.locator('[data-course-id=easy]').click();
+  await startToCourses(page,{first:true});await expect(page.locator('[data-course-id]')).toHaveCount(4);for(const id of ['easy','normal','hard','supersonic'])await expect(page.locator(`[data-course-id="${id}"]`)).toBeVisible();await page.locator('[data-course-id=easy]').click();
   await page.locator('#start-flow-course-start').click();await expect(page.locator('#briefing-panel')).toBeVisible();
   const beforeMap=await read(page);await tick(page,5000);const afterMap=await read(page);expect(afterMap.position).toEqual(beforeMap.position);expect(afterMap.session.elapsedSeconds).toBe(0);await expect(page.locator('#briefing-panel')).toHaveAttribute('data-draw-complete','true');
   expect(await page.evaluate(()=>({contexts:flowAudioContexts.length,vibrations:flowVibrations.length}))).toEqual({contexts:0,vibrations:0});
@@ -142,15 +142,17 @@ test('normal flow hides development modes while explicit dev exploration keeps a
   await page.goto('/?dev=1&mode=explore');await tick(page);await expect(page.locator('#app')).toHaveAttribute('data-play-mode','explore');await page.locator('#start-flow-title-settings').click();await page.locator('summary').filter({hasText:'④ 検証用'}).click();await expect(page.locator('#mode-explore')).toBeVisible();await page.locator('#start-flow-settings-close').click();await startToCourses(page);await toPose(page);await page.locator('#start-flow-hold').click();await tick(page,3020);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');await expect(page.locator('#start-flow-view-button')).toBeHidden();await expect(page.locator('#throttle-input')).toBeHidden();for(const id of ['practice-pitch','practice-steer','practice-twist'])await inside(page,'#'+id);await noScroll(page);expect(errors).toEqual([]);
 });
 
-test('title settings allow only explicit native BGM preview and normal preflight stays silent',async({page})=>{
+test('title and map keep explicit preview separate while countdown cues do not start music or flight',async({page})=>{
   const errors=await boot(page,{audio:true,map:'every'});expect(await page.evaluate(()=>flowAudioContexts.length)).toBe(0);await tick(page,3000);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);
   await page.locator('#start-flow-title-settings').click();await page.locator('summary').filter({hasText:'③ 音と振動'}).click();await page.locator('#feedback-musicSet').selectOption('ignition');const saved=await page.evaluate(()=>localStorage.getItem('twist.feedback-settings.v1'));await page.locator('#music-preview-start').click();
   await expect.poll(async()=>{await tick(page);return page.locator('.music-preview-controls').getAttribute('data-playing');}).toBe('true');
   const preview=await page.locator('.music-preview-controls').evaluate(e=>({audio:JSON.parse(e.dataset.audio),music:JSON.parse(e.dataset.music)}));expect(preview.audio.workletReady).toBe(true);expect(preview.audio.contextState).toBe('running');expect(preview.music.track).toBe('Ignition Sky');expect((await read(page)).session.elapsedSeconds).toBe(0);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);
   await page.locator('#start-flow-settings-close').click();await step(page,'title');await expect.poll(()=>page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length)).toBe(0);expect(await page.evaluate(()=>localStorage.getItem('twist.feedback-settings.v1'))).toBe(saved);
   await startToCourses(page);await toPose(page,{map:true,mapWait:2000});expect(await page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length)).toBe(0);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);expect((await read(page)).session.elapsedSeconds).toBe(0);expect(errors).toEqual([]);
-  await page.locator('#start-flow-hold').click();await step(page,'countdown');await tick(page,2900);
-  const waitingAudio=await page.locator('#feedback-diagnostics').getAttribute('data-audio').then(JSON.parse);expect(waitingAudio.peak??0).toBe(0);
+  await page.locator('#start-flow-hold').click();await step(page,'countdown');
+  await expect.poll(async()=>{await tick(page,16);return page.locator('#start-flow-countdown').textContent();}).toBe('3');
+  await tick(page,2900);
+  const waitingAudio=await page.locator('#feedback-diagnostics').getAttribute('data-audio').then(JSON.parse);expect(waitingAudio.musicActive).toBe(false);expect(waitingAudio.varioActive).toBe(false);
   expect(await page.evaluate(()=>flowVibrations.filter(pattern=>Array.isArray(pattern)?pattern.some((duration,index)=>index%2===0&&duration>0):pattern>0))).toEqual([]);
   expect((await read(page)).session.elapsedSeconds).toBe(0);await tick(page,120);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
   await expect.poll(async()=>{await tick(page,160);return page.locator('#feedback-diagnostics').getAttribute('data-audio').then(value=>JSON.parse(value).peak??0);}).toBeGreaterThan(0);
