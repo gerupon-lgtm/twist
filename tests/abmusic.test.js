@@ -46,7 +46,7 @@ test('the real player keeps base track, clock position and played list while AB 
   const config=JSON.parse(await readFile(new URL('../public/music/tracks.json',import.meta.url),'utf8'));
   async function playerFor(data){
     const audio=fakeAudio(),fetchFile=async url=>String(url).includes('tracks.json')?{ok:true,json:async()=>data}:{ok:true,arrayBuffer:async()=>readFile(new URL('../public/music/'+new URL(url).pathname.split('/').pop(),import.meta.url))};
-    const player=createMusicPlayer(audio,{fetchFile,base:new URL('https://example.test/music/')});player.setSettings({sound:true,bgm:true,sfx:true,abMusic:true,musicSet:'current'});assert.equal(await player.play('flight'),'played');return {audio,player};
+    const player=createMusicPlayer(audio,{fetchFile,base:new URL('https://example.test/music/')});player.setSettings({sound:true,bgm:true,sfx:true,abMusic:true,musicSet:'current'});await player.warmup();assert.equal(await player.play('flight'),'played');return {audio,player};
   }
   const {audio,player}=await playerFor(config);
   try{

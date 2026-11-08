@@ -49,7 +49,7 @@ function environment({query='brave',musicSet='proposals',unlockGate=null,closeGa
       prepareCountdown:session=>({session,ready:countdownReady}),countdownTone:(_session,_cue,value)=>Boolean(countdownReady&&value.sound&&value.sfx&&value.volume>0),cancelCountdown(){},waitForCountdownEnd:()=>goEnd??Promise.resolve({reason:'finished'}),
       unlock(){this.unlocks++;this.ready=true;this.state='running';return unlockGate??Promise.resolve();},resume(){this.resumes++;this.state='running';return Promise.resolve();},dispose(){return (closeGate??Promise.resolve()).then(()=>{this.state='closed';});},snapshot(){return {contextState:this.state,workletReady:this.ready};},resetMetrics(){}};audios.push(audio);return audio;
   },createMusicPlayer:audio=>{
-    let settings={},playing=false,last=null;const player={loadCatalog:async()=>{if(catalogGate)await catalogGate;return catalog;},preload:async()=>catalog,setSettings:value=>{settings={...value};},setFlightNumber(){},setAfterburner(){},
+    let settings={},playing=false,last=null;const player={loadCatalog:async()=>{if(catalogGate)await catalogGate;return catalog;},preload:async()=>catalog,warmup:async()=>catalog,setSettings:value=>{settings={...value};},setFlightNumber(){},setAfterburner(){},
       play:async id=>{plays.push({id,logical:true,settings:{...settings}});return 'played';},playTrack:async(id,options)=>{playing=true;last=id;plays.push({id,options,settings:{...settings},audio});return 'played';},stop(){playing=false;},reset(){},
       finish(){playing=false;audio.state='suspended';},snapshot:()=>({status:playing?'playing':'ready',playing,track:last?catalog.byId[last].title:null,trackId:last,playedTracks:[],flightNumber:1,current:playing?'preview':null})};players.push(player);return player;
   }};

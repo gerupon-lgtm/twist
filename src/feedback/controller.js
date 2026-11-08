@@ -54,6 +54,7 @@ export function createFeedbackController(){
       }
       if(field.group==='vibration')jitter.reset();
       briefingAudio.settingsChanged();haptics.stop();audio.configure(settings);music.setSettings(settings);
+      if(settings.sound&&['musicSet','clearTrackId','sound','bgm','sfx','abMusic'].includes(key))void music.warmup();
       if(!settings.sound)audio.stop();else if(active)audio.start();
       if(active)launchMusic.request();
       if(previewIntent){
@@ -161,7 +162,7 @@ export function createFeedbackController(){
   }
   refresh();void loadCatalog();
   return {
-    unlock(){stopPreview();haptics.arm();if(settings.sound){void audio.unlock();void music.preload();}},
+    unlock(){stopPreview();haptics.arm();if(settings.sound){void audio.unlock();void music.warmup();}},
     briefingAudio(signal){if(signal?.type==='arm')return briefingAudio.arm();if(signal?.type==='cancel'){briefingAudio.stop(signal.reason);return;}briefingAudio.signal(signal);},
     countdownAudio(signal){
       if(signal?.type==='cancel'){launchMusic.cancelSession(signal.session);audio.cancelCountdown(signal.session);return;}
@@ -170,7 +171,7 @@ export function createFeedbackController(){
       if(signal?.type==='go'&&active){const played=audio.countdownTone(signal.session,'go',settings);
         launchMusic.go(signal.session,{played,completion:played?audio.waitForCountdownEnd(signal.session):null});return played;}
     },
-    start({flightNumber=1}={}){stopPreview();briefingAudio.stop('flight');active=true;lastAfterburner=null;lastModel=null;music.setFlightNumber(flightNumber);audio.start();audio.configure(settings);launchMusic.start();},
+    start({flightNumber=1}={}){stopPreview();briefingAudio.stop('flight');active=true;lastAfterburner=null;lastModel=null;music.setFlightNumber(flightNumber);void music.warmup();audio.start();audio.configure(settings);launchMusic.start();},
     stop(){stopPreview();briefingAudio.stop('stop');active=false;lastAfterburner=null;lastModel=null;launchMusic.stop();audio.stop();haptics.stop();jitter.clearWindow();},
     event(kind){briefingAudio.stop('event');haptics.event(kind,settings,performance.now());
       if(kind==='clear'){launchMusic.stop();void music.play('clear').then(result=>{if(result==='unavailable')audio.event(kind,settings);});}
