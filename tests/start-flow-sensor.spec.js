@@ -42,6 +42,7 @@ async function samples(page){
   });
 }
 const method=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('twist.start-flow.v1')).inputMethod);
+const waitForThree=page=>expect.poll(async()=>{await page.clock.runFor(50);return page.locator('#start-flow-countdown').textContent();},{timeout:10000,intervals:[0,10,20]}).toBe('3');
 
 test('pose requests both sensor permissions in its click and pending permission blur preserves the flow',async({page})=>{
   await sensors(page);await page.clock.install();await pose(page);
@@ -56,6 +57,7 @@ test('pose requests both sensor permissions in its click and pending permission 
   await expect(page.locator('#throttle-value')).toHaveText('0%');
   await samples(page);await expect(page.locator('#start-flow-panel')).toHaveAttribute('data-step','countdown');
   await expect(page.locator('#app')).toHaveAttribute('data-phase','ready');
+  await waitForThree(page);
   await page.clock.runFor(2500);await expect(page.locator('#app')).toHaveAttribute('data-phase','ready');
   await page.clock.runFor(550);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
   await expect(page.locator('#app')).toHaveAttribute('data-input','sensor');
@@ -134,6 +136,7 @@ test('a late cancelled permission cannot clear the blur guard for a newer permis
   await expect(page.locator('#start-flow-panel')).toHaveAttribute('data-step','pose');
   await page.evaluate(()=>window.sensorPermissionResolvers[1]('granted'));await samples(page);
   await expect(page.locator('#start-flow-panel')).toHaveAttribute('data-step','countdown');
+  await waitForThree(page);
   await page.clock.runFor(3050);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
   await expect(page.locator('#app')).toHaveAttribute('data-input','sensor');expect(await method(page)).toBe('sensor');
 });

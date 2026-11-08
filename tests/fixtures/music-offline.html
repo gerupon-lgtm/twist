@@ -1,0 +1,57 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><title>Music whole-score native renderer</title><body><p>全曲の音声計算用。ゲーム画面・実時間・実機の代用ではありません。</p><script type="module">
+import {Synth} from '/src/vendor/scc/engine/synth.js';
+import {PRESET_NAMES} from '/src/vendor/scc/core/presets.js';
+import {validateTrack,prepareScore} from '/src/music/score.js';
+import {createMusicSynth} from '/src/music/music-synth.js';
+import {fmPartStatus} from '/src/music/fm-presets.js';
+
+window.renderWholeTrack=async({id,engine,rate})=>{
+  const config=await fetch('/music/tracks.json').then(r=>r.json()),track=validateTrack(config[id]);
+  const bytes=new Uint8Array(await fetch('/music/'+track.file).then(r=>r.arrayBuffer()));
+  const score=prepareScore(bytes,track),writes=[];let at=0;
+  const clock={sampleRate:rate,now:()=>0,setScheduleTime(value){at=value??0;},
+    write(addr,value){writes.push({kind:'reg',addr,value,at});},
+    event(value){writes.push({...value,at});}};
+  const scc=new Synth(clock,{drums:true});scc.init();
+  for(const [channel,part]of Object.entries(track.parts))if(Number(channel)<=8)scc.setWave(PRESET_NAMES[part.waveform],Number(channel)-1);
+  const synth=createMusicSynth({scc,clock,track,engine,score});synth.resetControllers();
+  for(const event of score.events){clock.setScheduleTime(.1+event.time);synth.handle(event);}
+  clock.setScheduleTime(.1+score.duration);synth.allNotesOff();
+  const context=new OfflineAudioContext(2,Math.ceil((score.duration+.7)*rate),rate);
+  await context.audioWorklet.addModule('/src/feedback/audio-worklet.js');
+  const node=new AudioWorkletNode(context,'twist-audio',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});
+  let metrics=null;const messages=[];node.port.onmessage=({data})=>{if(data.type==='metrics')metrics=data;else if(messages.length<10)messages.push(data);};
+  node.connect(context.destination);
+  node.port.postMessage({type:'settings',settings:{sound:true,bgm:true,sfx:false,volume:25,bgmVolume:50,abMusic:false}});
+  node.port.postMessage({type:'musicGain',gain:.5});
+  node.port.postMessage({type:'musicReg',writes});
+  // Offline rendering may outrun main-thread MessagePort delivery for a short
+  // score. Confirm the actual processor received the queue while time is zero.
+  node.port.postMessage({type:'poll'});
+  for(let i=0;i<200&&!metrics;i++)await new Promise(resolve=>setTimeout(resolve,10));
+  if(!metrics?.music)throw Error('Offline processor did not acknowledge its score before rendering');
+  const preparation={time:context.currentTime,state:context.state,metrics};metrics=null;
+  const started=performance.now(),buffer=await context.startRendering(),wallMs=performance.now()-started;
+  node.port.postMessage({type:'poll'});
+  for(let i=0;i<20&&!metrics;i++)await new Promise(resolve=>setTimeout(resolve,10));
+  const channels=[];let invalid=0;
+  for(let c=0;c<buffer.numberOfChannels;c++){
+    const samples=buffer.getChannelData(c);let peak=0,squares=0,fullScale=0,tailPeak=0;
+    for(let n=0;n<samples.length;n++){
+      const value=samples[n];if(!Number.isFinite(value)){invalid++;continue;}
+      const magnitude=Math.abs(value);peak=Math.max(peak,magnitude);squares+=value*value;
+      if(magnitude>=1)fullScale++;if(n>=samples.length-rate*.1)tailPeak=Math.max(tailPeak,magnitude);
+    }
+    const digest=await crypto.subtle.digest('SHA-256',samples);
+    const sha256=[...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('');
+    channels.push({peak,rms:Math.sqrt(squares/samples.length),fullScale,tailPeak,sha256});
+  }
+  const expectedFmNotes=engine==='fm'?score.events.filter(e=>e.type==='noteOn'&&e.velocity>0&&fmPartStatus(track.parts[e.channel+1]).eligible).length:0;
+  const fmNoteOns=writes.filter(w=>w.kind==='fm'&&w.event.type==='noteOn'&&w.event.velocity>0).length;
+  node.disconnect();
+  return{id,engine,rate,actualRate:buffer.sampleRate,duration:score.duration,renderedSeconds:buffer.duration,wallMs,
+    scoreEvents:score.events.length,scoreNoteOns:score.events.filter(e=>e.type==='noteOn'&&e.velocity>0).length,
+    expectedFmNotes,fmNoteOns,writes:writes.length,invalid,channels,synth:synth.snapshot(),preparation,metrics,messages};
+};
+window.fixtureReady=true;
+</script></body></html>

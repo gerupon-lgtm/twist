@@ -62,7 +62,7 @@ test('view picker compares assisted and classic at the same position without res
   await page.getByRole('button', { name: '見失い対策', exact: true }).click();
   await expect.poll(() => data(page, 'horizontal-fov')).toBeCloseTo(45, 5);
   expect(await page.locator('#app').getAttribute('data-position')).toBe(position);
-  await expect(page.locator('#home-link')).toHaveAttribute('href', /view=assisted.*v=0.1.32/);
+  await expect(page.locator('#home-link')).toHaveAttribute('href', /view=assisted.*v=0.1.33/);
 });
 
 test('all four landmarks are distinguishable in the stage and profiles preserve the complete flight route', async ({ page }) => {
@@ -103,11 +103,13 @@ test('all four landmarks are distinguishable in the stage and profiles preserve 
 });
 
 test('edge goal stays trackable behind the craft across phone sizes and disappears on return', async ({ page }) => {
+  test.setTimeout(75000); // Four real orientation windows, each bounded at12s, plus startup and screenshots.
   await startSensor(page);
   await page.screenshot({ path: 'test-results/v016-landmark-north.png' });
   await turnTo(page, .98);
   await page.screenshot({ path: 'test-results/v016-landmark-east.png' });
-  await turnTo(page, 3.08);
+  // The +/-0.06rad stopping tolerance must stay inside the 175deg direct-behind band.
+  await turnTo(page, Math.PI);
   await expect(page.locator('#app')).toHaveAttribute('data-edge-behind', 'true');
   await expect(page.locator('#target-direction')).toHaveText('後ろ');
   await expect(page.locator('#edge-label')).toHaveText('光 1');

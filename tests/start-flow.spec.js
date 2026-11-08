@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
+import {waitForCountdownThree} from './helpers/countdown.js';
 
 // This suite uses the default application flow. No legacy helper or game-state
 // override is used; the course is flown through its actual input controls.
@@ -39,9 +40,16 @@ async function toPose(page,{map=false,mapWait=0}={}){
   if(map){await expect(page.locator('#briefing-panel')).toBeVisible();if(mapWait)await tick(page,mapWait);await page.locator('#briefing-skip').click();}
   await step(page,'pose');
 }
+async function waitForThree(page){
+  const before=await read(page);await expect(page.locator('#start-flow-countdown')).not.toHaveText('3');
+  await tick(page,499);await expect(page.locator('#start-flow-countdown')).not.toHaveText('3');
+  expect((await read(page)).position).toEqual(before.position);expect((await read(page)).session).toEqual(before.session);
+  await tick(page,1);await waitForCountdownThree(page,{maxPrepareMilliseconds:1500});
+}
 async function launch(page){
   await page.locator('#start-flow-hold').click();await step(page,'countdown');
   const before=await read(page);expect(before.session.elapsedSeconds).toBe(0);
+  await waitForThree(page);
   await tick(page,2900);expect((await read(page)).phase).not.toBe('running');expect((await read(page)).session.elapsedSeconds).toBe(0);
   await tick(page,120);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');await step(page,'play');
   expect((await read(page)).session.elapsedSeconds).toBeLessThan(.08);
@@ -139,18 +147,18 @@ test('normal flow hides development modes while explicit dev exploration keeps a
   for(const id of ['steering-twist','steering-tilt']){await page.locator('#'+id).click();await step(page,'settings');await expect(page.locator('#flight-adjustments')).toBeVisible();await expect(page.locator('#flight-adjustments')).toHaveAttribute('open','');}
   await page.locator('summary').filter({hasText:'② 詳しい設定'}).click();
   for(const id of ['camera-chase','display-fixed','display-bank','camera-overlay']){await page.locator('#'+id).click();await step(page,'settings');await expect(page.locator('#flight-adjustments')).toBeVisible();await expect(page.locator('#flight-adjustments')).toHaveAttribute('open','');await expect(page.locator('#'+id)).toHaveAttribute('aria-pressed','true');}
-  await page.goto('/?dev=1&mode=explore');await tick(page);await expect(page.locator('#app')).toHaveAttribute('data-play-mode','explore');await page.locator('#start-flow-title-settings').click();await page.locator('summary').filter({hasText:'④ 検証用'}).click();await expect(page.locator('#mode-explore')).toBeVisible();await page.locator('#start-flow-settings-close').click();await startToCourses(page);await toPose(page);await page.locator('#start-flow-hold').click();await tick(page,3020);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');await expect(page.locator('#start-flow-view-button')).toBeHidden();await expect(page.locator('#throttle-input')).toBeHidden();for(const id of ['practice-pitch','practice-steer','practice-twist'])await inside(page,'#'+id);await noScroll(page);expect(errors).toEqual([]);
+  await page.goto('/?dev=1&mode=explore');await tick(page);await expect(page.locator('#app')).toHaveAttribute('data-play-mode','explore');await page.locator('#start-flow-title-settings').click();await page.locator('summary').filter({hasText:'④ 検証用'}).click();await expect(page.locator('#mode-explore')).toBeVisible();await page.locator('#start-flow-settings-close').click();await startToCourses(page);await toPose(page);await launch(page);await expect(page.locator('#start-flow-view-button')).toBeHidden();await expect(page.locator('#throttle-input')).toBeHidden();for(const id of ['practice-pitch','practice-steer','practice-twist'])await inside(page,'#'+id);await noScroll(page);expect(errors).toEqual([]);
 });
 
 test('title and map keep explicit preview separate while countdown cues do not start music or flight',async({page})=>{
   const errors=await boot(page,{audio:true,map:'every'});expect(await page.evaluate(()=>flowAudioContexts.length)).toBe(0);await tick(page,3000);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);
-  await page.locator('#start-flow-title-settings').click();await page.locator('summary').filter({hasText:'③ 音と振動'}).click();await page.locator('#feedback-musicSet').selectOption('ignition');const saved=await page.evaluate(()=>localStorage.getItem('twist.feedback-settings.v1'));await page.locator('#music-preview-start').click();
+  await page.locator('#start-flow-title-settings').click();await page.locator('summary').filter({hasText:'③ 音と振動'}).click();await page.locator('#music-preview-track').selectOption('ignition');const saved=await page.evaluate(()=>localStorage.getItem('twist.feedback-settings.v1'));await page.locator('#music-preview-start').click();
   await expect.poll(async()=>{await tick(page);return page.locator('.music-preview-controls').getAttribute('data-playing');}).toBe('true');
   const preview=await page.locator('.music-preview-controls').evaluate(e=>({audio:JSON.parse(e.dataset.audio),music:JSON.parse(e.dataset.music)}));expect(preview.audio.workletReady).toBe(true);expect(preview.audio.contextState).toBe('running');expect(preview.music.track).toBe('Ignition Sky');expect((await read(page)).session.elapsedSeconds).toBe(0);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);
   await page.locator('#start-flow-settings-close').click();await step(page,'title');await expect.poll(()=>page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length)).toBe(0);expect(await page.evaluate(()=>localStorage.getItem('twist.feedback-settings.v1'))).toBe(saved);
   await startToCourses(page);await toPose(page,{map:true,mapWait:2000});expect(await page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length)).toBe(0);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);expect((await read(page)).session.elapsedSeconds).toBe(0);expect(errors).toEqual([]);
   await page.locator('#start-flow-hold').click();await step(page,'countdown');
-  await expect.poll(async()=>{await tick(page,16);return page.locator('#start-flow-countdown').textContent();}).toBe('3');
+  await waitForThree(page);
   await tick(page,2900);
   const waitingAudio=await page.locator('#feedback-diagnostics').getAttribute('data-audio').then(JSON.parse);expect(waitingAudio.musicActive).toBe(false);expect(waitingAudio.varioActive).toBe(false);
   expect(await page.evaluate(()=>flowVibrations.filter(pattern=>Array.isArray(pattern)?pattern.some((duration,index)=>index%2===0&&duration>0):pattern>0))).toEqual([]);

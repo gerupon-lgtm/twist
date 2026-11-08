@@ -73,26 +73,38 @@
     "parts": {
       "1": {
         "waveform": 1,
-        "volume": 111
+        "volume": 111,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 0,
-        "volume": 55
+        "volume": 55,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "3": {
         "waveform": 0,
-        "volume": 49
+        "volume": 49,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "4": {
         "waveform": 1,
-        "volume": 88
+        "volume": 88,
+        "role": "bass",
+        "fmPreset": null
       },
       "5": {
         "waveform": 1,
-        "volume": 43
+        "volume": 43,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "10": {
-        "volume": 104
+        "volume": 104,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -106,26 +118,38 @@
     "parts": {
       "1": {
         "waveform": 4,
-        "volume": 101
+        "volume": 101,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 1,
-        "volume": 66
+        "volume": 66,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "3": {
         "waveform": 0,
-        "volume": 64
+        "volume": 64,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "4": {
         "waveform": 1,
-        "volume": 96
+        "volume": 96,
+        "role": "bass",
+        "fmPreset": null
       },
       "5": {
         "waveform": 1,
-        "volume": 44
+        "volume": 44,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "10": {
-        "volume": 105
+        "volume": 105,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -139,26 +163,38 @@
     "parts": {
       "1": {
         "waveform": 1,
-        "volume": 94
+        "volume": 94,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 4,
-        "volume": 74
+        "volume": 74,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "3": {
         "waveform": 0,
-        "volume": 68
+        "volume": 68,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "4": {
         "waveform": 1,
-        "volume": 92
+        "volume": 92,
+        "role": "bass",
+        "fmPreset": null
       },
       "5": {
         "waveform": 1,
-        "volume": 54
+        "volume": 54,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "10": {
-        "volume": 100
+        "volume": 100,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -172,26 +208,38 @@
     "parts": {
       "1": {
         "waveform": 1,
-        "volume": 94
+        "volume": 94,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 4,
-        "volume": 74
+        "volume": 74,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "3": {
         "waveform": 0,
-        "volume": 68
+        "volume": 68,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "4": {
         "waveform": 1,
-        "volume": 92
+        "volume": 92,
+        "role": "bass",
+        "fmPreset": null
       },
       "5": {
         "waveform": 1,
-        "volume": 54
+        "volume": 54,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "10": {
-        "volume": 100
+        "volume": 100,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -205,26 +253,38 @@
     "parts": {
       "1": {
         "waveform": 1,
-        "volume": 101
+        "volume": 101,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 0,
-        "volume": 51
+        "volume": 51,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "3": {
         "waveform": 0,
-        "volume": 45
+        "volume": 45,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "4": {
         "waveform": 1,
-        "volume": 83
+        "volume": 83,
+        "role": "bass",
+        "fmPreset": null
       },
       "5": {
         "waveform": 1,
-        "volume": 38
+        "volume": 38,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "10": {
-        "volume": 96
+        "volume": 96,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -238,26 +298,38 @@
     "parts": {
       "1": {
         "waveform": 1,
-        "volume": 101
+        "volume": 101,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 0,
-        "volume": 51
+        "volume": 51,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "3": {
         "waveform": 0,
-        "volume": 45
+        "volume": 45,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "4": {
         "waveform": 1,
-        "volume": 83
+        "volume": 83,
+        "role": "bass",
+        "fmPreset": null
       },
       "5": {
         "waveform": 1,
-        "volume": 38
+        "volume": 38,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "10": {
-        "volume": 96
+        "volume": 96,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -271,26 +343,38 @@
     "parts": {
       "1": {
         "waveform": 1,
-        "volume": 101
+        "volume": 101,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 0,
-        "volume": 51
+        "volume": 51,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "3": {
         "waveform": 0,
-        "volume": 45
+        "volume": 45,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "4": {
         "waveform": 1,
-        "volume": 83
+        "volume": 83,
+        "role": "bass",
+        "fmPreset": null
       },
       "5": {
         "waveform": 1,
-        "volume": 38
+        "volume": 38,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "10": {
-        "volume": 96
+        "volume": 96,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -304,22 +388,32 @@
     "parts": {
       "1": {
         "waveform": 4,
-        "volume": 99
+        "volume": 99,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 1,
-        "volume": 72
+        "volume": 72,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "4": {
         "waveform": 1,
-        "volume": 79
+        "volume": 79,
+        "role": "bass",
+        "fmPreset": null
       },
       "5": {
         "waveform": 1,
-        "volume": 42
+        "volume": 42,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "10": {
-        "volume": 87
+        "volume": 87,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -333,22 +427,32 @@
     "parts": {
       "1": {
         "waveform": 4,
-        "volume": 95
+        "volume": 95,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 1,
-        "volume": 72
+        "volume": 72,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "4": {
         "waveform": 1,
-        "volume": 79
+        "volume": 79,
+        "role": "bass",
+        "fmPreset": null
       },
       "5": {
         "waveform": 1,
-        "volume": 42
+        "volume": 42,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "10": {
-        "volume": 87
+        "volume": 87,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -362,22 +466,32 @@
     "parts": {
       "1": {
         "waveform": 1,
-        "volume": 99
+        "volume": 99,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 4,
-        "volume": 46
+        "volume": 46,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "4": {
         "waveform": 1,
-        "volume": 79
+        "volume": 79,
+        "role": "bass",
+        "fmPreset": null
       },
       "5": {
         "waveform": 1,
-        "volume": 42
+        "volume": 42,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "10": {
-        "volume": 87
+        "volume": 87,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -390,7 +504,9 @@
     },
     "parts": {
       "10": {
-        "volume": 72
+        "volume": 72,
+        "role": "drums",
+        "fmPreset": null
       }
     },
     "bpm": 120,
@@ -402,22 +518,32 @@
     "parts": {
       "1": {
         "waveform": 4,
-        "volume": 96
+        "volume": 96,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 1,
-        "volume": 78
+        "volume": 78,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "3": {
         "waveform": 1,
-        "volume": 88
+        "volume": 88,
+        "role": "bass",
+        "fmPreset": null
       },
       "4": {
         "waveform": 1,
-        "volume": 50
+        "volume": 50,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "10": {
-        "volume": 98
+        "volume": 98,
+        "role": "drums",
+        "fmPreset": null
       }
     }
   },
@@ -431,19 +557,175 @@
     "parts": {
       "1": {
         "waveform": 4,
-        "volume": 96
+        "volume": 96,
+        "role": "lead",
+        "fmPreset": "lead"
       },
       "2": {
         "waveform": 2,
-        "volume": 78
+        "volume": 78,
+        "role": "chords",
+        "fmPreset": "chords"
       },
       "3": {
         "waveform": 0,
-        "volume": 96
+        "volume": 96,
+        "role": "bass",
+        "fmPreset": null
       },
       "10": {
-        "volume": 85
+        "volume": 85,
+        "role": "drums",
+        "fmPreset": null
       }
     }
+  },
+  "clear-ignition": {
+    "title": "凱旋の点火",
+    "file": "clear-ignition.mid",
+    "bpm": 165,
+    "beats": 8,
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 99,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 53,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 86,
+        "role": "bass",
+        "fmPreset": null
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 48,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "10": {
+        "volume": 88,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "clear-advance": {
+    "title": "鋼の勝利",
+    "file": "clear-advance.mid",
+    "bpm": 145,
+    "beats": 8,
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 99,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 53,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 86,
+        "role": "bass",
+        "fmPreset": null
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 48,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "10": {
+        "volume": 88,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "clear-overdrive": {
+    "title": "閃光の帰還",
+    "file": "clear-overdrive.mid",
+    "bpm": 175,
+    "beats": 8,
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 99,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 53,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 86,
+        "role": "bass",
+        "fmPreset": null
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 48,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "10": {
+        "volume": 88,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "catalog": {
+    "flight": [
+      "rock",
+      "steel",
+      "horizon",
+      "storm",
+      "ignition",
+      "advance",
+      "overdrive"
+    ],
+    "preview": [
+      "flight",
+      "flight2",
+      "brave",
+      "rock",
+      "steel",
+      "horizon",
+      "storm",
+      "ignition",
+      "advance",
+      "overdrive",
+      "clear",
+      "clear-ignition",
+      "clear-advance",
+      "clear-overdrive",
+      "afterburner",
+      "comparison"
+    ],
+    "clear": [
+      "clear",
+      "clear-ignition",
+      "clear-advance",
+      "clear-overdrive"
+    ],
+    "afterburner": "afterburner",
+    "comparison": "comparison"
   }
 }

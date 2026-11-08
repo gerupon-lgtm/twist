@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {waitForCountdownThree} from './helpers/countdown.js';
 import {writeFile} from 'node:fs/promises';
 import {Quaternion,Vector3} from 'three';
 import {SUPERSONIC_AIRCRAFT_HULL} from '../src/supersonic/aircraft-hull.js';
@@ -32,13 +33,13 @@ async function start(page){
   await page.locator('#supersonic-pitchGain').press('End');await expect(page.locator('#supersonic-pitchGain')).toHaveValue('1');
   await page.locator('#start-flow-settings-close').click();await step(page,'courses');
   await page.locator('#start-flow-course-start').click();await step(page,'pose');await page.locator('#start-flow-hold').click();
-  await page.clock.runFor(3100);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
+  await waitForCountdownThree(page);await page.clock.runFor(3100);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
   expect((await read(page)).sonic.effectiveSettings).toMatchObject({maxG:9,fuelMode:'unlimited',pitchGain:1});
   return errors;
 }
 async function evidence(page,kind,value){
-  await writeFile(`.cache/v0132-limits-${kind}.json`,JSON.stringify(value,null,2));
-  await page.screenshot({path:`.cache/v0132-limits-${kind}.png`});
+  await writeFile(`.cache/v0133-limits-${kind}.json`,JSON.stringify(value,null,2));
+  await page.screenshot({path:`.cache/v0133-limits-${kind}.png`});
 }
 
 test('actual AB climb crosses the advisory 6000m ceiling without stopping and pilot input returns below it',async({page})=>{

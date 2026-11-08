@@ -1,4 +1,6 @@
 import {test,expect} from './helpers/legacy-ui.js';
+import {readFile} from 'node:fs/promises';
+const trackConfig=JSON.parse(await readFile('public/music/tracks.json','utf8'));
 
 const poll={timeout:8000,intervals:[25,50,100,200]};
 const music=page=>page.locator('#feedback-diagnostics').getAttribute('data-music').then(value=>JSON.parse(value||'{}'));
@@ -11,7 +13,7 @@ test('native worklet applies beat-aligned AB drums while base MIDI continues, an
     const [{createGameAudio},{createMusicPlayer},{flightFeedback},{normalizeFeedbackSettings}]=await Promise.all([
       import('/src/feedback/audio.js'),import('/src/music/player.js'),import('/src/feedback/model.js'),import('/src/feedback/settings.js')]);
     const audio=createGameAudio(),music=createMusicPlayer(audio,{base:new URL('/music/',location.href)});
-    const fixture=window.__speedfeelProbe={audio,music,settings:normalizeFeedbackSettings({sound:true,sfx:true,bgm:true,abMusic:true,vario:false}),
+    const fixture=window.__speedfeelProbe={audio,music,settings:normalizeFeedbackSettings({sound:true,sfx:true,bgm:true,abMusic:true,vario:false,musicSet:'rock'}),
       state:{mode:'flight',altitude:30,verticalSpeed:0,throttle:1,speed:30,afterburner:{active:false,burstSeconds:0}}};
     music.setSettings(fixture.settings);
     fixture.send=(active,extra={})=>{fixture.state={...fixture.state,...extra,afterburner:{active,burstSeconds:active?1:0}};audio.update(flightFeedback(fixture.state,fixture.settings),fixture.settings,null);music.setAfterburner(active);};
@@ -21,12 +23,12 @@ test('native worklet applies beat-aligned AB drums while base MIDI continues, an
   });
   expect((await probe(page)).audio.contextState).toBe('none');expect((await probe(page)).music.playing).toBe(false);
   await page.locator('#speedfeel-unlock').click();await expect.poll(async()=>(await probe(page)).music.playing,poll).toBe(true);
-  const original=(await probe(page)).music;
+  const original=(await probe(page)).music;expect(original.trackId).toBe('rock');
   await page.evaluate(()=>window.__speedfeelProbe.send(true));
   await expect.poll(async()=>(await probe(page)).music.afterburnerMusic.active,poll).toBe(true);
   await expect.poll(async()=>(await probe(page)).audio.musicSchedule?.layerWrites??0,poll).toBeGreaterThan(0);
   const boosted=await probe(page);expect(boosted.music.trackId).toBe(original.trackId);expect(boosted.music.playedTracks).toEqual(original.playedTracks);expect(boosted.music.position).toBeGreaterThan(original.position);
-  expect(boosted.audio.peak).toBeGreaterThan(0);expect(boosted.music.afterburnerMusic.bpm).toBe(160);
+  expect(boosted.audio.peak).toBeGreaterThan(0);expect(boosted.music.afterburnerMusic.bpm).toBe(trackConfig.flightTempos[original.trackId]);
   await page.evaluate(()=>window.__speedfeelProbe.send(false));
   await expect.poll(async()=>(await probe(page)).music.afterburnerMusic.active,{timeout:9000}).toBe(false);
   const restored=(await probe(page)).music;expect(restored.current).toBe('flight');expect(restored.position).toBeGreaterThan(boosted.music.position);expect(restored.afterburnerMusic.startCount).toBe(1);

@@ -1,5 +1,6 @@
 export const START_PREFERENCES_KEY='twist.start-flow.v1';
 export const START_COUNTDOWN_SECONDS=3;
+export const MIN_COUNTDOWN_SETTLE_MS=500;
 export const MIN_FULLSCREEN_LEAD_SECONDS=6;
 export const CAMERA_MODES=Object.freeze(['overlay','chase','cockpit']);
 const camera=value=>CAMERA_MODES.includes(value)?value:'overlay';
@@ -14,11 +15,12 @@ export function createStartPreferences(storage){
   return {get:()=>({...value}),saved:()=>saved,markTutorialSeen:()=>update({tutorialSeen:true}),setCamera:next=>update({camera:camera(next)}),setInputMethod:next=>update({inputMethod:next==='practice'?'practice':'sensor'})};
 }
 
-/** Keep the native fullscreen hint ahead of flight; viewing menus may use it up. */
+/** Allow the prepared audio bus to settle; fullscreen's longer wait overlaps it. */
 export function startCountdownPlan({now=0,fullscreenSucceededAt=0,fullscreenSucceeded=false,countdownSeconds=START_COUNTDOWN_SECONDS}={}){
   const seconds=Number.isFinite(countdownSeconds)?Math.max(0,countdownSeconds):START_COUNTDOWN_SECONDS;
   const clock=Number.isFinite(now)?now:0,entered=Number.isFinite(fullscreenSucceededAt)?fullscreenSucceededAt:0;
-  const waitMilliseconds=fullscreenSucceeded?Math.max(0,entered+MIN_FULLSCREEN_LEAD_SECONDS*1000-clock-seconds*1000):0;
+  const fullscreenWait=fullscreenSucceeded?Math.max(0,entered+MIN_FULLSCREEN_LEAD_SECONDS*1000-clock-seconds*1000):0;
+  const waitMilliseconds=Math.max(MIN_COUNTDOWN_SETTLE_MS,fullscreenWait);
   return {waitMilliseconds,countdownSeconds:seconds,totalMilliseconds:waitMilliseconds+seconds*1000};
 }
 

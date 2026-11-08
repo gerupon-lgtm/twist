@@ -1,6 +1,7 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
 import {test,expect} from './helpers/legacy-ui.js';
 const music=page=>page.locator('#feedback-diagnostics').getAttribute('data-music').then(JSON.parse);
+const preview=page=>page.locator('.music-preview-controls').getAttribute('data-music').then(JSON.parse);
 const slider=(page,id,value)=>page.locator('#'+id).evaluate((e,v)=>{e.value=String(v);e.dispatchEvent(new Event('input',{bubbles:true}));},value);
 test('fine flight, collection and stall issue distinct rhythms, and classic can be selected and saved',async({page})=>{
  await page.addInitScript(()=>{
@@ -15,21 +16,25 @@ test('fine flight, collection and stall issue distinct rhythms, and classic can 
  await page.reload();await page.locator('#practice-button').click();await page.clock.runFor(100);expect((await page.evaluate(()=>window.vibrations)).some(p=>JSON.stringify(p)==='[3,397]')).toBe(true);
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await expect(page.locator('#feedback-flightVibration')).toHaveValue('classic');
 });
-test('new original track is selectable by link, existing songs stay available, and a changed selection persists in copies',async({page})=>{
+test('an old-song link selects its individual preview while adopted flight selection persists in copies',async({page})=>{
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>window.copied=text},configurable:true}));
- await page.goto('/?mode=explore&music=brave');await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('brave');
+ await page.goto('/?mode=explore&music=brave');await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('rock');
  await expect.poll(async()=>JSON.parse(await page.locator('#feedback-diagnostics').getAttribute('data-audio')).peak).toBeGreaterThan(0);
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await page.locator('#feedback-musicSet').selectOption('current');
  await page.locator('#settings-copy').click();expect(await page.evaluate(()=>JSON.parse(window.copied).feedback.settings.musicSet)).toBe('current');
- await page.locator('#start-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('flight');
- await page.reload();await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('flight');
- await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await page.locator('#feedback-musicSet').selectOption('brave');await page.locator('#start-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('brave');
- expect((await music(page)).playedTracks).toEqual(['蒼穹突破','勇進の航路']);
+ await expect(page.locator('#music-preview-track')).toHaveValue('brave');await page.locator('#music-preview-start').click();await expect.poll(async()=>(await preview(page)).trackId).toBe('brave');await expect.poll(async()=>JSON.parse(await page.locator('.music-preview-controls').getAttribute('data-audio')).peak).toBeGreaterThan(0);
+ expect((await music(page)).playedTracks).toEqual(['黒曜の翼']);
+ await page.locator('#start-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('rock');
+ await page.reload();await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('rock');
+ await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await page.locator('#feedback-musicSet').selectOption('steel');await page.locator('#settings-copy').click();expect(await page.evaluate(()=>JSON.parse(window.copied).feedback.settings.musicSet)).toBe('steel');await page.locator('#start-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('steel');
+ expect((await music(page)).playedTracks).toEqual(['黒曜の翼','鋼翼の鼓動']);
 });
-test('the complete brave composition loops at 67.764672 seconds without restarting gameplay',async({page})=>{
- test.setTimeout(85000);await page.goto('/?mode=explore&music=brave');await page.locator('#practice-button').click();
- await expect.poll(async()=>(await music(page)).trackId).toBe('brave');await expect.poll(async()=>(await music(page)).loopCount,{timeout:75000,intervals:[500]}).toBeGreaterThanOrEqual(1);
- await expect(page.locator('#app')).toHaveAttribute('data-phase','running');expect((await music(page)).playing).toBe(true);
+test('the complete brave composition loops at 67.764672 seconds in individual preview without restarting gameplay',async({page})=>{
+ test.setTimeout(85000);await page.goto('/?mode=explore&music=brave');await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('rock');
+ await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await expect(page.locator('#music-preview-track')).toHaveValue('brave');
+ const session=await page.locator('#app').getAttribute('data-session');await page.locator('#music-preview-start').click();
+ await expect.poll(async()=>(await preview(page)).trackId).toBe('brave');await expect.poll(async()=>(await preview(page)).loopCount,{timeout:75000,intervals:[500]}).toBeGreaterThanOrEqual(1);
+ await expect(page.locator('#app')).toHaveAttribute('data-phase','paused');expect((await preview(page)).playing).toBe(true);expect((await music(page)).playing).toBe(false);expect(await page.locator('#app').getAttribute('data-session')).toBe(session);
 });
 
 useLegacyCourse(test);

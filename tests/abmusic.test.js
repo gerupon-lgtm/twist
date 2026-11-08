@@ -57,7 +57,7 @@ test('the real player keeps base track, clock position and played list while AB 
     assert.equal(await player.play('clear'),'played');player.setAfterburner(true);assert.equal(player.snapshot().current,'clear');assert.equal(player.snapshot().afterburnerMusic.available,false);assert.equal(player.snapshot().afterburnerMusic.active,false);
     player.stop();assert.equal(player.snapshot().afterburnerMusic.pending,false);
   }finally{player.stop();}
-  const legacy={...config};delete legacy.afterburner;delete legacy.flightTempos;const old=await playerFor(legacy);
+  const legacy={...config};delete legacy.catalog;delete legacy.afterburner;delete legacy.flightTempos;const old=await playerFor(legacy);
   try{old.player.setAfterburner(true);assert.equal(old.player.snapshot().playing,true);assert.equal(old.player.snapshot().afterburnerMusic.available,false);}finally{old.player.stop();}
   const broken={...config,afterburner:{...config.afterburner,file:'missing.mid'}},fallback=await playerFor(broken);fallback.player.setAfterburner(true);assert.equal(fallback.player.snapshot().playing,true);assert.equal(fallback.player.snapshot().afterburnerMusic.available,false);fallback.player.stop();
   const custom=await playerFor({...config,flightTempos:undefined});try{custom.player.setAfterburner(true);assert.equal(custom.player.snapshot().afterburnerMusic.available,true);assert.equal(custom.player.snapshot().afterburnerMusic.bpm,120);}finally{custom.player.stop();}

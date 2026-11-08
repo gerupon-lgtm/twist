@@ -86,13 +86,15 @@ test('first help saves completion and pause help returns to pause without a new 
   assert.equal(f.values.get('twist.flight-settings.v1'),'{"maxPitch":21}');
 });
 
-test('an unsupported fullscreen request still reaches pose and waits all three countdown seconds',async t=>{
+test('an unsupported fullscreen request still settles silently before all three countdown seconds',async t=>{
   const f=fixture(t);await freshPose(f);await f.controller.action('hold');
   assert.deepEqual(f.holds,['sensor']);assert.deepEqual(f.launches,[]);
   f.controller.poseReady('sensor','held-pose-start');assert.equal(f.controller.snapshot().step,'countdown');
+  assert.equal(f.shown.at(-1).data.number,'…');f.advance(499);assert.equal(f.shown.at(-1).data.number,'…');assert.deepEqual(f.launches,[]);assert.equal(f.record.snapshot().flightStartedAt,null);
+  f.advance(1);assert.equal(f.shown.at(-1).data.number,3);assert.equal(f.record.snapshot().countdownSeconds,3);assert.equal(f.record.snapshot().startWaitSeconds,.5);
   f.advance(1000);f.advance(1000);f.advance(999);assert.deepEqual(f.launches,[]);assert.equal(f.record.snapshot().flightStartedAt,null);
   f.advance(1);assert.deepEqual(f.launches,[{mode:'sensor',reason:'held-pose-start'}]);
-  assert.equal(f.record.snapshot().titleToFlightSeconds,3);assert.equal(f.record.snapshot().fullscreenSucceeded,false);
+  assert.equal(f.record.snapshot().titleToFlightSeconds,3.5);assert.equal(f.record.snapshot().fullscreenSucceeded,false);
 });
 
 test('a fresh fullscreen start keeps the six-second lead without counting menu time as flight',async t=>{
@@ -147,15 +149,16 @@ test('map preference and actual visits remain separate from startup and retain t
 
 test('selecting a course after a result starts a new entry record without inventing another title click',async t=>{
   const f=fixture(t);await freshPose(f);f.controller.poseReady('sensor','held-pose-start');
+  f.advance(500);
   for(let second=0;second<3;second++)f.advance(1000);
-  assert.equal(f.record.snapshot().entrySource,'title');assert.equal(f.record.snapshot().titleToFlightSeconds,3);
+  assert.equal(f.record.snapshot().entrySource,'title');assert.equal(f.record.snapshot().titleToFlightSeconds,3.5);
   f.state.phase='complete';f.controller.result();f.advance(5000);
   await f.controller.action('course-exit');await f.controller.action('course-start');
   const next=f.record.snapshot();
-  assert.equal(next.entrySource,'course');assert.equal(next.entryAt,8100);assert.equal(next.flightStartedAt,null);
+  assert.equal(next.entrySource,'course');assert.equal(next.entryAt,8600);assert.equal(next.flightStartedAt,null);
   assert.equal(next.titleAt,null);assert.equal(next.titleToFlightSeconds,null);
-  f.controller.poseReady('sensor','held-pose-start');for(let second=0;second<3;second++)f.advance(1000);
-  assert.equal(f.record.snapshot().entryToFlightSeconds,3);assert.equal(f.record.snapshot().titleToFlightSeconds,null);
+  f.controller.poseReady('sensor','held-pose-start');f.advance(500);for(let second=0;second<3;second++)f.advance(1000);
+  assert.equal(f.record.snapshot().entryToFlightSeconds,3.5);assert.equal(f.record.snapshot().countdownSeconds,3);assert.equal(f.record.snapshot().startWaitSeconds,.5);assert.equal(f.record.snapshot().titleToFlightSeconds,null);
   assert.equal(f.launches.length,2);
 });
 
@@ -165,8 +168,8 @@ for(const grounded of [true,false])test(`retry ${grounded?'after ground contact 
   assert.equal(f.record.snapshot().firstTime,false);assert.equal(f.record.snapshot().flightStartedAt,null);assert.deepEqual(f.launches,[]);
   assert.equal(f.record.snapshot().entrySource,'retry');assert.equal(f.record.snapshot().entryAt,100);
   assert.equal(f.record.snapshot().titleAt,null);assert.equal(f.record.snapshot().titleToFlightSeconds,null);
-  f.controller.poseReady('sensor','held-pose-start');for(let second=0;second<3;second++)f.advance(1000);
-  assert.equal(f.record.snapshot().entryToFlightSeconds,3);assert.equal(f.record.snapshot().titleToFlightSeconds,null);
+  f.controller.poseReady('sensor','held-pose-start');f.advance(500);for(let second=0;second<3;second++)f.advance(1000);
+  assert.equal(f.record.snapshot().entryToFlightSeconds,3.5);assert.equal(f.record.snapshot().countdownSeconds,3);assert.equal(f.record.snapshot().titleToFlightSeconds,null);
 });
 
 test('disposing an active countdown cancels every later launch and closes both views',async t=>{

@@ -8,7 +8,7 @@ const slider=(p,id,value)=>p.locator('#'+id).evaluate((el,v)=>{el.value=String(v
 test('MIDI BGM starts only after a gesture, remains audible with effects off, and stops on pause',async({page})=>{
  await page.goto('/?mode=flight');expect((await music(page)).playing).toBe(false);
  await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).playing).toBe(true);
- expect((await music(page)).track).toBe(trackConfig.flight.title);
+ expect((await music(page)).track).toBe(trackConfig.rock.title);
  await page.locator('#pause-button').click();await expect.poll(async()=>(await music(page)).playing).toBe(false);
  await page.locator('#flight-adjustments > summary').click();await page.locator('#feedback-sfx').uncheck();await page.locator('#start-button').click();
  await expect.poll(async()=>(await audio(page)).musicActive,{timeout:8000}).toBe(true);await expect.poll(async()=>(await audio(page)).peak).toBeGreaterThan(0);
@@ -18,7 +18,7 @@ test('BGM switch and separate volume persist and are copied along with played ti
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.copied=text;}},configurable:true}));
  await page.goto('/?mode=flight');await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).playing).toBe(true);
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await page.locator('#feedback-bgm').uncheck();await slider(page,'feedback-bgmVolume',35);await page.locator('#settings-copy').click();
- const report=await page.evaluate(()=>JSON.parse(window.copied));expect(report.feedback.settings).toMatchObject({bgm:false,bgmVolume:35});expect(report.feedback.music.playedTracks).toContain(trackConfig.flight.title);
+ const report=await page.evaluate(()=>JSON.parse(window.copied));expect(report.feedback.settings).toMatchObject({bgm:false,bgmVolume:35});expect(report.feedback.music.playedTracks).toContain(trackConfig.rock.title);
  await page.reload();await page.locator('#practice-button').click();await expect.poll(async()=>(await audio(page)).workletReady).toBe(true);expect((await music(page)).playing).toBe(false);
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await expect(page.locator('#feedback-bgmVolume')).toHaveValue('35');await expect(page.locator('#feedback-bgm')).not.toBeChecked();
 });
@@ -29,7 +29,7 @@ test('missing music configuration leaves effects and game controls usable',async
 });
 test('replacing the MIDI and its loop config plays a short alternate track through a loop',async({page})=>{
  const config=JSON.parse(await readFile('public/music/tracks.json','utf8')),bytes=await readFile('tests/fixtures/alternate.mid');
- config.flight={...config.flight,title:'差し替え確認',file:'alternate.mid',loop:{start:.4,end:1.8}};
+ config.rock={...config.rock,title:'差し替え確認',file:'alternate.mid',loop:{start:.4,end:1.8}};
  await page.route('**/music/tracks.json*',r=>r.fulfill({json:config}));await page.route('**/music/alternate.mid*',r=>r.fulfill({body:bytes,contentType:'audio/midi'}));
  await page.goto('/?mode=flight');await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).track).toBe('差し替え確認');
  await expect.poll(async()=>(await music(page)).loopCount,{timeout:8000}).toBeGreaterThanOrEqual(1);expect((await music(page)).playing).toBe(true);

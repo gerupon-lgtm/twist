@@ -53,22 +53,27 @@ const settle = async () => { await Promise.resolve(); await Promise.resolve(); }
 test('3/2/1 follow displayed numbers and GO waits for the actual onRunning boundary, exactly once', async t => {
   const f = fixture(t, { autoRunning: false }); await fresh(f);
   f.controller.poseReady('practice', 'held');
+  assert.equal(f.shown.at(-1).data.number, '…'); assert.deepEqual(f.sounded(), []);
+  f.advance(499); assert.deepEqual(f.sounded(), []); assert.equal(f.launches.length, 0); assert.equal(f.record.snapshot().flightStartedAt, null);
+  f.advance(1);
   assert.deepEqual(f.sounded(), [3]); assert.equal(f.launches.length, 0);
+  assert.equal(f.record.snapshot().countdownSeconds, 3); assert.equal(f.record.snapshot().startWaitSeconds, .5);
   f.advance(999); assert.deepEqual(f.sounded(), [3]);
   f.advance(1); assert.deepEqual(f.sounded(), [3, 2]);
   f.advance(1000); assert.deepEqual(f.sounded(), [3, 2, 1]);
   f.advance(999); assert.equal(f.launches.length, 0);
   f.advance(1); assert.equal(f.launches.length, 1); assert.deepEqual(f.sounded(), [3, 2, 1]);
   const ticks = f.audio.filter(event => event.type === 'tick');
-  assert.deepEqual(ticks.map(event => event.at), [100, 1100, 2100]);
+  assert.deepEqual(ticks.map(event => event.at), [600, 1600, 2600]);
   assert.deepEqual(f.shown.filter(item => item.step === 'countdown' && Number.isInteger(item.data.number)).map(item => item.data.number), [3, 2, 1]);
+  for(const cue of ticks)assert.equal(f.shown.find(item => item.step === 'countdown' && item.data.number === cue.number).at, cue.at);
   f.controller.onRunning(); f.controller.onRunning(); f.advance(10000);
   assert.deepEqual(f.sounded(), [3, 2, 1, 'go']);
   assert.equal(new Set(f.audio.filter(event => event.type !== 'cancel').map(event => event.session)).size, 1);
 });
 
 test('a fresh=false resume launches directly without preparation, countdown ticks or another GO', async t => {
-  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'first'); threeSeconds(f);
+  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'first'); f.advance(500); threeSeconds(f);
   assert.deepEqual(f.sounded(), [3, 2, 1, 'go']);
   f.state.phase = 'paused'; f.controller.paused('pause');
   const before = f.audio.length; f.state.phase = 'ready'; f.controller.poseReady('practice', 'resume');
@@ -85,21 +90,21 @@ test('fullscreen lead-in is silent and the three cues still occupy the final thr
 });
 
 test('explicit cancellation stops future cues and repeated cancellation does not cancel a session twice', async t => {
-  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held'); f.advance(1000);
+  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held'); f.advance(500); f.advance(1000);
   await f.controller.action('countdown-cancel'); f.controller.cancel(); f.advance(10000);
   assert.deepEqual(f.sounded(), [3, 2]); assert.equal(f.launches.length, 0);
   assert.equal(f.audio.filter(event => event.type === 'cancel').length, 1); assert.deepEqual(f.cancelled, [true]);
 });
 
 test('a hidden countdown cancels at the next tick and does not resume sound when visible again', async t => {
-  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held');
+  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held'); f.advance(500);
   f.document.hidden = true; f.advance(1000); f.document.hidden = false; f.advance(10000);
   assert.deepEqual(f.sounded(), [3]); assert.equal(f.launches.length, 0);
   assert.equal(f.audio.filter(event => event.type === 'cancel').length, 1);
 });
 
 test('orientation refusal at the launch boundary cancels without GO or a later automatic launch', async t => {
-  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held');
+  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held'); f.advance(500);
   f.advance(1000); f.advance(1000); f.state.canResume = false; f.advance(1000);
   assert.equal(f.controller.snapshot().step, 'pose'); assert.deepEqual(f.sounded(), [3, 2, 1]); assert.equal(f.launches.length, 0);
   f.state.canResume = true; f.advance(10000); assert.equal(f.launches.length, 0);
@@ -107,13 +112,13 @@ test('orientation refusal at the launch boundary cancels without GO or a later a
 });
 
 test('a refused launch never emits GO and returns to a usable pose', async t => {
-  const f = fixture(t, { launchResult: false }); await fresh(f); f.controller.poseReady('practice', 'held'); threeSeconds(f);
+  const f = fixture(t, { launchResult: false }); await fresh(f); f.controller.poseReady('practice', 'held'); f.advance(500); threeSeconds(f);
   assert.equal(f.launches.length, 1); assert.deepEqual(f.sounded(), [3, 2, 1]);
   assert.equal(f.controller.snapshot().step, 'pose'); assert.equal(f.audio.filter(event => event.type === 'cancel').length, 1);
 });
 
 test('settings cancels the countdown and its core preparation without further sound', async t => {
-  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held'); f.advance(1000);
+  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held'); f.advance(500); f.advance(1000);
   await f.controller.action('settings'); f.advance(10000);
   assert.equal(f.controller.snapshot().step, 'settings'); assert.deepEqual(f.sounded(), [3, 2]);
   assert.deepEqual(f.cancelled, [true]); assert.equal(f.launches.length, 0);
@@ -129,7 +134,7 @@ test('an old late preparation cannot start ticks or replace a newer countdown pr
   pending[0]({ ready: true, marker: 'old' }); await settle();
   assert.deepEqual(f.sounded(), []); assert.equal(f.controller.snapshot().countdownAudio, null);
   pending[1]({ ready: true, marker: 'new' }); await settle();
-  assert.deepEqual(f.sounded(), [3]); assert.equal(f.controller.snapshot().countdownAudio.marker, 'new'); threeSeconds(f);
+  assert.deepEqual(f.sounded(), []); assert.equal(f.controller.snapshot().countdownAudio.marker, 'new'); f.advance(500); assert.deepEqual(f.sounded(), [3]); threeSeconds(f);
   assert.deepEqual(f.sounded(), [3, 2, 1, 'go']); assert.equal(f.launches.length, 1); assert.equal(f.launches[0].reason, 'new');
   assert.ok(f.audio.filter(event => event.type === 'tick' || event.type === 'go').every(event => event.session === newSession));
 });
@@ -154,7 +159,7 @@ test('hidden pending preparation cancels before its first tick', async t => {
 test('audio preparation rejection continues the same silent-capable countdown without replaying cues', async t => {
   const f = fixture(t, { prepare: () => Promise.reject(new Error('audio unavailable')) }); await fresh(f);
   f.controller.poseReady('practice', 'held'); await settle();
-  assert.deepEqual(f.sounded(), [3]); threeSeconds(f); assert.deepEqual(f.sounded(), [3, 2, 1, 'go']);
+  assert.deepEqual(f.sounded(), []); f.advance(500); assert.deepEqual(f.sounded(), [3]); threeSeconds(f); assert.deepEqual(f.sounded(), [3, 2, 1, 'go']);
   assert.equal(f.launches.length, 1); assert.equal(f.audio.filter(event => event.type === 'prepare').length, 1);
 });
 
@@ -163,7 +168,7 @@ test('duplicate poseReady during preparation/countdown or after running cannot r
   const f = fixture(t, { prepare: () => new Promise(done => { resolve = done; }) }); await fresh(f);
   f.controller.poseReady('practice', 'first'); f.controller.poseReady('practice', 'duplicate-pending');
   assert.equal(f.audio.filter(event => event.type === 'prepare').length, 1);
-  resolve({ ready: true }); await settle(); f.advance(1000); f.controller.poseReady('practice', 'duplicate-ticking');
+  resolve({ ready: true }); await settle(); f.advance(250); f.controller.poseReady('practice', 'duplicate-settling'); assert.deepEqual(f.sounded(), []); f.advance(250); f.advance(1000); f.controller.poseReady('practice', 'duplicate-ticking');
   assert.deepEqual(f.sounded(), [3, 2]); f.advance(1000); f.advance(1000);
   assert.equal(f.launches.length, 1); assert.deepEqual(f.sounded(), [3, 2, 1, 'go']);
   f.controller.poseReady('practice', 'duplicate-running'); f.controller.onRunning(); f.advance(10000);
@@ -171,12 +176,12 @@ test('duplicate poseReady during preparation/countdown or after running cannot r
 });
 
 test('disposal cancels prepared countdown timers and no later tick or GO survives', async t => {
-  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held'); f.controller.dispose(); f.advance(10000);
+  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held'); f.advance(500); f.controller.dispose(); f.advance(10000);
   assert.deepEqual(f.sounded(), [3]); assert.equal(f.launches.length, 0); assert.equal(f.audio.filter(event => event.type === 'cancel').length, 1);
 });
 
 test('result details survive settings and cannot leak into the next attempt result', async t => {
-  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held'); threeSeconds(f);
+  const f = fixture(t); await fresh(f); f.controller.poseReady('practice', 'held'); f.advance(500); threeSeconds(f);
   const details = { title: '海面に接触しました', description: '中心高度0.48m、機体最下部0m。' };
   f.state.phase = 'paused'; f.state.state.grounded = true; f.controller.result(details);
   assert.deepEqual(f.shown.at(-1).data, details);
@@ -184,8 +189,26 @@ test('result details survive settings and cannot leak into the next attempt resu
   assert.equal(f.controller.snapshot().step, 'result'); assert.deepEqual(f.shown.at(-1).data, details);
   await f.controller.action('retry'); assert.equal(f.controller.snapshot().step, 'pose');
   assert.equal(f.shown.at(-1).data.title, '構える'); assert.deepEqual(f.preparations.at(-1), { preserveSession: true });
-  f.state.state.grounded = false; f.controller.poseReady('practice', 'retry'); threeSeconds(f);
+  f.state.state.grounded = false; f.controller.poseReady('practice', 'retry'); f.advance(500); threeSeconds(f);
   f.state.phase = 'complete'; f.controller.result(); await f.controller.action('settings'); await f.controller.action('settings-close');
   assert.equal(f.controller.snapshot().step, 'result'); assert.deepEqual(f.shown.at(-1).data, {});
   assert.equal(f.launches.length, 2); assert.deepEqual(f.sounded(), [3, 2, 1, 'go', 3, 2, 1, 'go']);
+});
+
+test('slow preparation finishes before the full silent settle and never consumes any of the three displayed seconds', async t => {
+  let resolve;const f=fixture(t,{prepare:()=>new Promise(done=>{resolve=done;})});await fresh(f);
+  f.controller.poseReady('practice','held');f.advance(700);assert.deepEqual(f.sounded(),[]);assert.equal(f.record.snapshot().flightStartedAt,null);
+  resolve({ready:true,waitMilliseconds:700});await settle();f.advance(499);assert.deepEqual(f.sounded(),[]);assert.equal(f.launches.length,0);
+  f.advance(1);assert.deepEqual(f.sounded(),[3]);threeSeconds(f);
+  assert.deepEqual(f.sounded(),[3,2,1,'go']);assert.equal(f.launches[0].at,4300);assert.equal(f.record.snapshot().countdownSeconds,3);assert.equal(f.record.snapshot().startWaitSeconds,.5);assert.equal(f.record.snapshot().entryToFlightSeconds,4.2);
+});
+
+for(const cause of ['cancel','hidden','settings','dispose'])test(`cancelling the initial silent settle via ${cause} leaves no tick, GO or late launch`,async t=>{
+  const f=fixture(t);await fresh(f);f.controller.poseReady('practice','held');f.advance(250);assert.deepEqual(f.sounded(),[]);
+  if(cause==='cancel')await f.controller.action('countdown-cancel');
+  else if(cause==='settings')await f.controller.action('settings');
+  else if(cause==='dispose')f.controller.dispose();
+  else f.document.hidden=true;
+  f.advance(250);f.document.hidden=false;f.advance(10000);
+  assert.deepEqual(f.sounded(),[]);assert.equal(f.launches.length,0);assert.equal(f.record.snapshot().flightStartedAt,null);assert.equal(f.audio.filter(event=>event.type==='cancel').length,1);
 });

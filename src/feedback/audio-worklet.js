@@ -4,6 +4,7 @@ import { advanceVarioPhase } from '../cockpit-aids.js';
 import { NAVIGATION_BURST_MS,navigationCue,navigationBlockReason } from './navigation-audio.js';
 import {SONIC_TRANSITION,sonicWarning,validSonicTransition} from './supersonic-model.js';
 import {countdownTone as toneForCountdown,applyCountdownRegisters,validCountdownSession,validCountdownCue} from './countdown-audio.js';
+import {FmEngine} from '../music/fm-engine.js';
 
 class TwistAudioProcessor extends AudioWorkletProcessor {
   constructor(){
@@ -11,6 +12,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
     this.eventAt=0;this.cueAt=0;this.cue='quiet';this.model=flightFeedback();this.stateAt=0;this.settings={};
     this.silentModel=flightFeedback();this.registers=new Uint8Array(14);
     this.musicQueue=[];this.musicHead=0;this.musicPlaying=false;this.musicVolume=.5;
+    this.musicSession=0;this.fm=new FmEngine(sampleRate);this.fmEnabled=false;this.fmBuffer=new Float32Array(128);
     this.cancelledMusicTags=new Set();this.afterburnerReleaseAt=null;this.passby=null;this.passbyAt=0;
     this.musicScheduleMetrics={layerWrites:0,layerCancellations:0,lastLayerAt:null,lastLayerTag:null};
     this.passbyMetrics={accepted:0,suppressed:0,reason:'inactive',id:null};
@@ -23,6 +25,12 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
     this.navigation=null;this.navigationBurst=null;this.navigationAt=0;this.navigationLastAt=null;this.navigationNextAt=0;this.navigationWasAllowed=false;this.navigationLastBlock='inactive';
     this.navigationMetrics={accepted:0,suppressed:0,lastPan:null,lastIntervalMs:null,lastAt:null,reason:'inactive'};
     this.port.onmessage=({data:m})=>{
+      if(['musicReg','musicStop','stop'].includes(m.type)&&m.session!==undefined){
+        if(!Number.isSafeInteger(m.session)||m.session<this.musicSession||m.type==='musicReg'&&m.session!==this.musicSession)return;
+        if(m.type!=='musicReg')this.musicSession=m.session;
+      }
+      if(m.type==='stop'||m.type==='musicStop'){this.fm.stop();this.fmEnabled=false;}
+      if(m.type==='settings'&&!m.settings.sound){this.fm.stop();this.fmEnabled=false;this.musicQueue=this.musicQueue.slice(this.musicHead).filter(w=>w.kind!=='fm');this.musicHead=0;}
       if(m.type==='stop'){this.cancelCountdownBus(this.countdownSession);this.active=false;this.event=null;this.cue='quiet';this.cueAt=currentTime;this.musicQueue=[];this.musicHead=0;this.cancelledMusicTags.clear();this.musicPlaying=false;this.varioPhase=0;this.varioRunning=false;this.untilUpdate=0;this.navigation=null;this.afterburnerReleaseAt=null;this.endSonic('inactive');this.endPassby('inactive');this.endNavigation('inactive');this.mixer.stop();}
       if(m.type==='resetMetrics'){this.busyMs=0;this.frames=0;this.mixer.takePeak();this.navigationMetrics={accepted:0,suppressed:0,lastPan:null,lastIntervalMs:null,lastAt:null,reason:this.navigationMetrics.reason};this.publishNavigation();}
       if(m.type==='settings'){this.settings=m.settings;this.mixer.setVolume(m.settings.volume);this.untilUpdate=0;this.blockCountdown();this.blockSonic();this.blockNavigation();this.blockPassby();if(!this.settings.sound||!this.settings.sfx)this.afterburnerReleaseAt=null;}
@@ -97,11 +105,16 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       if(m.type==='poll'){
         this.port.postMessage({type:'metrics',load:this.frames?this.busyMs/1000/(this.frames/sampleRate):0,
           peak:this.mixer.takePeak(),active:this.active,event:this.event,music:this.musicPlaying,
-          vario:this.active&&this.settings.sound&&this.settings.sfx&&varioMaySound(this.model,Boolean(this.event||this.sonic||this.countdown)),navigation:this.navigationSnapshot(),afterburner:this.afterburnerSnapshot(),passby:this.passbySnapshot(),sonic:this.sonicSnapshot(),countdown:this.countdownSnapshot(),musicSchedule:{...this.musicScheduleMetrics,pending:this.musicQueue.length-this.musicHead}});this.busyMs=0;this.frames=0;
+          vario:this.active&&this.settings.sound&&this.settings.sfx&&varioMaySound(this.model,Boolean(this.event||this.sonic||this.countdown)),navigation:this.navigationSnapshot(),afterburner:this.afterburnerSnapshot(),passby:this.passbySnapshot(),sonic:this.sonicSnapshot(),countdown:this.countdownSnapshot(),fm:{...this.fm.snapshot(),prePostPeak:this.mixer.fmPrePostPeak??0,pending:this.musicQueue.slice(this.musicHead).filter(w=>w.kind==='fm').length},musicSchedule:{...this.musicScheduleMetrics,pending:this.musicQueue.length-this.musicHead}});this.busyMs=0;this.frames=0;
       }
     };
   }
   applyMusicWrite(w){
+    if(w.kind==='fm'){
+      const accepted=this.fm.handle(w.event,w.presetId);
+      if(accepted&&w.event.type==='configure'){this.fmEnabled=true;this.mixer.fmPrePostPeak=0;}
+      return;
+    }
     this.mixer.writeMusic(w.addr,w.value);
     if(w.tag?.startsWith('afterburner-')){this.musicScheduleMetrics.layerWrites++;this.musicScheduleMetrics.lastLayerAt=currentTime;this.musicScheduleMetrics.lastLayerTag=w.tag;}
   }
@@ -215,7 +228,8 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       }
       this.mixer.musicGain=this.musicPlaying?this.musicVolume:0;
       this.mixer.sfxGain=this.settings.sfx?1:0;
-      this.untilUpdate-=left.length;this.mixer.render(left,right,this.navigationBurst?.pan??null);
+      let fm=null;if(this.fmEnabled){if(this.fmBuffer.length!==left.length)this.fmBuffer=new Float32Array(left.length);this.fm.render(this.fmBuffer);fm=this.fmBuffer;}
+      this.untilUpdate-=left.length;this.mixer.render(left,right,this.navigationBurst?.pan??null,fm);
     }else {left.fill(0);right?.fill(0);}
     if(varioEnabled)this.varioPhase=advanceVarioPhase(this.varioPhase,left.length/sampleRate*1000,this.model.vario.periodMs);
     for(let i=2;i<outputs[0].length;i++)outputs[0][i].set(left);

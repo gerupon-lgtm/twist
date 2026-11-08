@@ -6,7 +6,7 @@ import {COUNTDOWN_AUDIO,validCountdownSession,validCountdownCue} from './countdo
 export function createGameAudio(){
   let context=null,node=null,pending=null,poll=null,status='idle',lastState=null,wanted=false,eventTimer=null,generation=0,disposed=false;
   let load=0,maxLoad=0,peak=0,musicActive=false,varioActive=false;
-  let musicSchedule=null;
+  let musicSchedule=null,fmAcknowledged=null,musicSession=0,musicSequence=0;
   let lastEvent=null;
   let navigationAcknowledged=null,afterburnerAcknowledged=null,passbyAcknowledged=null,sonicAcknowledged=null;
   let musicPending=[],musicFlush=false,scheduleTime=null;
@@ -34,6 +34,7 @@ export function createGameAudio(){
             if(data.passby)passbyAcknowledged=data.passby;
             if(data.sonic)sonicAcknowledged=data.sonic;
             if(data.countdown)countdownAcknowledged=data.countdown;
+            if(data.fm)fmAcknowledged=data.fm;
           };
           poll=setInterval(()=>post({type:'poll'}),1000);
         }
@@ -43,10 +44,17 @@ export function createGameAudio(){
       await pending;
     }catch{status='unavailable';}
   }
-  function musicWrite(addr,value,at,tag='base'){
-    if(!node||cancelledMusicTags.has(tag))return;
-    musicPending.push({addr,value,at,tag});
-    if(!musicFlush){musicFlush=true;queueMicrotask(()=>{musicFlush=false;const writes=musicPending.filter(w=>!cancelledMusicTags.has(w.tag));musicPending=[];if(writes.length)post({type:'musicReg',writes});});}
+  function musicItem(item,at,tag='base',session=musicSession){
+    if(!node||session!==musicSession||cancelledMusicTags.has(tag))return;
+    musicPending.push({...item,at,tag,session,sequence:musicSequence++});
+    if(!musicFlush){musicFlush=true;queueMicrotask(()=>{musicFlush=false;const writes=musicPending.filter(w=>w.session===musicSession&&!cancelledMusicTags.has(w.tag));musicPending=[];if(writes.length)post({type:'musicReg',session:musicSession,writes});});}
+  }
+  function musicWrite(addr,value,at,tag='base',session=musicSession){musicItem({addr,value},at,tag,session);}
+  function musicClockFor(tag='base'){
+    const session=musicSession;let at=null;
+    return {get sampleRate(){return context?.sampleRate;},now:()=>context?.currentTime||0,setScheduleTime(time){at=time;},
+      write(addr,value){musicWrite(addr,value,at,tag,session);},
+      event(payload){if(payload?.kind==='fm')musicItem({...payload,event:{...payload.event}},at,tag,session);}};
   }
   function cancelCountdown(session){
     if(!countdownSession||(session!==undefined&&session!==countdownSession.id))return;
@@ -99,13 +107,16 @@ export function createGameAudio(){
     resume:()=>context?context.resume():Promise.resolve(),
     suspendIfIdle(){if(!wanted&&!countdownSession)context?.suspend().catch(()=>{});},
     musicClock:{
+      get sampleRate(){return context?.sampleRate;},
       now:()=>context?.currentTime||0,
       setScheduleTime(time){scheduleTime=time;},
       write(addr,value){musicWrite(addr,value,scheduleTime);},
+      event(payload){if(payload?.kind==='fm')musicItem({...payload,event:{...payload.event}},scheduleTime);},
     },
-    createMusicLayerClock(tag){let at=null;return {now:()=>context?.currentTime||0,setScheduleTime(time){at=time;},write(addr,value){musicWrite(addr,value,at,tag);}};},
+    createMusicClock(){return musicClockFor();},
+    createMusicLayerClock(tag){return musicClockFor(tag);},
     cancelMusicLayer(tag){cancelledMusicTags.add(tag);musicPending=musicPending.filter(w=>w.tag!==tag);post({type:'musicCancel',tag});},
-    stopMusic(){musicPending=[];scheduleTime=null;cancelledMusicTags.clear();post({type:'musicStop'});},
+    stopMusic(){musicSession++;musicPending=[];scheduleTime=null;cancelledMusicTags.clear();post({type:'musicStop',session:musicSession});},
     setMusicGain(gain){post({type:'musicGain',gain});},
     configure(settings){post({type:'settings',settings});},
     start(){wanted=true;if(context)context.resume().catch(()=>{});if(lastState)post(lastState);},
@@ -127,11 +138,11 @@ export function createGameAudio(){
       if(!node||!wanted||context?.state!=='running'||!settings.sound||!settings.sfx||!validSonicTransition(event))return false;
       post({type:'sonic',event:{...event},settings});return true;
     },
-    stop(){generation++;musicPending=[];wanted=false;cancelCountdown();varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop'});context?.suspend().catch(()=>{});},
+    stop(){generation++;musicSession++;musicPending=[];wanted=false;cancelCountdown();varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop',session:musicSession});context?.suspend().catch(()=>{});},
     snapshot:()=>({status,load,maxLoad,peak,musicActive,varioActive,lastEvent,contextState:context?.state||'none',workletReady:Boolean(node),musicSchedule:musicSchedule?{...musicSchedule}:null,
       afterburner:{requested:lastState?.model?.afterburner?{...lastState.model.afterburner}:null,acknowledged:afterburnerAcknowledged?{...afterburnerAcknowledged}:null},
       passby:passbyAcknowledged?{...passbyAcknowledged}:null,
-      sonic:sonicAcknowledged?{...sonicAcknowledged}:null,
+      sonic:sonicAcknowledged?{...sonicAcknowledged}:null,fm:fmAcknowledged?structuredClone(fmAcknowledged):null,musicSession,
       countdown:{session:countdownSession?.id??null,preparation:countdownPreparation?{...countdownPreparation}:null,acknowledged:countdownAcknowledged?structuredClone(countdownAcknowledged):null},
       navigation:{requested:lastState?.navigation?{...lastState.navigation}:null,acknowledged:navigationAcknowledged?{...navigationAcknowledged}:null}}),
     resetMetrics(){load=0;maxLoad=0;peak=0;post({type:'resetMetrics'});},

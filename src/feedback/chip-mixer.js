@@ -17,6 +17,7 @@ export class ChipMixer {
     this.musicGain=0;this.sfxGain=1;this.post.setMaster(.25);this.post.clear();
     this.navigationPost=new PostStage(rate,5);this.navigationPost.setMaster(.25);this.navigationPost.clear();
     this.navigationBuffer=new Float32Array(0);this.navigationSplit=false;this.navigationSample=0;this.backgroundSample=0;this.stereoPeak=0;
+    this.fmPrePostPeak=0;
   }
   writeSfx(registers){for(let i=0;i<registers.length;i++)this.sfxPsg.psg.writeReg(i,registers[i]);}
   writeMusic(addr,value){
@@ -47,14 +48,16 @@ export class ChipMixer {
     }
     return this.backgroundSample;
   }
-  renderNavigation(out,right,pan){
+  renderNavigation(out,right,pan,fm=null){
     if(this.navigationBuffer.length!==out.length)this.navigationBuffer=new Float32Array(out.length);
     const navigation=this.navigationBuffer;
     for(let i=0;i<out.length;i++){
       const L=this.converter.nextL();
       const background=this.sampleNavigation(L)*this.sfxGain;
       navigation[i]=this.navigationSample*this.sfxGain;
-      out[i]=this.musicGain===0?background:(this.chip.sumTicks(L)/(L*1024)+this.musicPsg.sample(L))*this.musicGain+background;
+      if(fm)out[i]=this.musicGain===0?background:(this.chip.sumTicks(L)/(L*1024)+this.musicPsg.sample(L)+fm[i])*this.musicGain+background;
+      else out[i]=this.musicGain===0?background:(this.chip.sumTicks(L)/(L*1024)+this.musicPsg.sample(L))*this.musicGain+background;
+      if(fm)this.fmPrePostPeak=Math.max(this.fmPrePostPeak,Math.abs(out[i]));
     }
     this.drums.tick(out.length/this.rate);this.post.process(out);this.navigationPost.process(navigation);
     const p=Math.max(-1,Math.min(1,pan)),gainLeft=(1-p)/2,gainRight=(1+p)/2;
@@ -71,12 +74,18 @@ export class ChipMixer {
       }
     }
   }
-  render(out,right=null,navigationPan=null){
-    if(Number.isFinite(navigationPan)){this.renderNavigation(out,right,navigationPan);return;}
+  render(out,right=null,navigationPan=null,fm=null){
+    if(Number.isFinite(navigationPan)){this.renderNavigation(out,right,navigationPan,fm);return;}
     this.cancelNavigation();
     // SCC stays silent in v0.1.17, reserved for the later MIDI player.
     if(this.musicGain===0) {
       for(let i=0;i<out.length;i++)out[i]=this.sfxPsg.sample(this.converter.nextL())*this.sfxGain;
+    } else if(fm){
+      for(let i=0;i<out.length;i++){
+        const L=this.converter.nextL();
+        out[i]=(this.chip.sumTicks(L)/(L*1024)+this.musicPsg.sample(L)+fm[i])*this.musicGain+this.sfxPsg.sample(L)*this.sfxGain;
+        this.fmPrePostPeak=Math.max(this.fmPrePostPeak,Math.abs(out[i]));
+      }
     } else {
       for(let i=0;i<out.length;i++){
         const L=this.converter.nextL();

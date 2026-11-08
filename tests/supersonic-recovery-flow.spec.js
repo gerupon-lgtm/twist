@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {mkdir,writeFile} from 'node:fs/promises';
+import {waitForCountdownThree} from './helpers/countdown.js';
 
 // Actual default start flow and DOM practice inputs only. The recovery driver
 // reads the ray of the displayed FD; it never imports guidance/kernel code.
@@ -50,6 +51,7 @@ test('normal sonic flow recovers the deliberately missed first gate by its displ
     await expect(page.locator('#start-flow-panel')).toHaveAttribute('data-step','courses');await page.locator('[data-course-id=supersonic]').click();
     await page.locator('#start-flow-course-start').click();await expect(page.locator('#start-flow-panel')).toHaveAttribute('data-step','pose');
     await page.locator('#start-flow-hold').click();await expect(page.locator('#start-flow-panel')).toHaveAttribute('data-step','countdown');
+    await waitForCountdownThree(page);
     await page.clock.runFor(2900);expect((await read()).phase).not.toBe('running');await page.clock.runFor(120);
     await expect(page.locator('#app')).toHaveAttribute('data-phase','running');await expect(page.locator('#start-flow-panel')).toHaveAttribute('data-step','play');
     let state=await read();evidence.initial=state;
@@ -93,10 +95,10 @@ test('normal sonic flow recovers the deliberately missed first gate by its displ
     expect(state.sonic.gateResults[0].lastCrossingRadialDistance).toBeLessThanOrEqual(80);
     expect(state.sonic.grounded).toBe(false);expect(maximumG).toBeLessThanOrEqual(9+1e-6);expect(ready).toBeGreaterThan(50);
     expect(evidence.recovery.seconds).toBeLessThan(90);expect(errors).toEqual([]);
-    await page.screenshot({path:'.cache/v0132-gui-miss-recovery-pass.png'});
+    await page.screenshot({path:'.cache/v0133-gui-miss-recovery-pass.png'});
     await page.locator('#pause-button').click();await expect(page.locator('#start-flow-panel')).toHaveAttribute('data-step','pause');
   }finally{
-    await mkdir('.cache',{recursive:true});await writeFile('.cache/v0132-gui-miss-recovery.json',JSON.stringify(evidence,null,2)+'\n');
-    await page.screenshot({path:'.cache/v0132-gui-miss-recovery.png'}).catch(()=>{});
+    await mkdir('.cache',{recursive:true});await writeFile('.cache/v0133-gui-miss-recovery.json',JSON.stringify(evidence,null,2)+'\n');
+    await page.screenshot({path:'.cache/v0133-gui-miss-recovery.png'}).catch(()=>{});
   }
 });

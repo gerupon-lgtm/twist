@@ -32,3 +32,17 @@ test('disposing a loading preview closes its native context and cannot create a 
   try{const loading=audio.unlock();await Promise.resolve();await audio.dispose();release();await loading;assert.equal(context.state,'closed');assert.equal(nodes,0);assert.equal(audio.snapshot().workletReady,false);}
   finally{await audio.dispose();delete globalThis.window;delete globalThis.AudioWorkletNode;}
 });
+
+test('scoped music clocks reject old FM/register microtasks and retain the base when only AB is cancelled',async()=>{
+ const messages=[];globalThis.window={AudioContext:class{
+  constructor(){this.state='suspended';this.currentTime=4;this.sampleRate=44100;this.audioWorklet={addModule:async()=>{}};}
+  resume(){this.state='running';return Promise.resolve();}suspend(){this.state='suspended';return Promise.resolve();}close(){this.state='closed';return Promise.resolve();}
+ }};globalThis.AudioWorkletNode=class{constructor(){this.port={postMessage:m=>messages.push(m)};}connect(){}disconnect(){}};
+ const audio=createGameAudio();try{audio.start();await audio.unlock();const stale=audio.createMusicClock();assert.equal(stale.sampleRate,44100);
+  stale.event({kind:'fm',event:{type:'noteOn',channel:0,note:60,velocity:100},presetId:'lead'});audio.stopMusic();
+  stale.write(0x8a,15);stale.event({kind:'fm',event:{type:'noteOn',channel:0,note:64,velocity:100},presetId:'lead'});
+  const base=audio.createMusicClock(),ab=audio.createMusicLayerClock('afterburner-new');base.setScheduleTime(5);base.event({kind:'fm',event:{type:'noteOn',channel:0,note:67,velocity:100},presetId:'lead'});ab.setScheduleTime(5);ab.write(0x124,100);audio.cancelMusicLayer('afterburner-new');
+  await Promise.resolve();const writes=messages.filter(m=>m.type==='musicReg').flatMap(m=>m.writes);assert.equal(writes.length,1);assert.equal(writes[0].event.note,67);assert.equal(writes[0].tag,'base');
+  base.event({kind:'fm',event:{type:'noteOff',channel:0,note:67}});audio.stop();await Promise.resolve();assert.equal(messages.filter(m=>m.type==='musicReg').length,1);
+ }finally{await audio.dispose();delete globalThis.window;delete globalThis.AudioWorkletNode;}
+});

@@ -55,13 +55,25 @@ const cues=async page=>(await history(page)).map(row=>row.cue);
 const soundingVibrations=page=>page.evaluate(()=>countdownNative.vibrations.filter(({pattern})=>Array.isArray(pattern)?pattern.some(value=>value>0):pattern>0).length);
 async function evidence(page,name,errors){
   const result=await page.evaluate(()=>({posts:countdownNative.posts,received:countdownNative.received,vibrations:countdownNative.vibrations,contexts:countdownNative.contexts.map(context=>({state:context.state,time:context.currentTime})),phase:document.getElementById('app').dataset.phase,startup:JSON.parse(document.getElementById('app').dataset.startup??'null')}));
-  await writeFile('.cache/v0132-countdown-'+name+'.json',JSON.stringify({...result,audio:await audio(page),errors},null,2));
+  await writeFile('.cache/v0133-countdown-'+name+'.json',JSON.stringify({...result,audio:await audio(page),errors},null,2));
   expect(errors).toEqual([]);
 }
 async function holdAtThree(page){
   await page.locator('#start-flow-hold').click();await step(page,'countdown');
   await expect(page.locator('#start-flow-countdown')).toHaveText('3');
 }
+
+test('delayed first cue waits for native sound preparation and a silent settling period before 3',async({page})=>{
+  test.setTimeout(20000);const errors=await boot(page,{moduleDelay:700});
+  await holdAtThree(page);await expect.poll(()=>cues(page)).toEqual([3]);
+  const prepared=(await audio(page)).countdown.preparation;expect(prepared.ready).toBe(true);
+  const posts=await page.evaluate(()=>countdownNative.posts);
+  const begin=posts.find(row=>row.type==='countdownBegin'),first=posts.find(row=>row.type==='countdownTone'&&row.cue===3);
+  expect(begin).toBeTruthy();expect(first.at-begin.at).toBeGreaterThanOrEqual(480);
+  await expect(page.locator('#app')).toHaveAttribute('data-phase','running',{timeout:6000});
+  await expect.poll(()=>cues(page)).toEqual([3,2,1,'go']);
+  await page.locator('#pause-button').click();await evidence(page,'delayed-first-cue-v33',errors);
+});
 
 for(const course of ['easy','supersonic'])test(`native ${course} countdown plays 3/2/1 together with the display and GO only at actual launch`,async({page},testInfo)=>{
   test.setTimeout(20000);
@@ -137,7 +149,7 @@ test('a native resume that outlasts preparation cannot deliver old beats after c
   await expect.poll(async()=>Boolean((await audio(page))?.countdown?.preparation)).toBe(true);
   await step(page,'countdown');
   const prepared=(await audio(page)).countdown.preparation;
-  expect(prepared.ready).toBe(false);expect(prepared.waitMilliseconds).toBeGreaterThanOrEqual(240);expect(await cues(page)).toEqual([]);
+  expect(prepared.ready).toBe(false);expect(prepared.waitMilliseconds).toBeGreaterThanOrEqual(1490);expect(await cues(page)).toEqual([]);
   console.log(JSON.stringify({delayedNativePreparation:prepared,displayedAt:await page.evaluate(()=>performance.now())-heldAt}));
   await page.locator('#start-flow-countdown-cancel').click();await step(page,'pose');await page.evaluate(()=>countdownNative.release());
   await expect.poll(async()=>(await audio(page))?.workletReady).toBe(true);await expect.poll(async()=>(await audio(page))?.contextState).toBe('suspended');

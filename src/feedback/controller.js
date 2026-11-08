@@ -1,4 +1,4 @@
-import { loadFeedbackSettings, saveFeedbackSettings, normalizeFeedbackSettings, FEEDBACK_FIELDS } from './settings.js';
+import { loadFeedbackSettings, saveFeedbackSettings, normalizeFeedbackSettings, FEEDBACK_FIELDS,FEEDBACK_SETTINGS_KEY,loadMusicPreviewSettings,saveMusicPreviewSettings } from './settings.js';
 import { createGameAudio } from './audio.js';
 import { flightFeedback } from './model.js';
 import { createHaptics } from './haptics.js';
@@ -9,13 +9,15 @@ import { createRangeEditor } from '../range-editor.js';
 import { changedSettings,initialSettingText } from '../setting-differences.js';
 import { FEEDBACK_HELP } from '../settings-help.js';
 import {createSonicEventConsumer} from './supersonic-model.js';
+import {resolveFlightSelection,resolvePreviewRequest,resolveMusicQuery} from '../music/catalog.js';
 
 export function createFeedbackController(){
   let storage;try{storage=localStorage;}catch{/* Defaults work without storage. */}
   let settings=loadFeedbackSettings(storage),active=false,lastAudio=0,lastAfterburner=null,lastModel=null;
-  let previewAudio=null,previewMusic=null,previewIntent=false,previewGeneration=0,previewMessage='',previewClosing=Promise.resolve();
-  const query=new URL(location.href).searchParams.get('music');
-  if(Object.hasOwn(FEEDBACK_FIELDS.musicSet.options,query))settings={...settings,musicSet:query};
+  let previewAudio=null,previewMusic=null,previewIntent=false,previewPending=false,previewGeneration=0,previewMessage='',previewClosing=Promise.resolve();
+  let catalog=null,catalogLoading=null,catalogMessage='',previewTrackId=null,musicSelectionEdited=false;
+  const queryParams=new URL(location.href).searchParams,storedPreview=loadMusicPreviewSettings(storage);
+  let storedMusicRequest=null;try{const raw=JSON.parse(storage.getItem(FEEDBACK_SETTINGS_KEY));if(typeof raw?.musicSet==='string')storedMusicRequest=raw.musicSet;}catch{/* No saved request to migrate. */}
   let frames=0,frameSum=0,frameMax=0;
   const audio=createGameAudio(),jitter=createSensorJitter();
   const music=createMusicPlayer(audio);music.setSettings(settings);
@@ -41,6 +43,7 @@ export function createFeedbackController(){
     input.addEventListener('input',()=>{
       settings=normalizeFeedbackSettings({...settings,[key]:field.options?input.value:input.type==='checkbox'?input.checked:Number(input.value)});
       if(key==='musicSet'){
+        musicSelectionEdited=true;
         const url=new URL(location.href);url.searchParams.set('music',settings.musicSet);history.replaceState(null,'',url);
         const home=document.getElementById('home-link'),link=new URL(home.href);link.searchParams.set('music',settings.musicSet);home.href=link.href;
       }
@@ -49,7 +52,7 @@ export function createFeedbackController(){
       if(!settings.sound)audio.stop();else if(active){audio.start();void music.play('flight');}
       if(previewIntent){
         if(!settings.sound)stopPreview();
-        else {previewAudio?.configure(previewSettings());previewMusic?.setSettings(previewSettings());if(key==='musicSet')void playPreview();}
+        else {previewAudio?.configure(previewSettings());previewMusic?.setSettings(previewSettings());if(key==='musicEngine')void playPreview();}
       }
       document.getElementById('feedback-save-status').textContent=saveFeedbackSettings(storage,settings)?'このブラウザーに保存しました。':'保存できません。この画面を開いている間だけ使います。';
       refresh();
@@ -57,48 +60,99 @@ export function createFeedbackController(){
   }
   document.getElementById('vibration-support').textContent=supported?'振動は端末・ブラウザーの設定によって使えないことがあります。':'この端末ではゲームの振動を利用できません。音と表示でお知らせします。';
   const previewControls=document.createElement('div');previewControls.className='music-preview-controls';
+  const previewLabel=document.createElement('label');previewLabel.htmlFor='music-preview-track';
+  const previewCaption=document.createElement('span');previewCaption.textContent='個別試聴';
+  const previewSelect=document.createElement('select');previewSelect.id='music-preview-track';previewSelect.disabled=true;
+  const previewHelp=document.createElement('small');previewHelp.className='setting-explanation';previewHelp.textContent='旧曲・クリア・AB・比較も含め、1曲ずつ試聴できます。飛行中の曲の選択は変わりません。';previewLabel.append(previewCaption,previewSelect,previewHelp);
+  const selectionStatus=document.createElement('small');selectionStatus.id='music-flight-selection-status';selectionStatus.className='setting-explanation';selectionStatus.setAttribute('role','status');
   const previewStart=document.createElement('button');previewStart.type='button';previewStart.id='music-preview-start';previewStart.textContent='▶ 試聴';
   const previewStop=document.createElement('button');previewStop.type='button';previewStop.id='music-preview-stop';previewStop.textContent='■ 停止';
   const previewTitle=document.createElement('span');previewTitle.id='music-preview-title';
   const previewStatus=document.createElement('small');previewStatus.id='music-preview-status';previewStatus.setAttribute('role','status');
-  previewControls.append(previewStart,previewStop,previewTitle,previewStatus);fields.querySelector('[data-feedback-setting="musicSet"]').after(previewControls);
+  previewControls.append(previewStart,previewStop,previewTitle,previewStatus);const musicField=fields.querySelector('[data-feedback-setting="musicSet"]');musicField.append(selectionStatus);musicField.after(previewLabel);previewLabel.after(previewControls);
+  previewSelect.addEventListener('input',()=>{
+    if(!catalog?.previewIds.includes(previewSelect.value))return;
+    previewTrackId=previewSelect.value;
+    const saved=saveMusicPreviewSettings(storage,{trackId:previewTrackId},catalog);
+    previewMessage=saved?'試聴する曲を保存しました。':'試聴する曲を保存できません。この画面では使えます。';
+    if(previewIntent)void playPreview();else refreshPreview();
+  });
   previewStart.addEventListener('click',()=>{void playPreview();});previewStop.addEventListener('click',stopPreview);
   const adjustments=document.getElementById('flight-adjustments');adjustments.addEventListener('toggle',()=>{if(!adjustments.open)stopPreview();});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPreview();});window.addEventListener('pagehide',stopPreview);
   function previewSettings(){return {...settings,bgm:true,sfx:false,abMusic:false};}
+  function previewLabelFor(id){
+    const role=catalog.clearIds.includes(id)?'クリア':id===catalog.afterburnerId?'AB追加打楽器':id===catalog.comparisonId?'比較':!catalog.flightIds.includes(id)?'試聴専用':'';
+    return catalog.byId[id].title+(role?`（${role}）`:'');
+  }
+  function refreshSelection(){
+    if(!catalog)return;
+    const selection=resolveFlightSelection(settings.musicSet,catalog);
+    selectionStatus.hidden=!selection.fallbackReason;
+    selectionStatus.textContent=selection.fallbackReason==='preview-only'?'以前の曲は個別試聴に残しました。飛行中は採用7曲を順番に再生します。':selection.fallbackReason==='filtered-legacy'?'飛行中は採用曲だけを再生します。旧曲は個別試聴で選べます。':selection.fallbackReason?'曲の指定を使えないため、飛行中は採用7曲を使います。':'';
+  }
+  async function loadCatalog(){
+    if(catalog)return catalog;
+    if(!catalogLoading)catalogLoading=music.loadCatalog().then(value=>{
+      if(!value){catalogMessage='曲の一覧を読み込めません。試聴ボタンで再試行できます。';return null;}
+      catalog=value;catalogMessage='';const query=resolveMusicQuery(queryParams,catalog);
+      if(query.flightRequest!==null&&!musicSelectionEdited){
+        settings={...settings,musicSet:query.flightRequest};music.setSettings(settings);
+        const home=document.getElementById('home-link'),link=new URL(home.href);link.searchParams.set('music',settings.musicSet);home.href=link.href;
+        if(active)void music.play('flight');
+      }
+      const fallback=resolvePreviewRequest(storedMusicRequest,catalog);
+      previewTrackId=resolvePreviewRequest(query.previewRequest??storedPreview.trackId??storedMusicRequest,catalog,{fallback});
+      previewSelect.replaceChildren(...catalog.previewIds.map(id=>new Option(previewLabelFor(id),id)));previewSelect.disabled=false;previewSelect.value=previewTrackId;
+      const clearSelect=document.getElementById('feedback-clearTrackId');for(const option of clearSelect.children)if(catalog.byId[option.value])option.textContent=catalog.byId[option.value].title;
+      refresh();return catalog;
+    }).catch(()=>{catalogMessage='曲の一覧を読み込めません。試聴ボタンで再試行できます。';return null;}).finally(()=>{catalogLoading=null;refreshPreview();});
+    return catalogLoading;
+  }
   function refreshPreview(){
-    const snapshot=previewMusic?.snapshot();previewStart.disabled=!settings.sound||active;previewStop.disabled=!previewIntent;
+    const snapshot=previewMusic?.snapshot();
+    if(previewIntent&&!previewPending&&snapshot?.status==='ready'&&!snapshot.playing){previewIntent=false;previewMessage='試聴が終わりました。もう一度聴くときは試聴ボタンを押してください。';}
+    previewStart.disabled=!settings.sound||active;previewStop.disabled=!previewIntent;
     previewTitle.textContent=snapshot?.playing?`試聴中：${snapshot.track}`:'';
-    previewStatus.textContent=!settings.sound?'試聴は「音」をオンにすると使えます。':previewMessage||'飛行を再開せず、選んだ曲の先頭を試聴します。';
+    previewStatus.textContent=!settings.sound?'試聴は「音」をオンにすると使えます。':previewMessage||catalogMessage||(!catalog?'曲の一覧を準備しています。':'飛行を再開せず、選んだ1曲の先頭を試聴します。');
     previewControls.dataset.playing=String(Boolean(snapshot?.playing));previewControls.dataset.status=snapshot?.status??'idle';
     previewControls.dataset.music=JSON.stringify(snapshot??{playing:false});
     previewControls.dataset.audio=JSON.stringify(previewAudio?.snapshot()??{contextState:'none',workletReady:false});
   }
   function stopPreview(){
-    previewGeneration++;previewIntent=false;previewMessage='';
+    previewGeneration++;previewIntent=false;previewPending=false;previewMessage='';
     previewMusic?.stop();previewAudio?.stop();if(previewAudio)previewClosing=previewAudio.dispose();previewMusic=null;previewAudio=null;refreshPreview();
   }
   async function playPreview(){
-    if(active||!settings.sound||adjustments.hidden||!adjustments.open)return;
-    previewIntent=true;const token=++previewGeneration;previewMessage='曲を準備しています。';
+    if(active||!settings.sound||document.hidden||adjustments.hidden||!adjustments.open)return;
+    previewIntent=true;previewPending=true;const token=++previewGeneration;previewMessage='曲を準備しています。';
     refreshPreview();
     if(!previewAudio){await previewClosing;if(token!==previewGeneration||!previewIntent)return;previewAudio=createGameAudio();previewMusic=createMusicPlayer(previewAudio);}
-    const output=previewAudio,player=previewMusic;player.setSettings(previewSettings());player.setFlightNumber(1);refreshPreview();
-    if(!output.musicReady())await output.unlock();
-    if(token!==previewGeneration||!previewIntent)return;
-    const result=await player.play('flight');
-    if(token!==previewGeneration||!previewIntent)return;
-    previewMessage=result==='played'?'試聴中です。':result==='unavailable'?'曲を試聴できませんでした。':'試聴は停止しています。';refreshPreview();
+    const output=previewAudio,player=previewMusic;player.setSettings(previewSettings());refreshPreview();
+    // Begin permission/resume from this click before waiting on metadata/MIDI.
+    try{
+      const unlocking=output.musicReady()?output.resume():output.unlock();
+      const [,library]=await Promise.all([unlocking,loadCatalog()]);
+      if(token!==previewGeneration||!previewIntent)return;
+      if(!library){previewPending=false;stopPreview();previewMessage=catalogMessage;refreshPreview();return;}
+      const result=await player.playTrack(previewTrackId,{purpose:'preview'});
+      if(token!==previewGeneration||!previewIntent)return;
+      previewPending=false;previewMessage=result==='played'?'試聴中です。':result==='unavailable'?'曲を試聴できませんでした。':'試聴は停止しています。';
+      if(result!=='played'){previewIntent=false;player.stop();output.stop();}refreshPreview();
+    }catch{
+      if(token!==previewGeneration)return;stopPreview();previewMessage='曲を試聴できませんでした。';refreshPreview();
+    }
   }
   function refresh(){
     for(const [key,field]of Object.entries(FEEDBACK_FIELDS)){
-      const el=document.getElementById(`feedback-${key}`);if(el.type==='checkbox')el.checked=settings[key];else el.value=settings[key];
+      const el=document.getElementById(`feedback-${key}`);if(el.type==='checkbox')el.checked=settings[key];else el.value=field.options&&!Object.hasOwn(field.options,settings[key])?field.initial:settings[key];
       el.closest('label').querySelector('output').textContent=field.options||el.type==='checkbox'?'':`${settings[key]}${field.unit||''}`;
       rangeEditors[key]?.sync();
       const initial=fields.querySelector(`[data-feedback-initial="${key}"]`);initial.hidden=settings[key]===field.initial;initial.textContent=`● 初期値 ${initialSettingText(field)}`;
     }
-    refreshPreview();
+    refreshSelection();refreshPreview();
   }
-  refresh();
+  refresh();void loadCatalog();
   return {
     unlock(){stopPreview();haptics.arm();if(settings.sound){void audio.unlock();void music.preload();}},
     countdownAudio(signal){

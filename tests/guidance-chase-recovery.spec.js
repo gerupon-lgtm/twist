@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {computeDirectionGuidance} from '../src/guidance.js';
 import {APP_VERSION} from '../src/version.js';
+import {waitForCountdownThree} from './helpers/countdown.js';
 
 // Real normal-flow controls. Target coordinates may seed/measure the situation,
 // but the recovery driver only receives the FINAL DISPLAYED FD ray and current
@@ -69,7 +70,7 @@ async function launch(page,camera){
   await page.goto(`/?course=easy&camera=${camera}&mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank`);
   await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));await page.clock.runFor(100);await phase(page,'title');
   await page.locator('#start-flow-start').click();await phase(page,'courses');await page.locator('#start-flow-course-start').click();await phase(page,'pose');
-  await page.locator('#start-flow-hold').click();await phase(page,'countdown');await expect(page.locator('#start-flow-countdown')).toHaveText('3');
+  await page.locator('#start-flow-hold').click();await phase(page,'countdown');await waitForCountdownThree(page);await expect(page.locator('#start-flow-countdown')).toHaveText('3');
   await page.clock.runFor(3040);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
   const settings=await page.evaluate(()=>Object.fromEntries(['deadzone','maxTilt','maxPitch','maxBank','steerTiltDeadzone','maxSteerTilt','steerCurve','turnGravity'].map(key=>[key,Number(document.getElementById('setting-'+key).value)])));
   expect(settings.turnGravity).toBe(9.8);expect(settings.maxBank).toBe(40);

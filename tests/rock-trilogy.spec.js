@@ -57,5 +57,5 @@ test('a missing new track falls back without silencing the other two or existing
   await crashAndRetry(page);
   await expect.poll(async()=>(await music(page)).trackId).toBe('storm');
   await page.goto('/?mode=explore&music=horizon');await page.locator('#practice-button').click();
-  await expect.poll(async()=>(await music(page)).trackId).toBe('flight');
+  await expect.poll(async()=>(await music(page)).trackId).toBe('rock');
 });
