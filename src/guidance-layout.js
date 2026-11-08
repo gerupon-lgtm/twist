@@ -13,7 +13,7 @@ export function guidanceDirectionAllowed(direction,advice){
   const currentHeading=advice.commandedYawDegrees-advice.yawErrorDegrees;
   const currentClimb=advice.commandedClimbDegrees-advice.climbErrorDegrees;
   const yaw=wrap(heading-currentHeading),change=climb-currentClimb,epsilon=1e-6;
-  const yawLimit=advice.mode==='recover'?0:Math.min(15,Math.abs(advice.yawErrorDegrees));
+  const yawLimit=advice.mode==='recover'&&advice.criticalRecovery!==false?0:Math.min(15,Math.abs(advice.yawErrorDegrees));
   const climbLimit=Math.min(10,Math.abs(advice.climbErrorDegrees));
   if(Math.abs(yaw)>yawLimit+epsilon||yaw*advice.yawErrorDegrees< -epsilon
     ||Math.abs(change)>climbLimit+epsilon||change*advice.climbErrorDegrees< -epsilon)return false;
@@ -23,6 +23,22 @@ export function guidanceDirectionAllowed(direction,advice){
     low=Math.min(low,advice.commandedClimbDegrees);high=Math.max(high,advice.commandedClimbDegrees);
   }
   return climb>=low-epsilon&&climb<=high+epsilon;
+}
+/** Nearest allowed yaw/climb; one invalid axis must not reset the other. */
+export function clampGuidanceDirection(direction,advice){
+  if(!finiteVector(direction)||!advice||!['commandedYawDegrees','yawErrorDegrees','commandedClimbDegrees',
+    'climbErrorDegrees','minClimbDegrees','maxClimbDegrees'].every(key=>Number.isFinite(advice[key])))return null;
+  const ray=(yaw,climb)=>({x:Math.sin(yaw/DEG)*Math.cos(climb/DEG),y:Math.sin(climb/DEG),z:-Math.cos(yaw/DEG)*Math.cos(climb/DEG)});
+  if(advice.mode==='recover'&&advice.criticalRecovery!==false)return ray(advice.commandedYawDegrees,advice.commandedClimbDegrees);
+  const currentYaw=advice.commandedYawDegrees-advice.yawErrorDegrees,currentClimb=advice.commandedClimbDegrees-advice.climbErrorDegrees;
+  const yawStep=clamp(advice.yawErrorDegrees,-15,15),climbStep=clamp(advice.climbErrorDegrees,-10,10);
+  let low=advice.minClimbDegrees,high=advice.maxClimbDegrees;
+  if(advice.mode==='recover'){low=Math.min(low,advice.commandedClimbDegrees);high=Math.max(high,advice.commandedClimbDegrees);}
+  low=Math.max(low,currentClimb+Math.min(0,climbStep));high=Math.min(high,currentClimb+Math.max(0,climbStep));
+  if(low>high+1e-6)return null;
+  const yaw=clamp(wrap(Math.atan2(direction.x,-direction.z)*DEG-currentYaw),Math.min(0,yawStep),Math.max(0,yawStep));
+  const climb=clamp(Math.atan2(direction.y,Math.hypot(direction.x,direction.z))*DEG,low,high);
+  return ray(currentYaw+yaw,climb);
 }
 export function guidanceSafeDirections(advice){
   if(!advice)return [];

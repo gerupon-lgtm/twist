@@ -6,6 +6,7 @@ import { computeFieldOfView } from './visibility.js';
 import { createRangeEditor } from './range-editor.js';
 import { FLIGHT_HELP,SETTINGS_TROUBLES } from './settings-help.js';
 import { initialSettingText } from './setting-differences.js';
+import {formatCourseTime} from './course-bests.js';
 
 const $ = id => document.getElementById(id);
 const describeSettings = report => Object.entries(FLIGHT_SETTING_FIELDS)
@@ -65,6 +66,7 @@ export function createFlightPanel(getModes) {
     $('setting-ladderRange').disabled=inactive;
     $('setting-targetHeightGuide').disabled=modes.view!=='assisted';
     $('setting-streakAmount').disabled=modes.view!=='assisted';
+    $('setting-groundPatternStrength').disabled=modes.view!=='assisted';
     $('setting-autoAfterburnerAngle').disabled=modes.mode!=='flight'||!settings.autoAfterburner;
     $('setting-value-cockpitFov').textContent=fovAuto.checked?`自動（${maximum.toFixed(1)}°）`:`${Math.min(maximum,settings.cockpitFov).toFixed(1)}°`;
     for(const editor of Object.values(rangeEditors))editor.sync();
@@ -116,7 +118,7 @@ export function createFlightPanel(getModes) {
   $('settings-reset').addEventListener('click', () => {
     beforeReset={...settings};$('settings-undo-reset').hidden=false;
     settings = getModes().mode === 'explore'
-      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange, targetHeightGuide: true, hudLanguage:'en',speedUnit:DEFAULT_FLIGHT_SETTINGS.speedUnit,streakAmount:DEFAULT_FLIGHT_SETTINGS.streakAmount }
+      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange, targetHeightGuide: true, hudLanguage:'en',speedUnit:DEFAULT_FLIGHT_SETTINGS.speedUnit,streakAmount:DEFAULT_FLIGHT_SETTINGS.streakAmount,groundPatternStrength:DEFAULT_FLIGHT_SETTINGS.groundPatternStrength }
       : { ...DEFAULT_FLIGHT_SETTINGS };
     persist();
   });
@@ -126,6 +128,7 @@ export function createFlightPanel(getModes) {
   refresh();
   return {
     getSettings: () => settings,
+    setSetting(key,value){if(!Object.hasOwn(FLIGHT_SETTING_FIELDS,key))return;settings=normalizeFlightSettings({...settings,[key]:value});persist();},
     refreshLayout:()=>{refreshLayout();refreshTroubles();},
     report: (stats, outcome, lastLeg) => flightReport({ version: APP_VERSION, ...getModes(), settings, stats, lastLeg, result: outcome }),
     showResult(report) {
@@ -133,7 +136,14 @@ export function createFlightPanel(getModes) {
       $('flight-result').hidden = !report;
       $('result-copy-text').hidden = true; $('result-copy-status').textContent = '';
       if (!report) return;
-      const { stats } = report;
+      const stats=report.stats??{elapsedSeconds:0,groundContacts:0,recoverySeconds:0};
+      const flight=report.mode==='flight';$('result-flight-stats').hidden=!flight;
+      $('result-title').textContent=flight?'今回の飛行記録':'今回の探索記録';$('flight-result').setAttribute('aria-label',$('result-title').textContent);
+      const timing=report.courseTime;
+      $('result-course-time').textContent=Number.isFinite(timing?.seconds)?formatCourseTime(timing.seconds):'未完了';
+      $('result-best-time').textContent=formatCourseTime(timing?.bestSeconds);
+      $('result-best-status').textContent=timing?.newBest?timing.saved===false?'自己ベスト更新（この画面内のみ）':'自己ベスト更新':Number.isFinite(timing?.bestSeconds)?'このコース・遊び方の記録':'クリアすると自己ベストを保存します。';
+      $('result-record-note').textContent=flight?'合計は飛び直しも含み、最後の1回は飛び直しで区切ります。一時停止では区切りません。設定は到着・接地時点の値です。':'コース時間は一時停止を除きます。自己ベストは探索モードの記録として、この端末に保存します。';
       const discovery=report.exitDiscovery;
       $('result-exit-discovery').textContent=!discovery?.opened?'出口未開放':discovery.firstVisibleSeconds===null?'未表示':`${discovery.firstVisibleSeconds.toFixed(1)}秒`;
       const last = report.lastLeg || stats;
@@ -154,6 +164,18 @@ export function createFlightPanel(getModes) {
         const label=document.createElement('dt');label.textContent=segment.label;
         const value=document.createElement('dd');value.textContent=segment.seconds===null?'未完了':`${segment.seconds.toFixed(1)}秒`;row.append(label,value);return row;
       }));
+      $('result-approaches').replaceChildren(...(report.segments??[]).map(segment=>{
+        const row=document.createElement('div');row.dataset.approachId=segment.id;
+        const label=document.createElement('dt');label.textContent=segment.label;
+        const value=document.createElement('dd');value.textContent=`最接近 ${Number.isFinite(segment.closestDistance)?segment.closestDistance.toFixed(1)+'m':'未到達'} / 近くの未取得通過 ${segment.nearMisses??0}回`;row.append(label,value);return row;
+      }));
+      $('result-straights-heading').hidden=!flight||!report.abStraights?.length;
+      $('result-straights').hidden=!flight||!report.abStraights?.length;
+      $('result-straights').replaceChildren(...(flight?report.abStraights??[]:[]).map((lane,index)=>{
+        const row=document.createElement('div');row.dataset.straightId=lane.id;
+        const label=document.createElement('dt');label.textContent=`直線${index+1}（${Math.round(lane.length)}m）`;
+        const value=document.createElement('dd');value.textContent=lane.usedAfterburner?`AB ${lane.afterburnerSeconds.toFixed(2)}秒`:'AB未使用';row.append(label,value);return row;
+      }));
       $('result-target-views').replaceChildren(...(report.targetViews??[]).map((segment,i)=>{
         const row=document.createElement('div');row.dataset.targetViewId=segment.id;
         const label=document.createElement('dt');label.textContent=report.segments?.find(item=>item.id===segment.id)?.label??`区間${i+1}`;
@@ -163,7 +185,7 @@ export function createFlightPanel(getModes) {
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = phase !== 'paused';
       const inactiveSteering = getModes().steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone'];
-      for (const label of $('flight-settings-fields').children) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','speedUnit','streakAmount'].includes(label.dataset.settingKey))
+      for (const label of $('flight-settings-fields').querySelectorAll(':scope > label')) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','speedUnit','streakAmount','groundPatternStrength'].includes(label.dataset.settingKey))
         || inactiveSteering.includes(label.dataset.settingKey);
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       refreshLayout();
@@ -172,9 +194,9 @@ export function createFlightPanel(getModes) {
       $('settings-reset').textContent = mode === 'flight' ? '操縦をすべて初期値へ' : '目印をすべて初期値へ';
       $('adjustment-scope-note').textContent = mode === 'flight'
         ? '機首と旋回の入力角度を別々に調整します。選んだ旋回方式の項目だけ表示します。'
-        : 'レーダー・目標高度・速度単位・流線を調整します。探索の操縦には影響しません。';
+        : 'レーダー・目標高度・速度単位・流線・地面の模様を調整します。探索の操縦には影響しません。';
       if (phase !== 'paused') $('flight-adjustments').open = false;
-      if (phase === 'running' || mode !== 'flight') this.showResult(null);
+      if (['running','intro','waiting','ready'].includes(phase)) this.showResult(null);
     },
   };
 }

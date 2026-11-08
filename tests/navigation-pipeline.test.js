@@ -39,12 +39,17 @@ function music(m){
   m.musicGain=.5;
 }
 
-test('ordinary SFX/music center path is byte-identical to v24 for warnings, events, vario and stop',()=>{
+test('ordinary center mixer matches v24 for the same SFX, retaining warnings/events/vario around the approved wind change',()=>{
   const baseline=new OriginalMixer(),next=new ChipMixer();
   for(const m of [baseline,next]){m.setVolume(37);music(m);}
   for(const [cue,event,vario]of [['engine',null,false],['stall',null,false],['ground',null,false],['buffet',null,false],['engine','collect',false],['engine','crash',false],['engine','exitOpen',false],['engine','clear',false],['engine',null,true]]){
     const state=vario?flightFeedback({...flying,verticalSpeed:2},settings):{...model,cue};
     const before=originalModel.sfxRegisters(state,event,20,true),after=sfxRegisters(state,event,20,true);
+    // v29 deliberately changes wind amplitude and the shared noise period.
+    // Preserve the frozen mixer comparison with identical register input, while
+    // still checking every other warning/event/vario register against v24.
+    for(let register=0;register<before.length;register++)if(register!==6&&register!==8)assert.equal(after[register],before[register],`unchanged SFX register ${register}`);
+    before[6]=after[6];before[8]=after[8];
     equalSamples(before,after);baseline.writeSfx(before);next.writeSfx(after);
     for(let block=0;block<3;block++){
       const a=new Float32Array(128),left=new Float32Array(128),right=new Float32Array(128);
@@ -62,7 +67,7 @@ test('navigation hard pans only its channel C and leaves engine/wind and music b
     const next=new ChipMixer(),background=new OriginalMixer();
     for(const m of [next,background]){m.setVolume(25);music(m);}
     next.writeSfx(sfxRegisters(model,null,0,false,new Uint8Array(14),0,{elapsedMs:20}));
-    background.writeSfx(originalModel.sfxRegisters(model));
+    background.writeSfx(sfxRegisters(model));
     const beforeMusic=[...next.musicPsg.psg.regs],beforeScc=[...next.chip.volume];
     const left=new Float32Array(2048),right=new Float32Array(2048),center=new Float32Array(2048);
     next.render(left,right,pan);background.render(center);
@@ -98,7 +103,7 @@ test('cue headroom limiting retains the same mono sum near clipped music without
     const left=new Float32Array(4096),right=new Float32Array(4096);m.render(left,right,pan);outputs.push({left,right});
     assert.ok(left.every(v=>Math.abs(v)<=1)&&right.every(v=>Math.abs(v)<=1));
   }
-  const baseline=new OriginalMixer();baseline.setVolume(100);music(baseline);baseline.musicGain=40;baseline.writeSfx(originalModel.sfxRegisters(model));
+  const baseline=new OriginalMixer();baseline.setVolume(100);music(baseline);baseline.musicGain=40;baseline.writeSfx(sfxRegisters(model));
   const common=new Float32Array(4096);baseline.render(common);assert.ok(common.some(v=>Math.abs(v)===1));
   equalSamples(outputs[2].left,common);
   for(const output of outputs)for(let i=0;i<output.left.length;i++)assert.ok(Math.abs(output.left[i]+output.right[i]-outputs[1].left[i]-outputs[1].right[i])<2e-7);
@@ -207,9 +212,13 @@ test('audio creates no context before explicit unlock and uses stereo after the 
     assert.equal(audio.snapshot().navigation.acknowledged.accepted,1);
     const snapshot=audio.snapshot();snapshot.navigation.acknowledged.accepted=99;assert.equal(audio.snapshot().navigation.acknowledged.accepted,1);
     const before=nodes[0].port.messages.filter(m=>m.type==='event').length;
-    audio.event('collect',settings);audio.stop();await Promise.resolve();
-    assert.equal(nodes[0].port.messages.filter(m=>m.type==='event').length,before);
+    audio.event('collect',settings);
+    assert.equal(nodes[0].port.messages.filter(m=>m.type==='event').length,before+1,'a running context receives the priority event before a same-frame passby');
+    audio.stop();await Promise.resolve();
+    assert.equal(nodes[0].port.messages.filter(m=>m.type==='event').length,before+1,'stop cannot replay a delivered event');
     assert.equal(nodes[0].port.messages.at(-1).type,'stop');assert.equal(audio.snapshot().contextState,'suspended');
+    audio.event('collect',settings);audio.stop();await Promise.resolve();
+    assert.equal(nodes[0].port.messages.filter(m=>m.type==='event').length,before+1,'an event awaiting resume is cancelled by stop');
     audio.start();audio.update(model,settings,null,{bearingDeg:-35,enabled:true});
     assert.equal(nodes[0].port.messages.at(-1).navigation.bearingDeg,-35);
   }finally{audio.dispose();delete globalThis.window;delete globalThis.AudioWorkletNode;}

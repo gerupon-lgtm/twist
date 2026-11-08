@@ -17,6 +17,7 @@ export const FLIGHT_SETTING_FIELDS = Object.freeze({
   cockpitFov: { label: '操縦席の上下の視野', min: 60, max: 100, step: .1, initial: 0, auto: true, unit: '°' },
   radarRange: { label: 'レーダーの半径', min: 20, max: 500, step: 10, initial: 180, unit: 'm' },
   streakAmount: {label:'空気の流線の量',min:0,max:2,step:.1,initial:1,unit:''},
+  groundPatternStrength: {label:'地面の模様の濃さ',min:0,max:1,step:.1,initial:.8,unit:''},
   speedFov: {label:'速度による視野の広がり',min:0,max:15,step:1,initial:10,unit:'°'},
   highSpeedShake: {label:'高速時の小さな揺れ',initial:true},
   speedUnit: {label:'速度の単位',initial:'km/h',options:{'m/s':'m/s','km/h':'km/h',kt:'kt（ノット）'},unit:''},

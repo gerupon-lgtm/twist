@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeHudLanguage,hudText,hudTargetLabel,hudHeightDelta,hudDirectionText,hudGroundWarning,hudCockpitWarning,hudStatusLabel,hudObjectiveText,hudCollectedNotice} from '../src/hud-text.js';
+import {normalizeHudLanguage,hudText,hudTargetLabel,hudHeightDelta,hudDirectionText,hudGroundWarning,hudCockpitWarning,hudStallWarning,hudStatusLabel,hudObjectiveText,hudCollectedNotice} from '../src/hud-text.js';
+import {FLIGHT_MODEL} from '../src/flight-physics.js';
 
 test('only explicit Japanese overrides the English default; HUD abbreviations are explicit labels',()=>{
   for(const value of [undefined,null,'en','EN','bad',false,0])assert.equal(normalizeHudLanguage(value),'en');
@@ -75,4 +76,16 @@ test('Japanese and English HUD copy follows five and eight light totals without 
     assert.equal(JSON.stringify(state),before);
   }
   assert.equal(hudObjectiveText({total:NaN,collected:Infinity},'ja'),'3つの光を集めて、出口へ');
+});
+
+test('outer and cockpit stall warnings share the real angle threshold without claiming inactive recovery',()=>{
+  const unpowered={angleOfAttack:FLIGHT_MODEL.stallStart,recoveryAssist:0,throttle:0,inputHeld:true},before=structuredClone(unpowered);
+  assert.equal(hudStallWarning(unpowered,'en'),'STALL');assert.equal(hudStallWarning(unpowered,'ja'),'失速');
+  assert.equal(hudCockpitWarning(unpowered,{level:'clear'},'en'),'STALL');assert.equal(hudCockpitWarning(unpowered,{level:'clear'},'ja'),'失速');
+  assert.equal(hudCockpitWarning(unpowered,{level:'danger'},'en'),'PULL UP / STALL');
+  assert.equal(hudStallWarning({...unpowered,angleOfAttack:-FLIGHT_MODEL.stallStart},'ja'),'失速');
+  assert.equal(hudStallWarning({...unpowered,angleOfAttack:FLIGHT_MODEL.stallStart-1e-8,inputHeld:false},'en'),'');
+  assert.equal(hudStallWarning({...unpowered,angleOfAttack:0,recoveryAssist:.01},'ja'),'失速から復帰補助中');
+  for(const angleOfAttack of [undefined,null,NaN,Infinity,-Infinity,'1'])assert.equal(hudStallWarning({angleOfAttack,recoveryAssist:0},'en'),'');
+  assert.deepEqual(unpowered,before);
 });

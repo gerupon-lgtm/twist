@@ -171,14 +171,14 @@ test('new melodies and accompaniment rhythms are distinct beyond transposition',
   for(const values of [melodies,leadRhythms,guitarRhythms,drumRhythms])assert.equal(new Set(values).size,3);
 });
 
-test('old playlist and individual sets survive, new trio and complete seven-song ordering are explicit',()=>{
+test('old playlist and individual sets survive, new trio and complete ten-song ordering are explicit',()=>{
   assert.deepEqual(config.flightPlaylist,['flight','flight2']);
   assert.deepEqual(config.flightSets.brave,['brave']);assert.deepEqual(config.flightSets.rock,['rock']);
   for(const id of ['steel','horizon','storm'])assert.deepEqual(config.flightSets[id],[id]);
   assert.deepEqual(config.flightSets.newrock,['steel','horizon','storm']);
-  assert.deepEqual(config.flightSets.all,['flight','flight2','brave','rock','steel','horizon','storm']);
+  assert.deepEqual(config.flightSets.all,['flight','flight2','brave','rock','steel','horizon','storm','ignition','advance','overdrive']);
   for(const ids of Object.values(config.flightSets)){
-    assert.ok(ids.length<=8);assert.equal(new Set(ids).size,ids.length);
+    assert.ok(ids.length<=16);assert.equal(new Set(ids).size,ids.length);
     assert.ok(ids.every(id=>config[id]&&files[id]));
   }
 });

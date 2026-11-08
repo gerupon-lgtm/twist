@@ -24,6 +24,20 @@
       "horizon",
       "storm"
     ],
+    "ignition": [
+      "ignition"
+    ],
+    "advance": [
+      "advance"
+    ],
+    "overdrive": [
+      "overdrive"
+    ],
+    "proposals": [
+      "ignition",
+      "advance",
+      "overdrive"
+    ],
     "all": [
       "flight",
       "flight2",
@@ -31,8 +45,23 @@
       "rock",
       "steel",
       "horizon",
-      "storm"
+      "storm",
+      "ignition",
+      "advance",
+      "overdrive"
     ]
+  },
+  "flightTempos": {
+    "flight": 160,
+    "flight2": 168,
+    "brave": 170,
+    "rock": 156,
+    "steel": 144,
+    "horizon": 148,
+    "storm": 152,
+    "ignition": 165,
+    "advance": 145,
+    "overdrive": 175
   },
   "rock": {
     "title": "黒曜の翼",
@@ -264,6 +293,108 @@
         "volume": 96
       }
     }
+  },
+  "ignition": {
+    "title": "Ignition Sky",
+    "file": "ignition.mid",
+    "loop": {
+      "start": 0,
+      "end": 93.090816
+    },
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 99
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 72
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 79
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 42
+      },
+      "10": {
+        "volume": 87
+      }
+    }
+  },
+  "advance": {
+    "title": "Steel Advance",
+    "file": "advance.mid",
+    "loop": {
+      "start": 0,
+      "end": 105.931008
+    },
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 95
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 72
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 79
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 42
+      },
+      "10": {
+        "volume": 87
+      }
+    }
+  },
+  "overdrive": {
+    "title": "Overdrive Horizon",
+    "file": "overdrive.mid",
+    "loop": {
+      "start": 0,
+      "end": 98.742816
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 99
+      },
+      "2": {
+        "waveform": 4,
+        "volume": 46
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 79
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 42
+      },
+      "10": {
+        "volume": 87
+      }
+    }
+  },
+  "afterburner": {
+    "title": "AB Pulse",
+    "file": "afterburner.mid",
+    "loop": {
+      "start": 0,
+      "end": 8
+    },
+    "parts": {
+      "10": {
+        "volume": 72
+      }
+    },
+    "bpm": 120,
+    "minSeconds": 3
   },
   "clear": {
     "title": "突破の凱歌",

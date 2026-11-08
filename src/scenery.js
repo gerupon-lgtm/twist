@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /** Static instancing keeps a whole compass of silhouettes inexpensive to render. */
-export function createScenery({halfExtent=350,avoidPoints=[]}={}) {
+export function createScenery({halfExtent=350,avoidPoints=[],coursePoints=[],abStraights=[]}={}) {
   const extent=Number.isFinite(halfExtent)&&halfExtent>0?halfExtent:350;
   const cloudSpread=Math.max(1,extent/110);
   const goals=Array.isArray(avoidPoints)?avoidPoints.filter(point=>Number.isFinite(point?.x)&&Number.isFinite(point?.z)):[];
@@ -13,6 +13,8 @@ export function createScenery({halfExtent=350,avoidPoints=[]}={}) {
   const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   const group=new THREE.Group();group.name='assisted-scenery';
   group.userData.collisions=false;
+  const passObjects=[];
+  const passObject=(id,x,y,z,radius)=>passObjects.push(Object.freeze({id,position:Object.freeze({x,y,z}),radius}));
   const matrix=new THREE.Matrix4(),rotation=new THREE.Quaternion(),position=new THREE.Vector3(),scale=new THREE.Vector3();
   const batch=(geometry,material,items,name)=>{
     const mesh=new THREE.InstancedMesh(geometry,material,items.length);
@@ -48,6 +50,7 @@ export function createScenery({halfExtent=350,avoidPoints=[]}={}) {
     tower.push({p:[-36,y+10,-18],s:[7.5,2.5,5]});
   }
   batch(new THREE.BoxGeometry(1,1,1),stone,tower,'central-tower');
+  passObject('central-tower',-36,28,-18,4);
   const crown=new THREE.Mesh(new THREE.ConeGeometry(4.5,14,4),stone);crown.position.set(-36,109,-18);crown.rotation.y=Math.PI/4;group.add(crown);
   const sunMaterial=new THREE.MeshBasicMaterial({color:0xffefac,fog:false});
   const sun=new THREE.Mesh(new THREE.SphereGeometry(25,12,8),sunMaterial);sun.position.set(-420,300,-740);group.add(sun);
@@ -69,6 +72,44 @@ export function createScenery({halfExtent=350,avoidPoints=[]}={}) {
   batch(new THREE.IcosahedronGeometry(1,0),new THREE.MeshBasicMaterial({color:0x8b7865,fog:false}),rocks,'speed-ground-rocks');
   batch(new THREE.ConeGeometry(1,1,3),new THREE.MeshBasicMaterial({color:0x718b65,fog:false}),grass,'speed-ground-grass');
   batch(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({color:0xc4bc9d,fog:false}),fragments,'speed-ground-ruins');
+  // Two bounded instance batches give every route a near-field reference at
+  // flight height. They are deliberately visual only, including the AB gates.
+  const routePillars=[],routeCaps=[],gatePillars=[],gateLintels=[];
+  const route=Array.isArray(coursePoints)?coursePoints.filter(p=>[p?.x,p?.y,p?.z].every(Number.isFinite)):[];
+  for(let i=1;i<route.length;i++){
+    const from=route[i-1],to=route[i],dx=to.x-from.x,dz=to.z-from.z,length=Math.hypot(dx,dz);
+    if(length<=0)continue;
+    const count=Math.floor(length/36);
+    for(let j=0;j<count;j++)for(const side of [-1,1]){
+      const t=(j+.5)/Math.max(1,count),x=from.x+dx*t-dz/length*18*side,z=from.z+dz*t+dx/length*18*side;
+      if(Math.abs(x)>extent-3||Math.abs(z)>extent-3||!clearOfGoals(x,z,14))continue;
+      const flightHeight=from.y+(to.y-from.y)*t,height=flightHeight+5;
+      routePillars.push({p:[x,height/2,z],s:[1.4,height,1.4]});
+      routeCaps.push({p:[x,height,z],s:[3.4,.7,3.4]});
+      passObject(`route-${i}-${j}-${side}`,x,flightHeight,z,1.7);
+    }
+  }
+  const lanes=Array.isArray(abStraights)?abStraights.slice(0,4):[];
+  lanes.forEach(lane=>{
+    if(!lane?.from||!lane?.to)return;
+    const dx=lane.to.x-lane.from.x,dz=lane.to.z-lane.from.z,length=Math.hypot(dx,dz);if(!(length>0))return;
+    for(const [index,endpoint]of [lane.from,lane.to].entries()){
+      const halfWidth=lane.width/2+3,height=endpoint.y+9,turn=Math.atan2(-dx,-dz);
+      for(const side of [-1,1]){
+        const x=endpoint.x-dz/length*halfWidth*side,z=endpoint.z+dx/length*halfWidth*side;
+        if(Math.abs(x)>extent-2||Math.abs(z)>extent-2)continue;
+        gatePillars.push({p:[x,height/2,z],s:[2,height,2],turn});
+        passObject(`ab-${lane.id}-${index?'exit':'entry'}-${side}`,x,endpoint.y,z,2);
+      }
+      // Entry has a double lintel; exit a single one. The open middle stays
+      // wider and taller than the marked lane, leaving TGT/EXIT unobstructed.
+      for(let stripe=0;stripe<(index===0?2:1);stripe++)gateLintels.push({p:[endpoint.x,height+stripe*1.8,endpoint.z],s:[halfWidth*2+2,.9,2],turn});
+    }
+  });
+  if(routePillars.length)batch(new THREE.CylinderGeometry(1,1,1,6),new THREE.MeshBasicMaterial({color:0xa6b9b0,fog:false}),routePillars,'course-speed-pillars');
+  if(routeCaps.length)batch(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({color:0x576f6f,fog:false}),routeCaps,'course-speed-pillar-caps');
+  if(gatePillars.length)batch(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({color:0x4d8f8c,fog:false}),gatePillars,'ab-straight-gate-pillars');
+  if(gateLintels.length)batch(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({color:0xf0d193,fog:false}),gateLintels,'ab-straight-gate-lintels');
   const clouds=[],acceptedCenters=[];
   const centers=[[-55,12,26],[38,22,4],[-48,34,-48],[48,46,-72],[15,18,65],[-58,55,62],[65,8,-36],[-70,72,-10],[12,68,-82],[66,30,58],[-15,40,-80],[-60,22,-85]];
   centers.forEach(([x,y,z],i)=>{
@@ -85,8 +126,10 @@ export function createScenery({halfExtent=350,avoidPoints=[]}={}) {
     for(let j=0;j<3;j++)clouds.push({p:[x+(j-1)*4,y+(j===1?1.2:0),z+(i%2?1:-1)*j],s:[5+j%2,1.7+j%2*.7,3.5],turn:i*.7});
   });
   batch(new THREE.IcosahedronGeometry(1,1),new THREE.MeshBasicMaterial({color:0xf5faf6,fog:false,transparent:true,opacity:.42,depthWrite:false}),clouds,'noncolliding-cloud-puffs');
-  const details=Object.freeze({islands:12,towerHeight:116,clouds:acceptedCenters.length,suns:1,fogless:true,collisions:false,batches:11,
+  const courseBatches=[routePillars,routeCaps,gatePillars,gateLintels].filter(items=>items.length).length;
+  const details=Object.freeze({islands:12,towerHeight:116,clouds:acceptedCenters.length,suns:1,fogless:true,collisions:false,batches:11+courseBatches,
     nearClouds,cloudPuffs:clouds.length,groundDetails:rocks.length+grass.length+fragments.length,groundBatches:3,
+    ...(route.length?{routePillars:routePillars.length,abGates:gateLintels.length?lanes.length*2:0,passObjects:passObjects.length}:{}),
     groundCounts:Object.freeze({rocks:rocks.length,grass:grass.length,ruins:fragments.length})});
-  return {group,details};
+  return {group,details,passObjects:Object.freeze(passObjects)};
 }

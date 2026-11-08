@@ -9,7 +9,17 @@ for(const camera of ['cockpit','chase','overlay'])for(const size of [[390,844],[
   const s=await page.locator('#app').evaluate(e=>({phase:e.dataset.phase,ready:e.dataset.guidanceReady==='true',d:e.dataset.guidanceDirection?JSON.parse(e.dataset.guidanceDirection):null,v:JSON.parse(e.dataset.velocity),pitch:+e.dataset.flightPitch,heading:+e.dataset.heading,speed:+e.dataset.speed,gravity:+e.dataset.turnGravity,pos:JSON.parse(e.dataset.position),count:+document.getElementById('collection-count').textContent,notice:!document.getElementById('guidance-next-notice').hidden,mode:document.getElementById('guidance-panel').dataset.mode,noticeText:document.getElementById('guidance-notice-target').textContent,reason:document.getElementById('guidance-status').textContent}));
   if(s.phase!=='running'){expect(s.phase,JSON.stringify({s,ready,unready,turn,reasonCounts,trace})).toBe('complete');break;}
   if(i%10===0)trace.push({...s,i});
-  if(s.notice)notices.add(s.noticeText);
+  if(s.notice&&!notices.has(s.noticeText)){
+   const geometry=await page.locator('#guidance-next-notice').evaluate(element=>{
+    const r=element.getBoundingClientRect(),inside=[...element.children].every(child=>{const c=child.getBoundingClientRect();return c.left>=r.left&&c.right<=r.right&&c.top>=r.top&&c.bottom<=r.bottom&&child.scrollWidth<=child.clientWidth+1;});
+    const overlaps=other=>{const b=other.getBoundingClientRect();return r.left<b.right&&r.right>b.left&&r.top<b.bottom&&r.bottom>b.top;};
+    const clear=['guidance-director','guidance-flight-path','bottom-panel','flight-essential-speed','flight-essential-altitude','toast'].every(id=>{const other=document.getElementById(id);return !other||other.hidden||!other.getClientRects().length||getComputedStyle(other).visibility==='hidden'||Number(getComputedStyle(other).opacity)===0||!overlaps(other);});
+    return {inside,clear};
+   });
+   expect(geometry).toEqual({inside:true,clear:true});
+   notices.add(s.noticeText);
+   if(s.noticeText==='NEXT EXIT')await page.screenshot({path:`.cache/v0129-next-exit-${camera}-${size[0]}x${size[1]}.png`});
+  }
   turn+=Math.abs(Math.atan2(Math.sin(s.heading-lastHeading),Math.cos(s.heading-lastHeading)));lastHeading=s.heading;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   if(s.ready){

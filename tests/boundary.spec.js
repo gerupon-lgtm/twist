@@ -18,7 +18,7 @@ for(const camera of ['cockpit','chase','overlay'])for(const size of [[390,844],[
   expect(await page.locator('#boundary-return-arrow').evaluate(e=>e.style.transform)).toBe('rotate(180deg)');
   const panel=await page.locator('#stage-boundary-warning').boundingBox();expect(panel.x).toBeGreaterThanOrEqual(0);expect(panel.y).toBeGreaterThanOrEqual(0);
   expect(panel.x+panel.width).toBeLessThanOrEqual(size[0]);expect(panel.y+panel.height).toBeLessThanOrEqual(size[1]);
-  for(const selector of ['.navigation','#radar','#bottom-panel','#practice-panel','#guidance-director','#guidance-flight-path','#guidance-heading']){
+  for(const selector of ['.navigation','#flight-essential-speed','#flight-essential-altitude','#radar','#bottom-panel','#practice-panel','#guidance-director','#guidance-flight-path','#guidance-heading']){
    const element=page.locator(selector);if(!await element.isVisible())continue;const r=await element.boundingBox();
    expect(panel.x<r.x+r.width&&panel.x+panel.width>r.x&&panel.y<r.y+r.height&&panel.y+panel.height>r.y,selector).toBe(false);
   }

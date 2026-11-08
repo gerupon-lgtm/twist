@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Quaternion,Vector3} from 'three';
-import {createGuidanceProjection,placeGuidanceCenter,guidanceDirectionAllowed,guidanceSafeDirections} from '../src/guidance-layout.js';
+import {createGuidanceProjection,placeGuidanceCenter,guidanceDirectionAllowed,guidanceSafeDirections,clampGuidanceDirection} from '../src/guidance-layout.js';
 const identity={x:0,y:0,z:0,w:1};
 const state={worldQuaternion:identity,cameraQuaternion:identity,fieldOfView:{vertical:90},targetLocal:{x:0,y:0,z:-10},cameraClipping:{near:.1,far:250}};
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
@@ -62,6 +62,18 @@ test('recover may retain only the documented out-of-range step without adding ya
   assert.equal(guidanceDirectionAllowed(direction(20,20),recovering),true);
   for(const ray of [direction(21,20),direction(20,25),direction(20,9),direction(20,30)])assert.equal(guidanceDirectionAllowed(ray,recovering),false);
   assert.ok(guidanceSafeDirections(recovering).every(ray=>guidanceDirectionAllowed(ray,recovering)));
+});
+test('a normal climb-boundary correction retains the smoothed yaw while critical recovery stays immediate',()=>{
+ const advice={mode:'recover',criticalRecovery:false,commandedYawDegrees:15,yawErrorDegrees:15,
+  commandedClimbDegrees:10,climbErrorDegrees:-.01,minClimbDegrees:-10,maxClimbDegrees:10};
+ const limited=clampGuidanceDirection(direction(7.5,9.99),advice);
+ assert.ok(guidanceDirectionAllowed(limited,advice));
+ assert.ok(Math.abs(Math.atan2(limited.x,-limited.z)*180/Math.PI-7.5)<1e-7);
+ assert.ok(Math.abs(Math.atan2(limited.y,Math.hypot(limited.x,limited.z))*180/Math.PI-10)<1e-7);
+ const critical={...advice,criticalRecovery:true,commandedYawDegrees:0,yawErrorDegrees:0,commandedClimbDegrees:-10,climbErrorDegrees:-10};
+ const immediate=clampGuidanceDirection(direction(0,-2),critical);
+ assert.ok(guidanceDirectionAllowed(immediate,critical));
+ assert.ok(Math.abs(Math.atan2(immediate.y,Math.hypot(immediate.x,immediate.z))*180/Math.PI+10)<1e-7);
 });
 test('narrow landscape clamp filters a closer wrong-turn point and preserves a safe ray',()=>{
   const p=createGuidanceProjection(state,844,390),flat={...advice,commandedClimbDegrees:0,climbErrorDegrees:0};

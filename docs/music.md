@@ -7,14 +7,16 @@
 - 飛行中：public/music/flight.mid と flight2.mid（飛び直しごとに交互）
 - 別案：public/music/brave.mid「勇進の航路」（設定で選択）
 - ロック別案：public/music/rock.mid「黒曜の翼」（設定で選択）
-- 新作ロック3曲：steel.mid「鋼翼の鼓動」、horizon.mid「黎明の航跡」、storm.mid「嵐を越えて」（個別／3曲順番で選択）
+- ロック3曲：steel.mid「鋼翼の鼓動」、horizon.mid「黎明の航跡」、storm.mid「嵐を越えて」（個別／3曲順番で選択）
+- 追加3案：ignition.mid「Ignition Sky」、advance.mid「Steel Advance」、overdrive.mid「Overdrive Horizon」（個別／追加3案順番で選択）
+- AB追加打楽器：afterburner.mid「AB Pulse」。通常の曲集とは分け、AB中だけ拍に合わせて重ねる。
 - 旧曲の比較：public/music/flight-legacy.mid
 - ゴール：public/music/clear.mid
 - 曲名・ファイル名・音色・音量・ループ：public/music/tracks.json
 
 同じ長さ/ループ位置ならmidファイルだけ置き換えます。長さや繰り返す区間を変えるときはtracks.jsonも変更し、ビルド・版番号更新・公開を行います。画面の「計測」に表示される曲名と、設定/結果コピーのfeedback.musicで確認できます。設定ファイルや曲が見つからない/壊れた場合はBGMなしで遊べます。ゴール用MIDIも使えなければ、従来のPSGファンファーレへ戻ります。
 
-ファイル名はmusicフォルダー内の相対パスにします。外部サイトのURLは使えません。flight/clearの両方を残してください。複数曲を使うときは、同じ形のflight2などを加え、最上位の `"flightPlaylist":["flight","flight2"]` で順番を指定します。省略すると従来どおりflightだけです。1〜8曲の範囲で、壊れた曲は順番から外して残る曲を使います。旧曲の比較は `"flightPlaylist":["comparison"]` に変えるだけです。自作曲の書き出し条件は共通です。loop.start/endは秒で、開始を含み終了の手前までを繰り返します。0.1秒以上、終了は最大3600秒。終了位置で音を止め、区間の先頭へ戻ります。開始が音の途中ならその音と音量/ベンドを復元します。最後の音の後の無音も、指定した終了秒まで含められます。
+ファイル名はmusicフォルダー内の相対パスにします。外部サイトのURLは使えません。flight/clearの両方を残してください。複数曲を使うときは、同じ形のflight2などを加え、最上位の `"flightPlaylist":["flight","flight2"]` で順番を指定します。省略すると従来どおりflightだけです。1〜16曲の範囲で、壊れた曲は順番から外して残る曲を使います。旧曲の比較は `"flightPlaylist":["comparison"]` に変えるだけです。自作曲の書き出し条件は共通です。loop.start/endは秒で、開始を含み終了の手前までを繰り返します。0.1秒以上、終了は最大3600秒。終了位置で音を止め、区間の先頭へ戻ります。開始が音の途中ならその音と音量/ベンドを復元します。最後の音の後の無音も、指定した終了秒まで含められます。
 
 ## DAWでの書き出し
 
@@ -55,11 +57,27 @@ v0.1.22では別案「勇進の航路」を追加しました。ホ短調・170B
 
 v0.1.23ではロック別案「黒曜の翼」を追加しました。ニ短調・156BPM・48小節・73.84608秒。伸ばすギター風リード、軽い音程の揺れと音量の減衰、2音の伴奏、8分のベース、強い拍のドラムで構成します。主旋律の音の開始は1小節あたり4〜5回に抑え、勇進の航路より細かな動きを減らしました。リード、伴奏2音、ベース、遅らせたエコーで最大5音、4番/5番は同じのこぎり波を使います。v0.1.22までの5つのMIDIは同じバイト列を保持します。
 
-「音と振動」→「飛行中の曲」で、従来曲、新作の個別選択、「新作3曲を順番に」、「7曲を順番に」を選べます。初期値は従来の「これまでの2曲」のままです。選択を端末内に保存し、設定/結果コピーのfeedback.settings.musicSetとfeedback.music.musicSetへ記録します。`?music=brave`、`?music=rock`、`?music=current`、`?music=all`、新作の`?music=steel`、`?music=horizon`、`?music=storm`、`?music=newrock`でその起動だけ指定できます。画面で選び直した場合は保存し、URLも更新します。曲名と実際に再生した名前は従来どおり記録します。
+「音と振動」→「飛行中の曲」で、従来曲、各曲の個別選択、「鋼翼・黎明・嵐の3曲」「追加3案を順番に」「10曲を順番に」を選べます。初期値は従来の「これまでの2曲」のままです。選択を端末内に保存し、設定/結果コピーのfeedback.settings.musicSetとfeedback.music.musicSetへ記録します。`?music=brave`、`?music=rock`、`?music=current`、`?music=all`、新作の`?music=steel`、`?music=horizon`、`?music=storm`、`?music=newrock`でその起動だけ指定できます。画面で選び直した場合は保存し、URLも更新します。曲名と実際に再生した名前は従来どおり記録します。
 
-従来曲の順番・差し替えはflightPlaylistのままで変わりません。任意設定 `"flightSets":{"brave":["brave"],"rock":["rock"],"newrock":["steel","horizon","storm"],"all":["flight","flight2","brave","rock","steel","horizon","storm"]}` は別案・全曲のリストです。各リストは1〜8曲、曲の項目は今までと同じ形です。省略した古いtracks.jsonでもflightPlaylistを使います。別案が読めない場合は従来の利用可能な曲へ戻り、すべて読めなくてもゲームは続けられます。比較曲を従来側にするには、これまでどおり `"flightPlaylist":["comparison"]` だけを変えれば使えます。
+従来曲の順番・差し替えはflightPlaylistのままで変わりません。任意設定 `"flightSets":{"brave":["brave"],"rock":["rock"],"newrock":["steel","horizon","storm"],"all":["flight","flight2","brave","rock","steel","horizon","storm"]}` は別案・全曲のリストです。各リストは1〜16曲、曲の項目は今までと同じ形です。allには今回のignition・advance・overdriveも末尾に入ります。proposalsはこの追加3曲の曲集です。省略した古いtracks.jsonでもflightPlaylistを使います。別案が読めない場合は従来の利用可能な曲へ戻り、すべて読めなくてもゲームは続けられます。比較曲を従来側にするには、これまでどおり `"flightPlaylist":["comparison"]` だけを変えれば使えます。
 
-旧「ひかりの航路」は比較用に45秒のまま残しました。元データはtools/generate-music.mjs。`node tools/generate-music.mjs` を明示実行すると9つのMIDIとtracks.jsonを再生成するため、自作曲へ置き換えた後は不用意に実行しないでください。通常のビルドではMIDI/音楽設定を上書きしません。
+旧「ひかりの航路」は比較用に45秒のまま残しました。元データはtools/generate-music.mjs。`node tools/generate-music.mjs` を明示実行すると13のMIDIとtracks.jsonを再生成するため、自作曲へ置き換えた後は不用意に実行しないでください。通常のビルドではMIDI/音楽設定を上書きしません。
+
+## v0.1.29の提供MML3案とAB
+
+| 選択値 | 曲名 | テンポ | 展開後の長さ |
+|---|---|---|---|
+| ignition | Ignition Sky | 165 BPM | 64小節・93.090816秒 |
+| advance | Steel Advance | 145 BPM | 64小節・105.931008秒 |
+| overdrive | Overdrive Horizon | 175 BPM | 72小節・98.742816秒 |
+
+今回の[BGM_Specifications_MML.md](BGM_Specifications_MML.md)は制作素材として提供された主題です。主題の音順・始まる位置を保ち、休符と応答、展開と再現を足して全曲へ仕上げました。以前の他者参考MML・MIDI・録音とは扱いが異なり、そちらは引き続き配信しません。Ignition Skyは短調から明るいサビ、Steel Advanceは低いリフと行進の拍、Overdrive Horizonはギター風旋律と速い伴奏を狙います。主旋律・伴奏・低音・応答の4役を使い、共有波形による主旋律の打ち切りを避けています。
+
+選択`proposals`はこの順の3案、`all`は従来7曲の後に3案を加えた10曲です。従来の`current`と`newrock`の選択値は使えます。曲集の上限は16曲へ増やしました。既存9 MIDIと旧曲ごとの音色・音量・ループ設定は保持します。
+
+ABでは主旋律を切り替えず、`afterburner`設定のチャンネル10の打楽器だけを重ねます。標準AB Pulseは120 BPM・4小節・8秒の譜面で、実演奏は`flightTempos`にある通常曲のテンポへ合わせます。次拍に開始し、3秒以上保持後の小節頭で解除します。通常曲の再生位置はそのまま進みます。音楽用PSGの打楽器を共有するので、重なるドラムの発音は後の設定の影響を受けます。SCCへ6つ目の旋律を増やす方式ではありません。
+
+`abMusic`だけをオフにすると、AB専用の予約発音を取り消し、基礎曲の予約や旋律は続けます。既に鳴ったドラムは短い自然減衰で終わります。一時停止・全体音オフでは本編の音も止め、ABの予約も消します。一時停止後の再開は同じ通常曲の先頭からです。ABファイルや設定が壊れていても通常BGMは続きます。ゴール曲には追加しません。ABの最短保持は曲の演出だけで、燃料・推力・ABの物理的な終了は延ばしません。
 
 ## v0.1.28の追加3曲
 

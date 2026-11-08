@@ -1,8 +1,14 @@
 import {FLIGHT_TURN,flightTurnRadius} from './flight-turn.js';
 
 const point=(x,y,z)=>Object.freeze({x,y,z});
-const course=(id,name,start,lights,exit)=>Object.freeze({id,name,start:Object.freeze(start),
-  lights:Object.freeze(lights.map(Object.freeze)),exit:Object.freeze(exit)});
+const finalLane=(id,from,to,entry,runout)=>{
+  const length=Math.hypot(to.x-from.x,to.z-from.z);
+  const at=distance=>point(from.x+(to.x-from.x)*distance/length,from.y+(to.y-from.y)*distance/length,from.z+(to.z-from.z)*distance/length);
+  return Object.freeze({id:`${id}-final`,from:at(entry),to:at(length-runout),width:24,heightTolerance:12});
+};
+const course=(id,name,start,lights,exit,entry=0,runout=0)=>Object.freeze({id,name,start:Object.freeze(start),
+  lights:Object.freeze(lights.map(Object.freeze)),exit:Object.freeze(exit),
+  abStraights:Object.freeze(entry?[finalLane(id,lights.at(-1),exit,entry,runout)]:[])});
 /** The released short route remains an explicit comparison, not the default. */
 export const LEGACY_COURSE=course('legacy','v0.1.25 比較用',point(0,14,26),[
   point(0,14,0),point(4,16,-34),point(4,18,-68),
@@ -10,16 +16,21 @@ export const LEGACY_COURSE=course('legacy','v0.1.25 比較用',point(0,14,26),[
 export const COURSE=LEGACY_COURSE;
 export const DEFAULT_COURSE_ID='easy';
 export const COURSES=Object.freeze({
-  easy:course('easy','やさしい・おおきな半周',point(-125,22,160),[
-    point(-125,24,120),point(-62.5,30,11.747),point(62.5,24,11.747),
-  ],point(125,28,120)),
-  normal:course('normal','ふつう・右から左へ',point(-140,22,240),[
-    point(-140,24,170),point(-85,30,74.737),point(25,24,74.737),point(135,32,74.737),point(190,24,-20.526),
-  ],point(135,30,-115.788)),
-  hard:course('hard','むずかしい・二つのうず',point(-190,24,80),[
-    point(-190,28,20),point(-147.5,38,-53.612),point(-62.5,28,-53.612),point(-20,38,20),
-    point(-62.5,28,93.612),point(-105,38,167.224),point(-62.5,28,240.836),point(22.5,38,240.836),
-  ],point(65,28,167.224)),
+  easy:course('easy','やさしい・おおきな半周',point(-150,22,200),[
+    point(-150,24,130),point(-60,30,40),point(80,24,40),
+  ],point(280,28,40-200*Math.sqrt(3)),90,40),
+  normal:course('normal','ふつう・右から左へ',point(-180,22,300),[
+    point(-180,24,230),point(-80,30,130),point(30,24,130),point(140,32,130),point(195,24,130-55*Math.sqrt(3)),
+  ],point(195-490/Math.sqrt(2),30,130-55*Math.sqrt(3)-490/Math.sqrt(2)),120,40),
+  hard:course('hard','むずかしい・二つのうず',point(-240,24,60),[
+    point(-240,28,0),point(-240+85/Math.sqrt(2),38,-85/Math.sqrt(2)),
+    point(-155+85/Math.sqrt(2),28,-85/Math.sqrt(2)),
+    point(-112.5+85/Math.sqrt(2),38,-85/Math.sqrt(2)+42.5*Math.sqrt(3)),
+    point(-155+85/Math.sqrt(2),28,-85/Math.sqrt(2)+85*Math.sqrt(3)),
+    point(-197.5+85/Math.sqrt(2),38,-85/Math.sqrt(2)+127.5*Math.sqrt(3)),
+    point(-155+85/Math.sqrt(2),28,-85/Math.sqrt(2)+170*Math.sqrt(3)),
+    point(-70+85/Math.sqrt(2),38,-85/Math.sqrt(2)+170*Math.sqrt(3)),
+  ],point(205+85/Math.sqrt(2),28,-85/Math.sqrt(2)-105*Math.sqrt(3)),150,50),
 });
 export function normalizeCourseId(id){
   return typeof id==='string'&&(id==='legacy'||Object.hasOwn(COURSES,id))?id:DEFAULT_COURSE_ID;
@@ -35,8 +46,10 @@ export const COURSE_CRITERIA=Object.freeze({
   speeds:Object.freeze([10,20]),difficultySpeed:20,cruiseSpeed:10,bankDegrees:30,turnGravity:FLIGHT_TURN.defaultGravity,
   minimumTurnDegrees:45,maximumUtilization:1,
   limits:Object.freeze({horizontal:350,minHeight:2,maxHeight:45,heightChange:10,minLights:3,maxLights:8}),
-  difficulties:Object.freeze({easy:difficulty([3,4],[.3,.6],2,[30,45]),
-    normal:difficulty([5,6],[.4,.8],3,[45,75]),hard:difficulty([7,8],[.6,.9],6,[60,90])}),
+  abMinimumLengths:Object.freeze({easy:200,normal:300,hard:300}),
+  abMinimumEntryMargin:80,abMinimumExitRunout:35,
+  difficulties:Object.freeze({easy:difficulty([3,4],[.3,.6],2,[60,100]),
+    normal:difficulty([5,6],[.4,.8],3,[90,150]),hard:difficulty([7,8],[.6,.9],6,[120,180])}),
 });
 const EPSILON=1e-8;
 const degrees=radians=>radians*180/Math.PI;
@@ -53,7 +66,7 @@ export function validateCourse(input,options={}){
   const errors=[];
   const result={valid:false,courseId:null,turnRadius:null,turnRadii:{},initialHeadingChangeDegrees:null,
     segments:[],turns:[],significantTurnCount:0,qualifyingTurnCount:0,length:0,cruiseTimeSeconds:null,
-    hasAscent:false,hasDescent:false,errors};
+    hasAscent:false,hasDescent:false,abStraights:[],abStraightsValid:false,errors};
   if(!options||typeof options!=='object'||Array.isArray(options)){
     errors.push('flight conditions must be an object');return result;
   }
@@ -94,6 +107,40 @@ export function validateCourse(input,options={}){
     const x=p.x-points[i].x,z=p.z-points[i].z,horizontalDistance=Math.hypot(x,z);
     return {x:x/horizontalDistance,z:z/horizontalDistance,horizontalDistance};
   });
+  // The marked lane occupies the final approach only. Its lead-in leaves time
+  // to finish the last TGT turn at cruise speed; the finish has no following turn.
+  const finalStart=points.at(-2),finalLine=lines.at(-1),finalLength=finalLine.horizontalDistance;
+  const lanes=Array.isArray(input.abStraights)?input.abStraights:[];
+  result.abStraights=lanes.map((lane,index)=>{
+    const laneErrors=[];
+    if(typeof lane?.id!=='string'||!lane.id||!isPoint(lane.from)||!isPoint(lane.to)
+      ||!Number.isFinite(lane.width)||lane.width<=0||!Number.isFinite(lane.heightTolerance)||lane.heightTolerance<=0){
+      laneErrors.push('must contain id, finite endpoints, positive width and height tolerance');
+      return {id:lane?.id??String(index),valid:false,errors:laneErrors};
+    }
+    const projection=p=>({along:(p.x-finalStart.x)*finalLine.x+(p.z-finalStart.z)*finalLine.z,
+      cross:Math.abs((p.x-finalStart.x)*finalLine.z-(p.z-finalStart.z)*finalLine.x)});
+    const from=projection(lane.from),to=projection(lane.to),length=Math.hypot(lane.to.x-lane.from.x,lane.to.z-lane.from.z);
+    const entryMargin=from.along,exitRunout=finalLength-to.along;
+    if(length<(COURSE_CRITERIA.abMinimumLengths[difficultyId]??200)-EPSILON)laneErrors.push('is shorter than the AB minimum');
+    if(from.cross>EPSILON||to.cross>EPSILON||to.along<=from.along||to.along>finalLength+EPSILON)
+      laneErrors.push('must follow the final target-to-exit straight in the forward direction');
+    if(entryMargin<COURSE_CRITERIA.abMinimumEntryMargin-EPSILON)laneErrors.push('needs at least 80 m to line up after the final TGT');
+    if(exitRunout<COURSE_CRITERIA.abMinimumExitRunout-EPSILON)laneErrors.push('needs at least 35 m before EXIT');
+    for(const p of [lane.from,lane.to]){
+      if(Math.abs(p.x)>limits.horizontal||Math.abs(p.z)>limits.horizontal||p.y<limits.minHeight||p.y>limits.maxHeight)
+        laneErrors.push('is outside course bounds');
+      const t=projection(p).along/finalLength,expectedHeight=finalStart.y+(points.at(-1).y-finalStart.y)*t;
+      if(Math.abs(p.y-expectedHeight)>EPSILON)laneErrors.push('height must follow the final straight');
+    }
+    return {id:lane.id,length,width:lane.width,heightTolerance:lane.heightTolerance,entryMargin,exitRunout,
+      finalApproach:true,followingTurnDegrees:0,valid:laneErrors.length===0,errors:laneErrors};
+  });
+  result.abStraightsValid=(id==='legacy'&&lanes.length===0)||(result.abStraights.length>0&&result.abStraights.every(lane=>lane.valid));
+  if(!result.abStraightsValid){
+    if(!lanes.length)errors.push(`${difficultyId} needs a marked AB straight`);
+    for(const lane of result.abStraights)for(const error of lane.errors)errors.push(`AB ${lane.id} ${error}`);
+  }
   result.initialHeadingChangeDegrees=degrees(Math.atan2(lines[0].x,-lines[0].z));
   const initialHeadingValid=Math.abs(result.initialHeadingChangeDegrees)<=EPSILON;
   if(!initialHeadingValid)errors.push('the first line must follow the initial north (-z) heading');
@@ -108,12 +155,18 @@ export function validateCourse(input,options={}){
     const significant=turnDegrees>=COURSE_CRITERIA.minimumTurnDegrees-EPSILON;
     const utilization20=utilizations[COURSE_CRITERIA.difficultySpeed];
     const upperValid=Object.values(utilizations).every(u=>Number.isFinite(u)&&u<=COURSE_CRITERIA.maximumUtilization+EPSILON);
-    const bandValid=!significant||(utilization20>=criteria.utilizationBand[0]-EPSILON&&utilization20<=criteria.utilizationBand[1]+EPSILON);
+    // Only the last turn's LOWER difficulty bound is waived when it joins a
+    // validated long AB approach. Its upper difficulty and physical limits stay.
+    const abApproachTransition=i===lines.length-2&&id!=='legacy'&&result.abStraightsValid;
+    const lowerBandExempt=abApproachTransition;
+    const bandValid=!significant||((lowerBandExempt||utilization20>=criteria.utilizationBand[0]-EPSILON)&&utilization20<=criteria.utilizationBand[1]+EPSILON);
     if(reverses)errors.push(`${names[i+1]} reverses direction instead of following a course curve`);
     else if(!upperValid)errors.push(`${names[i+1]} exceeds the turn limit at a reference speed`);
     if(significant&&!bandValid)errors.push(`${names[i+1]} is outside the ${difficultyId} utilization band at 20 m/s`);
     return {at:names[i+1],signedTurnDegrees:degrees(signed),turnDegrees,circumradius,utilizations,
-      utilization10:utilizations[10],utilization20,significant,upperValid,bandValid,valid:!reverses&&upperValid&&bandValid};
+      utilization10:utilizations[10],utilization20,significant,upperValid,bandValid,lowerBandExempt,abApproachTransition,
+      difficultyQualifying:significant&&utilization20>=criteria.utilizationBand[0]-EPSILON&&bandValid&&upperValid,
+      valid:!reverses&&upperValid&&bandValid};
   });
   result.segments=lines.map((line,i)=>{
     const heightChange=points[i+1].y-points[i].y,distance=Math.hypot(line.horizontalDistance,heightChange);
@@ -124,7 +177,7 @@ export function validateCourse(input,options={}){
       valid:heightValid&&(i!==0||initialHeadingValid)&&(result.turns[i-1]?.valid??true)&&(result.turns[i]?.valid??true)};
   });
   result.significantTurnCount=result.turns.filter(t=>t.significant).length;
-  result.qualifyingTurnCount=result.turns.filter(t=>t.significant&&t.bandValid&&t.upperValid).length;
+  result.qualifyingTurnCount=result.turns.filter(t=>t.difficultyQualifying).length;
   if(result.qualifyingTurnCount<criteria.minSignificantTurns)
     errors.push(`${difficultyId} needs at least ${criteria.minSignificantTurns} qualifying 45-degree turns`);
   if(!result.hasAscent||!result.hasDescent)errors.push('course must contain both ascent and descent');

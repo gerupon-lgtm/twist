@@ -1,6 +1,6 @@
 import {Vector3} from 'three';
 import {computeDirectionGuidance,headingTargetCue,trueScreenEdge} from './guidance.js';
-import {createGuidanceProjection,placeGuidanceCenter,guidanceDirectionAllowed,guidanceSafeDirections} from './guidance-layout.js';
+import {createGuidanceProjection,placeGuidanceCenter,guidanceDirectionAllowed,guidanceSafeDirections,clampGuidanceDirection} from './guidance-layout.js';
 import {advanceGuidanceTurn} from './guidance-stability.js';
 import {normalizeHudLanguage,hudText,hudTargetLabel,hudHeightDelta} from './hud-text.js';
 
@@ -19,6 +19,22 @@ const validCount=(n,total)=>Number.isInteger(n)&&n>=0&&n<=total;
 const rect=element=>element&&!element.hasAttribute('hidden')&&element.getClientRects().length?element.getBoundingClientRect():null;
 const box=(point,width,height)=>({left:point.x-width/2,right:point.x+width/2,top:point.y-height/2,bottom:point.y+height/2});
 const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+// Keep the visible route from the real FPM to the ring clear, too. Choosing a
+// tiny pocket beyond a HUD corner otherwise forces a later jump to its far side.
+// The moving footprint grows from the exact FPM box to the ring plus its gap.
+function pathCrossesHud(from,to,obstacle){
+  let low=0,high=1;
+  const dx=to.x-from.x,dy=to.y-from.y;
+  for(const [value,slope] of [[from.x+22-obstacle.left,dx+14],
+    [obstacle.right-from.x+22,14-dx],[from.y+20-obstacle.top,dy+16],
+    [obstacle.bottom-from.y+20,16-dy]]){
+    if(Math.abs(slope)<1e-9){if(value<=0)return false;}
+    else if(slope>0)low=Math.max(low,-value/slope);
+    else high=Math.min(high,-value/slope);
+    if(low>=high-1e-9)return false;
+  }
+  return high>0&&low<1;
+}
 let history=null;
 
 function clear(){
@@ -29,7 +45,7 @@ function clear(){
     delete app.dataset.guidanceDirection;delete app.dataset.guidanceAligned;delete app.dataset.guidanceReady;}
 }
 function obstacleRects(camera){
-  const ids=['radar','bottom-panel','practice-panel','cockpit-speed','cockpit-altitude','cockpit-vario',
+  const ids=['radar','flight-essential-speed','flight-essential-altitude','bottom-panel','practice-panel','cockpit-speed','cockpit-altitude','cockpit-vario',
     'cockpit-heading','cockpit-target-height','cockpit-exit-notice','cockpit-power','target-edge-marker','cockpit-objective-label'];
   if(camera!=='cockpit')ids.push('toast');
   return [...ids.map(id=>rect($(id))),rect(document.querySelector('.navigation')),...['.topbar .brand','.topbar .version','.topbar .feedback-metrics'].map(selector=>rect(document.querySelector(selector)))].filter(Boolean);
@@ -37,6 +53,20 @@ function obstacleRects(camera){
 function preferredPoint(projected,width,height){
   if(projected?.inFront&&Number.isFinite(projected.x)&&Number.isFinite(projected.y))return {x:projected.x,y:projected.y};
   return projected&&trueScreenEdge(projected.local,width,height,18)||{x:width/2,y:height/2};
+}
+function clearEdgePoint(edge,width,height,obstacles){
+  if(!edge)return null;
+  const margin=18,candidates=[edge];
+  const vertical=Math.abs(edge.x-margin)<.01||Math.abs(edge.x-(width-margin))<.01;
+  const horizontal=Math.abs(edge.y-margin)<.01||Math.abs(edge.y-(height-margin))<.01;
+  for(const obstacle of obstacles){
+    if(vertical)for(const y of [obstacle.top-21,obstacle.bottom+21])candidates.push({...edge,y:Math.max(margin,Math.min(height-margin,y))});
+    if(horizontal)for(const x of [obstacle.left-21,obstacle.right+21])candidates.push({...edge,x:Math.max(margin,Math.min(width-margin,x))});
+  }
+  if(vertical)candidates.push({...edge,y:margin},{...edge,y:height-margin});
+  if(horizontal)candidates.push({...edge,x:margin},{...edge,x:width-margin});
+  return candidates.filter(point=>!obstacles.some(obstacle=>overlaps(box(point,42,42),obstacle)))
+    .sort((a,b)=>Math.hypot(a.x-edge.x,a.y-edge.y)-Math.hypot(b.x-edge.x,b.y-edge.y))[0]??null;
 }
 function safeBounds(width,height){
   const style=getComputedStyle(document.documentElement);
@@ -102,12 +132,23 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
     ||Math.abs(history.rotation.dot(projection.rotation))<Math.cos(Math.PI/8);
   const seconds=Number.isFinite(dt)&&dt>=0?Math.min(dt,.25):Math.max(0,Math.min(.25,(clock-(history?.now??clock))/1000));
   const turn=advanceGuidanceTurn(rawAdvice,reset?null:history.turn,{now:clock,dt:seconds,targetChanged:Boolean(history&&count!==history.count)});
-  const advice=turn.mode==='recover'?rawAdvice:computeDirectionGuidance(state,{...mathOptions,turnState:{mode:turn.mode,yawDegrees:turn.yawDegrees}});
+  const advice=turn.mode==='recover'?rawAdvice:computeDirectionGuidance(state,{...mathOptions,turnState:{mode:turn.mode,yawDegrees:turn.yawDegrees,climbDegrees:turn.climbDegrees}});
   if(!advice){clear();return null;}
   let smoothed=vector(advice.direction);
-  if(!reset&&history.direction)smoothed=history.direction.clone().lerp(smoothed,1-Math.exp(-seconds/.2)).normalize();
+  const previousDirection=!reset&&history.direction?history.direction.clone():null;
+  if(previousDirection){
+    const blend=1-Math.exp(-seconds/.2);
+    const beforeYaw=Math.atan2(previousDirection.x,-previousDirection.z)*DEG;
+    const yaw=(beforeYaw+wrap(Math.atan2(smoothed.x,-smoothed.z)*DEG-beforeYaw)*blend)/DEG;
+    const beforeClimb=Math.atan2(previousDirection.y,Math.hypot(previousDirection.x,previousDirection.z));
+    const climb=beforeClimb+(Math.atan2(smoothed.y,Math.hypot(smoothed.x,smoothed.z))-beforeClimb)*blend;
+    // Interpolate heading and climb separately: normalizing a chord between two
+    // rays at the climb ceiling would briefly exceed it and discard smoothing.
+    smoothed.set(Math.sin(yaw)*Math.cos(climb),Math.sin(climb),-Math.cos(yaw)*Math.cos(climb));
+  }
   // A previous frame's smoothing envelope cannot override this frame's limits.
-  if(!guidanceDirectionAllowed(smoothed,advice))smoothed=vector(advice.direction);
+  if(advice.criticalRecovery||!guidanceDirectionAllowed(smoothed,advice))
+    smoothed=vector(clampGuidanceDirection(smoothed,advice)??advice.direction);
   const delta=state.targetPosition.y-state.position.y;
   const absoluteBearing=Math.atan2(state.targetPosition.x-state.position.x,-(state.targetPosition.z-state.position.z))*DEG;
   const heading=Number.isFinite(state.heading)?state.heading:0;
@@ -164,9 +205,15 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
 
   const projected=projection.projectDirection(smoothed);
   const desired=preferredPoint(projected,width,height);
+  const measured=vector(state.velocity);
+  const anchor=measured&&measured.length()>.05?projection.projectDirection(measured):null;
+  const anchorClear=anchor?.inFront&&anchor.x>=0&&anchor.x<=width&&anchor.y>=0&&anchor.y<=height
+    &&!obstacles.some(obstacle=>overlaps(box(anchor,44,40),obstacle));
   let directorPoint=flags.flightDirector?placeGuidanceCenter(desired,bounds,obstacles,{width:62,height:62,
-    accept:point=>guidanceDirectionAllowed(projection.rayFromPixel(point.x,point.y),advice),
-    candidates:guidanceSafeDirections(advice).map(ray=>projection.projectDirection(ray)).filter(p=>p?.inFront)}):null;
+    accept:point=>guidanceDirectionAllowed(projection.rayFromPixel(point.x,point.y),advice)
+      &&(!anchorClear||!obstacles.some(obstacle=>pathCrossesHud(anchor,point,obstacle))),
+    candidates:[...guidanceSafeDirections(advice),...(previousDirection?[clampGuidanceDirection(previousDirection,advice)].filter(Boolean):[])]
+      .map(ray=>projection.projectDirection(ray)).filter(p=>p?.inFront)}):null;
   const director=$('guidance-director');show(director,flags.flightDirector&&Boolean(directorPoint));
   if(directorPoint){
     const direction=projection.rayFromPixel(directorPoint.x,directorPoint.y);
@@ -203,6 +250,9 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
   const serialized=JSON.stringify(result.direction);
   root.dataset.guidanceReady=String(result.driverReady);app.dataset.guidanceReady=String(result.driverReady);
   if(result.driverReady){
+    // Continue from the ray actually drawn after HUD collision avoidance, so a
+    // disappearing panel cannot teleport the next ring back to its raw ray.
+    history.direction=vector(result.direction);
     root.dataset.guidanceDirection=serialized;root.dataset.aligned=String(result.aligned);
     app.dataset.guidanceDirection=serialized;app.dataset.guidanceAligned=String(result.aligned);
   }else{delete root.dataset.guidanceDirection;delete root.dataset.aligned;delete app.dataset.guidanceDirection;delete app.dataset.guidanceAligned;}
@@ -210,7 +260,11 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
   show($('guidance-target-point'),flags.edgeGuidance&&targetVisible);
   transform($('guidance-target-point'),target.x??0,target.y??0);
   show($('guidance-target-diamond'),count!==total);show($('guidance-exit-gate'),count===total);
-  const edge=flags.edgeGuidance&&!target.inViewport?trueScreenEdge(target.local,width,height,18):null;
+  const rawEdge=flags.edgeGuidance&&!target.inViewport?trueScreenEdge(target.local,width,height,18):null;
+  // A screen-edge cue may slide along that same edge around a HUD card. Keep
+  // its true bearing/rotation and the measured FPM unchanged.
+  const edge=clearEdgePoint(rawEdge,width,height,[...obstacles,
+    ...(directorPoint?[box(directorPoint,68,68)]:[]),...(flightPoint?[box(flightPoint,50,50)]:[])]);
   const edgeArrow=$('guidance-edge-arrow');show(edgeArrow,Boolean(edge));show($('guidance-edge-label'),false);
   if(edge){
     result.edge={...edge};transform(edgeArrow,edge.x,edge.y,edge.rotation);
@@ -229,14 +283,19 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
   }
   const noticeElement=$('guidance-next-notice');show(noticeElement,false);
   if(notice){
-    const noticeW=Math.min(290,width-40),noticeH=62;
     const nav=rect(document.querySelector('.navigation'));
     const edgeLabel=result.edge?.label;
     const reserved=[...obstacles,...(directorPoint?[box(directorPoint,68,68)]:[]),...(flightPoint?[box(flightPoint,50,50)]:[]),
       ...(edgeLabel?[{left:edgeLabel.x,right:edgeLabel.x+edgeLabel.width,top:edgeLabel.y,bottom:edgeLabel.y+edgeLabel.height}]:[])];
-    const placement=placeGuidanceCenter({x:width/2,y:(nav?.bottom??50)+42},bounds,reserved,{width:noticeW,height:noticeH});
+    let placement=null,noticeW=0,noticeH=0,compact=false;
+    for(const shape of [{width:Math.min(290,width-40),height:62,compact:false},
+      {width:Math.min(220,width-40),height:48,compact:true}]){
+      placement=placeGuidanceCenter({x:width/2,y:(nav?.bottom??50)+42},bounds,reserved,shape);
+      if(placement){noticeW=shape.width;noticeH=shape.height;compact=shape.compact;break;}
+    }
     if(placement){
-      show(noticeElement,true);move(noticeElement,placement.x-noticeW/2,placement.y-noticeH/2);noticeElement.style.width=`${noticeW}px`;
+      show(noticeElement,true);move(noticeElement,placement.x-noticeW/2,placement.y-noticeH/2);
+      noticeElement.style.width=`${noticeW}px`;noticeElement.style.height=`${noticeH}px`;noticeElement.dataset.compact=String(compact);
       const targetName=hudTargetLabel(notice.target,language);
       const message=language==='ja'?`${hudText(language,'nextTarget')} ${directionWords(notice.bearing,notice.height,language)}`:directionWords(notice.bearing,notice.height,language);
       text('guidance-notice-target',language==='ja'?targetName:`${hudText(language,'nextTarget')} ${targetName}`);text('guidance-notice-text',message);

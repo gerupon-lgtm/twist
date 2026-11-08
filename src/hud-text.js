@@ -1,3 +1,5 @@
+import {FLIGHT_MODEL} from './flight-physics.js';
+
 /** Display-only HUD vocabulary. Never translate the stage, diagnostics, or report data. */
 const TEXT = Object.freeze({
   speed: ['SPD', '速度'], altitude: ['ALT', '現在高度'],
@@ -71,13 +73,21 @@ export function hudGroundWarning(level, language = 'en') {
   return messages[level] ?? messages.unknown;
 }
 
+/** One display predicate for powered recovery and an unpowered real stall. */
+export function hudStallWarning(state={},language='en'){
+  const assisting=Number.isFinite(state?.recoveryAssist)&&state.recoveryAssist>0;
+  const stalled=assisting||Number.isFinite(state?.angleOfAttack)&&Math.abs(state.angleOfAttack)>=FLIGHT_MODEL.stallStart;
+  return !stalled?'':normalizeHudLanguage(language)==='ja'&&!assisting?'失速':hudText(language,'stall');
+}
+
 export function hudCockpitWarning(state, ground, language = 'en') {
   const ja = normalizeHudLanguage(language) === 'ja';
   if (state?.grounded) return ja ? '地面に接触・停止' : 'TERRAIN';
+  const stall=hudStallWarning(state,language);
   const warning = [
     ['danger', 'low'].includes(ground?.level) ? (ja ? '地面注意' : ground.level === 'danger' ? 'PULL UP' : 'TERRAIN') : '',
-    state?.recoveryAssist > 0 ? hudText(language, 'stall') : '',
-    state?.inputHeld && ground?.level === 'clear' && !state?.recoveryAssist
+    stall,
+    state?.inputHeld && ground?.level === 'clear' && !stall
       ? (ja ? '入力保持中・傾きを戻すと追従' : 'INPUT HOLD') : '',
   ].filter(Boolean).join(' / ');
   return warning || (ja ? '機首 ┼　進行方向 ⊙' : 'NOSE ┼　FPM ⊙');

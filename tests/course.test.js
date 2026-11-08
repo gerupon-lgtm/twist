@@ -5,6 +5,7 @@ const near=(actual,expected,tolerance=1e-7)=>assert.ok(Math.abs(actual-expected)
 const copy=(id='easy')=>structuredClone(COURSES[id]);
 const scale=(course,factor)=>{
   for(const p of [course.start,...course.lights,course.exit]){p.x*=factor;p.z*=factor;}
+  for(const lane of course.abStraights??[])for(const p of [lane.from,lane.to]){p.x*=factor;p.z*=factor;}
   return course;
 };
 
@@ -27,10 +28,10 @@ test('course normalization accepts three choices and the explicit comparison, ot
   assert.deepEqual(Object.values(COURSES).map(c=>c.lights.length),[3,5,8]);
 });
 test('all three candidate courses pass both reference speeds and the 20 m/s difficulty bands',()=>{
-  for(const [id,expectedTurns]of [['easy',2],['normal',3],['hard',6]]){
+  for(const [id,expectedTurns,qualifyingTurns]of [['easy',3,2],['normal',4,3],['hard',7,6]]){
     const result=validateCourse(COURSES[id]);assert.equal(result.valid,true,result.errors.join('; '));
     assert.equal(result.segments.length,COURSES[id].lights.length+1);assert.equal(result.turns.length,COURSES[id].lights.length);
-    assert.equal(result.significantTurnCount,expectedTurns);assert.equal(result.qualifyingTurnCount,expectedTurns);
+    assert.equal(result.significantTurnCount,expectedTurns);assert.equal(result.qualifyingTurnCount,qualifyingTurns);
     near(result.initialHeadingChangeDegrees,0);near(result.turnRadii[10],17.673987832335484);near(result.turnRadii[20],70.69595132934194);
     assert.ok(result.hasAscent&&result.hasDescent);
     for(const turn of result.turns){
@@ -40,9 +41,9 @@ test('all three candidate courses pass both reference speeds and the 20 m/s diff
     assert.ok(result.segments.every(s=>s.valid&&Math.abs(s.heightChange)<=10));
   }
 });
-test('known course length, three-point circle radius and utilization match the independent candidate worksheet',()=>{
-  for(const [id,time,radius,u20]of [['easy',41.540148304053524,125,.5655676106341782],
-    ['normal',62.109982934301264,110,.6426904666292589],['hard',74.482207406929,85,.8317170744613853]]){
+test('long final approach route lengths and earlier turning difficulty match the independent worksheet',()=>{
+  for(const [id,time,radius,u20]of [['easy',73.759764103447,174.64249196572982,.4048038397391549],
+    ['normal',103.23584428455732,164.46884203398528,.4298440388771848],['hard',120.93275839943234,111.05785201449203,.6365686896241859]]){
     const result=validateCourse(COURSES[id]);near(result.cruiseTimeSeconds,time);
     near(result.turns[1].circumradius,radius,1e-6);near(result.turns[1].utilization20,u20);
     const [low,high]=result.criteria.cruiseTimeRange;assert.ok(result.cruiseTimeSeconds>=low&&result.cruiseTimeSeconds<=high);
@@ -63,7 +64,9 @@ test('impossible utilization fails even when a light center has valid coordinate
   assert.equal(validateCourse(COURSES.hard,{turnGravity:3}).valid,false,'weak turn strength cannot certify the same hard curve');
 });
 test('significant corners below or above their difficulty band cannot pass merely by being reachable',()=>{
-  const tooEasy=validateCourse(scale(copy(),2));assert.equal(tooEasy.valid,false);
+  const wide=scale(copy(),1.35);
+  for(const p of [wide.start,...wide.lights,wide.exit,...wide.abStraights.flatMap(l=>[l.from,l.to])]){p.x-=80;p.z+=75;}
+  const tooEasy=validateCourse(wide);assert.equal(tooEasy.valid,false);
   assert.ok(tooEasy.turns.some(t=>t.significant&&t.utilization20<.3&&!t.bandValid));
   const tooHard=validateCourse(scale(copy(),.8));assert.equal(tooHard.valid,false);
   assert.ok(tooHard.turns.some(t=>t.significant&&t.utilization20>.6&&t.utilization20<1&&!t.bandValid));
@@ -75,7 +78,7 @@ test('course criteria require ascent and descent and reject excessive height cha
   const result=validateCourse(steep);assert.equal(result.valid,false);assert.equal(result.segments[1].heightValid,false);
 });
 test('expanded bounds and the initial north heading are checked explicitly',()=>{
-  assert.equal(validateCourse(COURSES.easy).valid,true,'x=125 is intentionally outside the old 110m arena');
+  assert.equal(validateCourse(COURSES.easy).valid,true,'the long final approach intentionally extends beyond the old 110m arena');
   for(const [axis,value]of [['x',350.01],['z',-350.01],['y',1.99],['y',45.01]]){
     const course=copy();course.exit[axis]=value;assert.equal(validateCourse(course).valid,false,`${axis}=${value}`);
   }

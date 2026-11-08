@@ -21,7 +21,7 @@ const base={mode:'flight',collected:0,total:3,position:{x:0,y:10,z:0},targetPosi
   targetLocal:{x:0,y:0,z:-30},velocity:{x:0,y:0,z:-10},worldQuaternion:identity,cameraQuaternion:identity,
   fieldOfView:{vertical:90},heading:0,throttle:.5,targetLabel:'光 1'};
 function setup(){
-  const elements=new Map([...ids,'app','bottom-panel','radar','practice-panel','cockpit-heading','navigation','topbar'].map(id=>[id,new Element()]));
+  const elements=new Map([...ids,'app','bottom-panel','radar','practice-panel','cockpit-heading','flight-essential-speed','flight-essential-altitude','navigation','topbar'].map(id=>[id,new Element()]));
   globalThis.document={getElementById:id=>elements.get(id)??null,querySelector:selector=>elements.get(selector.slice(1)),documentElement:{}};
   globalThis.getComputedStyle=()=>({getPropertyValue:()=>''});globalThis.innerWidth=390;globalThis.innerHeight=844;
   updateGuidancePanel(base,{phase:'paused'});return elements;
@@ -36,6 +36,13 @@ test('rear arrows stay on the physical viewport edge and off flags restore legac
   const settings=Object.fromEntries(['flightDirector','targetHeadingCue','edgeGuidance','nextTargetNotice','audioGuidance'].map(k=>[k,false]));
   assert.equal(updateGuidancePanel(base,{settings,now:100,dt:.1}).targetVisible,true);
   assert.equal(elements.get('app').dataset.guidanceEdge,'off');assert.equal(elements.get('guidance-panel').hasAttribute('hidden'),true);
+});
+test('an edge cue slides along its real edge around a side card without changing the bearing',()=>{
+  const elements=setup();elements.get('flight-essential-altitude').area={left:280,right:378,top:350,bottom:460};
+  const result=updateGuidancePanel({...base,targetPosition:{x:100,y:10,z:-100},targetLocal:{x:100,y:0,z:-10}},{now:0,dt:0});
+  assert.ok(result.edge);assert.equal(result.edge.x,372);assert.ok(result.edge.y>=481);
+  assert.equal(result.edge.rotation,90);assert.equal(result.edge.behind,false);
+  assert.equal(result.flightPath.x,195);assert.equal(result.flightPath.y,422);
 });
 test('complete returns its visibility sample and clears driver attributes from the finished display',()=>{
   const elements=setup();updateGuidancePanel(base,{now:0,dt:0});

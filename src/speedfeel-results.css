@@ -1,0 +1,6 @@
+.flight-result .result-readings{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px 12px}
+.flight-result .result-readings dd{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.radar-upgrade-notice button{margin:3px 2px}
+.music-preview-controls{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:0 0 14px;font-size:11px}
+.music-preview-controls button{border:1px solid #9ebdc5;border-radius:7px;background:#e5eff0;padding:8px 12px;color:#225566}
+.music-preview-controls span,.music-preview-controls small{flex-basis:100%;overflow-wrap:anywhere}

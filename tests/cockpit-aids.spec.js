@@ -36,18 +36,52 @@ for(const size of sizes)test(`compact cockpit keeps scenery, HUD and touch contr
  for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++)expect(overlap(rects[i],rects[j]),`${rects[i].selector}/${rects[j].selector}`).toBe(false);
  await page.screenshot({path:`test-results/v0121-cockpit-${size.width}.png`});
 });
-test('overlay and chase keep all six previously published panel layouts',async({page})=>{
+test('overlay and chase keep all six sizes clear with the essential HUD and compact controls',async({page})=>{
  await page.addInitScript(()=>localStorage.setItem('twist.flight-settings.v1',JSON.stringify({targetHeightGuide:false,hudLanguage:'ja',flightDirector:false,edgeGuidance:false,targetHeadingCue:false,nextTargetNotice:false})));
  for(const sample of baseline){
   await page.setViewportSize({width:sample.width,height:sample.height});await launch(page,sample.camera);
-  for(const [selector,wanted]of Object.entries(sample.rects)){
-   const actual=await page.locator(selector).boundingBox();for(const key of ['x','y','width','height']){
-    // The user's new switch-to-phone caption replaces the disabled recenter caption in practice mode.
-    const tolerance=selector==='#recenter-button'&&key==='width'?10:.6;
-    expect(Math.abs(actual[key]-wanted[key]),`${sample.camera}/${sample.width}/${selector}/${key}`).toBeLessThan(tolerance);
-   }
+  const rects=await page.evaluate(()=>['.navigation','#flight-essential-speed','#flight-essential-altitude','#radar','#bottom-panel','#practice-panel'].map(selector=>{
+   const element=document.querySelector(selector),r=element.getBoundingClientRect();
+   return {selector,visible:!element.hidden&&element.getClientRects().length>0,left:r.left,right:r.right,top:r.top,bottom:r.bottom};
+  }).filter(r=>r.visible));
+  expect(rects.some(r=>r.selector==='#flight-essential-speed')).toBe(true);
+  expect(rects.some(r=>r.selector==='#flight-essential-altitude')).toBe(true);
+  for(const r of rects){
+   expect(r.left,`${sample.camera}/${sample.width}/${r.selector}`).toBeGreaterThanOrEqual(0);
+   expect(r.right,`${sample.camera}/${sample.width}/${r.selector}`).toBeLessThanOrEqual(sample.width);
+   expect(r.top,`${sample.camera}/${sample.width}/${r.selector}`).toBeGreaterThanOrEqual(0);
+   expect(r.bottom,`${sample.camera}/${sample.width}/${r.selector}`).toBeLessThanOrEqual(sample.height);
+   const center={left:sample.width/2-26,right:sample.width/2+26,top:sample.height/2-26,bottom:sample.height/2+26};
+   expect(overlap(r,center),`${sample.camera}/${sample.width}/${r.selector}/flight center`).toBe(false);
   }
+  for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){
+   const a=rects[i],b=rects[j];
+   // Portrait practice controls are an intentional child of the bottom panel;
+   // landscape may place that child outside, where it needs its own check.
+   const nested=a.selector==='#bottom-panel'&&b.selector==='#practice-panel'
+    &&a.left<=b.left&&a.right>=b.right&&a.top<=b.top&&a.bottom>=b.bottom;
+   if(!nested)expect(overlap(a,b),`${sample.camera}/${sample.width}/${a.selector}/${b.selector}`).toBe(false);
+  }
+  for(const id of ['pause-button','recenter-button'])expect((await page.locator('#'+id).boundingBox()).height).toBeGreaterThanOrEqual(40);
+  expect((await page.locator('#throttle-input').boundingBox()).height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  }
+});
+
+for(const camera of ['overlay','chase'])test(`open practice controls stay clear of the side HUD in landscape ${camera}`,async({page})=>{
+ await page.setViewportSize({width:844,height:390});
+ await page.addInitScript(()=>localStorage.setItem('twist.flight-settings.v1',JSON.stringify({flightDirector:true,edgeGuidance:true,hudLanguage:'en'})));
+ await launch(page,camera);
+ if(!await page.locator('#practice-panel').evaluate(element=>element.open))await page.locator('#practice-summary').click();
+ await expect(page.locator('#practice-panel')).toHaveAttribute('open','');
+ await expect(page.locator('#app')).toHaveAttribute('data-guidance-ready','true');
+ const layout=await page.evaluate(()=>{
+  const rect=selector=>{const r=document.querySelector(selector).getBoundingClientRect();return{selector,left:r.left,right:r.right,top:r.top,bottom:r.bottom};};
+  return {cards:['#flight-essential-speed','#flight-essential-altitude'].map(rect),reserved:['#practice-panel','#bottom-panel','#radar','.navigation'].map(rect)};
+ });
+ await page.screenshot({path:`test-results/v0129-practice-open-${camera}.png`});
+ for(const card of layout.cards)for(const reserved of layout.reserved)
+  expect(overlap(card,reserved),JSON.stringify({camera,card,reserved})).toBe(false);
 });
 test('pitch ladder follows only nearby angles and the displayed range persists',async({page})=>{
  await launch(page);await slider(page,'practice-pitch',20);await page.waitForTimeout(900);

@@ -76,7 +76,7 @@ export function computeDirectionGuidance(state,options={}) {
     || (state.velocity!=null && !validVector(state.velocity))
     || ['bank','angleOfAttack','speed','throttle'].some(k=>state[k]!=null && !Number.isFinite(state[k]))
     || (turnState!=null && (typeof turnState!=='object' || !['target','go-around'].includes(turnState.mode)
-      || !Number.isFinite(turnState.yawDegrees)))) return null;
+      || !Number.isFinite(turnState.yawDegrees) || (turnState.climbDegrees!=null && !Number.isFinite(turnState.climbDegrees))))) return null;
   const relative={x:state.targetPosition.x-state.position.x,y:state.targetPosition.y-state.position.y,
     z:state.targetPosition.z-state.position.z};
   const target=normalized(relative);
@@ -129,13 +129,20 @@ export function computeDirectionGuidance(state,options={}) {
   const minClimbDegrees=-Math.min(10,maxPitch);
   const attackDegrees=(state.angleOfAttack??0)/DEG;
   let desired=mode==='go-around'?0:Math.atan2(relative.y,Math.hypot(relative.x,relative.z))/DEG;
-  const recovering=engineOff || rawTrim>=17 || Math.abs(attackDegrees)>=17 || maxClimbDegrees<0
-    || currentClimb<minClimbDegrees || currentClimb>maxClimbDegrees;
+  // Critical recovery still overrides guidance immediately. Merely crossing a
+  // normal climb limit returns toward that same limit, without a level-flight
+  // discontinuity at the boundary.
+  const criticalRecovery=engineOff || rawTrim>=17 || Math.abs(attackDegrees)>=17 || maxClimbDegrees<0;
+  const recovering=criticalRecovery || currentClimb<minClimbDegrees || currentClimb>maxClimbDegrees;
+  // The ordinary climb envelope limits vertical advice. Cancelling its turn
+  // would make an otherwise reachable rising corner unreachable. Only critical
+  // recovery cancels horizontal guidance immediately.
   if (recovering) {
     mode='recover';
-    yaw=0;
-    rawMode='recover';rawYawErrorDegrees=0;
-    desired=Math.min(desired,0,maxClimbDegrees);
+    if (criticalRecovery) {
+      yaw=0;rawMode='recover';rawYawErrorDegrees=0;
+      desired=Math.min(desired,0,maxClimbDegrees);
+    }
     if (attackDegrees>17) desired=Math.min(desired,currentClimb-Math.min(10,attackDegrees-17+2));
     if (attackDegrees < -17) desired=Math.max(desired,currentClimb+Math.min(10,-attackDegrees-17+2));
   }
@@ -144,14 +151,21 @@ export function computeDirectionGuidance(state,options={}) {
   // step returns toward it. Only recover mode can temporarily remain outside.
   const climbStep=clamp(desired-currentClimb,-10,10);
   const positiveMargin=Math.max(0,17-attackDegrees),negativeMargin=Math.max(0,17+attackDegrees);
-  const commandedClimbDegrees=currentClimb+(climbStep>0?Math.min(climbStep,positiveMargin):
+  let commandedClimbDegrees=currentClimb+(climbStep>0?Math.min(climbStep,positiveMargin):
     Math.max(climbStep,-negativeMargin));
+  // A normal target/maneuver transition may finish its bounded display slew;
+  // it must still fit today's climb, incidence and ten-degree step limits.
+  if (!recovering && turnState?.climbDegrees!=null) {
+    const low=Math.max(minClimbDegrees,currentClimb-10,currentClimb-negativeMargin);
+    const high=Math.min(maxClimbDegrees,currentClimb+10,currentClimb+positiveMargin);
+    commandedClimbDegrees=clamp(turnState.climbDegrees,low,high);
+  }
   const commandedHeading=heading+yaw*DEG;
   const pitch=commandedClimbDegrees*DEG;
   const direction={x:Math.sin(commandedHeading)*Math.cos(pitch),y:Math.sin(pitch),
     z:-Math.cos(commandedHeading)*Math.cos(pitch)};
   const angularErrorDegrees=Math.acos(clamp(travel.x*direction.x+travel.y*direction.y+travel.z*direction.z,-1,1))/DEG;
-  return {direction,mode,rawMode,rawYawErrorDegrees,aligned:actualSpeed>.05 && angularErrorDegrees<=2,
+  return {direction,mode,rawMode,rawYawErrorDegrees,criticalRecovery,aligned:actualSpeed>.05 && angularErrorDegrees<=2,
     yawErrorDegrees:yaw,climbErrorDegrees:commandedClimbDegrees-currentClimb,angularErrorDegrees,
     targetBearingDegrees:bearing,commandedYawDegrees:wrap(commandedHeading/DEG),
     commandedClimbDegrees,maxClimbDegrees,minClimbDegrees,trimDegrees,

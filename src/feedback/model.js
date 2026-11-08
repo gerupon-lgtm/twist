@@ -5,8 +5,8 @@ const clamp = (n,min,max) => Math.max(min,Math.min(max,Number.isFinite(n)?n:min)
 export const FEEDBACK_TUNING = Object.freeze({ buffetStart: 14, stallStart: 20, stallEnd: 70,
   engineCycle: 400, enginePulse: 5, groundPattern: [85,100,85,430], stallPattern: [100,45,55,90,160,110],
   fineCycle: 60, finePulses: 4, strongStallPattern: [180,30,120,40,260,50],
-  afterburner: Object.freeze({ignitionSeconds:.12,attackSeconds:.01,releaseSeconds:.03,
-    roarVolume:8,ignitionVolume:11,duckVolume:5,noiseStart:31,noiseEnd:6,roarNoise:8,
+  afterburner: Object.freeze({ignitionSeconds:.12,attackSeconds:.01,releaseSeconds:.15,
+    roarVolume:8,ignitionVolume:15,duckVolume:5,noiseStart:31,noiseEnd:6,roarNoise:8,
     fineOn:30,classicOn:120}) });
 export const EVENT_FEEDBACK = Object.freeze({
   collect: { priority: 2, duration: 300, pattern: [30,80,70] },
@@ -40,7 +40,7 @@ export function afterburnerPhase(model,seconds=model.afterburner?.burstSeconds) 
 /** All timing/threshold choices live here, outside the unmodified chip code. */
 export function flightFeedback(state={},settings={}) {
   const angle=clamp(Math.abs(state.angleOfAttack||0)*180/Math.PI,0,180);
-  const power=clamp(state.throttle,0,1),speed=clamp(state.speed,0,18);
+  const power=clamp(state.throttle,0,1),speed=clamp(state.speed,0,45);
   const afterburner=afterburnerState(state.afterburner),boost=FEEDBACK_TUNING.afterburner;
   let cue='quiet',pattern=[];
   if(state.mode!=='explore'&&getGroundProximity(state).level==='danger') {cue='ground';pattern=[...FEEDBACK_TUNING.groundPattern];}
@@ -58,7 +58,7 @@ export function flightFeedback(state={},settings={}) {
   } else if(cue==='stall') vibrationPattern=scaledPattern(FEEDBACK_TUNING.strongStallPattern,.75+.25*clamp((angle-20)/50,0,1));
   const vibration=scaledPattern(vibrationPattern,clamp(settings.vibrationScale??1,0,2));
   return { cue, pattern:vibration, soundPattern:pattern, cycle:vibrationPattern.reduce((a,b)=>a+b,0),
-    angleOfAttack:angle,power,speed,engineHz:55+power*120,wind:Math.min(1,speed/18),
+    angleOfAttack:angle,power,speed,engineHz:55+power*120,wind:speed/45,
     vario:varioCue(state.verticalSpeed,settings.vario!==false&&state.mode==='flight'),afterburner };
 }
 
@@ -69,23 +69,30 @@ function voice(regs,channel,hz,volume,noise,mixer){
   regs[channel*2]=period&255;regs[channel*2+1]=(period>>8)&15;regs[8+channel]=clamp(Math.round(volume),0,15);
   if(hz>0)mixer&=~(1<<channel);if(noise)mixer&=~(1<<(channel+3));return mixer;
 }
-export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uint8Array(14),varioMs=eventMs,navigation=null,afterburnerSeconds=model.afterburner?.burstSeconds) {
+export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uint8Array(14),varioMs=eventMs,navigation=null,afterburnerSeconds=model.afterburner?.burstSeconds,effects={}) {
   regs.fill(0);let mixer=0x3f;
   const eventActive=Boolean(event && EVENT_FEEDBACK[event] && eventMs<EVENT_FEEDBACK[event].duration);
   const warning=['ground','stall','buffet'].includes(model.cue);
   const navigationActive=Boolean(navigation&&!eventActive&&!model.vario?.active&&!warning
     &&Number.isFinite(navigation.elapsedMs)&&navigation.elapsedMs>=0&&navigation.elapsedMs<NAVIGATION_BURST_MS);
   const boost=FEEDBACK_TUNING.afterburner,phase=afterburnerPhase(model,afterburnerSeconds);
-  if(phase!=='off'&&!eventActive&&!warning) {
+  const release=phase==='off'?clamp(effects.afterburnerRelease,0,1):0;
+  const windVolume=model.power*3+model.wind*9,windNoise=Math.round(31-model.wind*26);
+  // Noise belongs to the ordinary wind throughout AB. A low tone on B adds
+  // the engine roar without pinning the shared noise period at a low pitch.
+  if((phase!=='off'||release>0)&&!eventActive&&!warning) {
     const duck=varioMaySound(model,eventActive)||navigationActive;
     const ignition=phase==='ignition'&&!duck;
-    const envelope=ignition?clamp(Math.min(afterburnerSeconds/boost.attackSeconds,(boost.ignitionSeconds-afterburnerSeconds)/boost.releaseSeconds),0,1):0;
-    mixer=voice(regs,0,0,duck?boost.duckVolume:boost.roarVolume+(boost.ignitionVolume-boost.roarVolume)*envelope,true,mixer);
-    regs[6]=ignition?Math.round(boost.noiseStart+(boost.noiseEnd-boost.noiseStart)*afterburnerSeconds/boost.ignitionSeconds):boost.roarNoise;
+    const envelope=ignition?clamp(Math.min(afterburnerSeconds/boost.attackSeconds,(boost.ignitionSeconds-afterburnerSeconds)/.03),0,1):0;
+    const strength=phase==='off'?release:1,roar=boost.roarVolume+model.wind*4;
+    const volume=duck?boost.duckVolume:roar+(boost.ignitionVolume-roar)*envelope;
+    mixer=voice(regs,0,0,windVolume+(volume-windVolume)*strength,true,mixer);
+    mixer=voice(regs,1,48+model.wind*22,(duck?4:ignition?13:9)*strength,false,mixer);
+    regs[6]=ignition?Math.round(boost.noiseStart+(boost.noiseEnd-boost.noiseStart)*afterburnerSeconds/boost.ignitionSeconds):windNoise;
   } else {
-    // Noise period is shared by A/B/C: protected warnings/events retain the exact old A output.
-    mixer=voice(regs,0,model.power>0?model.engineHz:0,eventActive?1:Math.max(model.power*4,model.wind*4),model.wind>.12||model.power>.1,mixer);
-    regs[6]=Math.round(28-model.wind*22);
+    // Noise period is shared by A/B/C: warnings/events retain ordinary A output.
+    mixer=voice(regs,0,model.power>0?model.engineHz:0,eventActive?1:windVolume,model.wind>.04||model.power>.1,mixer);
+    regs[6]=windNoise;
   }
   if(!eventActive&&(model.cue==='stall'||model.cue==='ground'||model.cue==='buffet')&&pulse) {
     mixer=voice(regs,1,model.cue==='buffet'?0:model.cue==='ground'?880:180,model.cue==='buffet'?6:10,model.cue==='buffet',mixer);
@@ -95,6 +102,13 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
     if(event==='crash'){regs[6]=18;mixer=voice(regs,2,0,13*(1-eventMs/800),true,mixer);}
     else {const notes=event==='exitOpen'?[659,988,1319,1568]:event==='collect'?COLLECT_NOTES:CLEAR_NOTES;
       mixer=voice(regs,2,notes[Math.min(notes.length-1,Math.floor(eventMs/(event==='exitOpen'?155:event==='collect'?85:180)))],12*(1-eventMs/EVENT_FEEDBACK[event].duration),false,mixer);}
+  }
+  const passby=effects.passby;
+  if(passby&&!eventActive&&!warning&&Number.isFinite(passby.elapsedMs)&&passby.elapsedMs>=0&&passby.elapsedMs<140){
+    const t=passby.elapsedMs/140,sharpness=clamp(passby.speed/45,0,1);
+    const envelope=Math.min(1,t/.08)*(1-t);
+    mixer=voice(regs,1,900+sharpness*1500-t*700,(8+sharpness*6)*envelope,true,mixer);
+    regs[6]=Math.round(14-sharpness*9+t*8);
   }
   if(varioMaySound(model,eventActive)
     &&varioMs%model.vario.periodMs<model.vario.onMs) {

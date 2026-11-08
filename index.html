@@ -8,21 +8,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="twist" />
-    <link rel="manifest" href="./manifest.webmanifest?v=0.1.28" />
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.28" />
+    <link rel="manifest" href="./manifest.webmanifest?v=0.1.29" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=0.1.29" />
     <meta name="description" content="自分はそのまま、世界を動かす。スマホの動きで進む3D探索の操作検証。" />
     <title>twist — 傾きで進む3D探索</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.28" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=0.1.29" />
   </head>
   <body>
     <canvas id="world" aria-label="自機を中央に固定した3D探索ステージ"></canvas>
     <div class="app" id="app" data-phase="intro">
       <div id="ground-edge-warning" class="ground-edge-warning" data-level="clear" aria-hidden="true" hidden></div>
       <header class="topbar">
-        <a class="brand" id="home-link" href="./?v=0.1.28" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
+        <a class="brand" id="home-link" href="./?v=0.1.29" aria-label="twist ホーム"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 7h14l5 11-5 11H11L6 18Z"/><path d="m11 7 14 22M25 7 11 29"/></svg>twist</a>
         <span class="mode-tag" id="play-mode-label">探索モード</span>
         <details class="feedback-metrics"><summary>計測</summary><p id="feedback-diagnostics" aria-label="操作検証の計測値"></p></details>
-        <span class="version">操作検証 <b>v0.1.28</b></span>
+        <span class="version">操作検証 <b>v0.1.29</b></span>
       </header>
 
       <section class="navigation" aria-label="次の目的地">
@@ -41,6 +41,13 @@
         <svg viewBox="-50 -50 100 100" aria-hidden="true"><circle class="radar-disc" r="47"/><circle class="radar-range-boundary" r="36"/><circle class="radar-grid" r="18"/><path class="radar-grid" d="M0,-43V43M-43,0H43"/><text class="radar-heading" x="0" y="-39" text-anchor="middle">進行方向</text><g id="radar-targets"></g><path class="radar-self" d="M0,-5L4,4 0,2 -4,4Z"/><text class="radar-range" id="radar-range" x="0" y="43" text-anchor="middle">60m</text></svg>
       </section>
       <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+      <section id="flight-essential-hud" class="flight-essential-hud" aria-label="速度と高度" hidden>
+        <div id="flight-essential-speed" class="essential-hud-card"><span id="flight-essential-speed-label">速さ</span> <b id="speed-value">0.0</b> <span id="speed-unit">km/h</span></div>
+        <div id="flight-essential-altitude" class="essential-hud-card"><span id="ground-proximity" data-level="clear"><span id="ground-clearance">高さ</span> <b id="altitude-value">7.0</b> m<span id="ground-height-meter" aria-hidden="true" hidden><i></i></span></span>
+          <div id="flight-essential-details"><div id="flight-essential-height"><div id="target-height-inline" class="target-height-guide" hidden></div></div><div id="flight-essential-vario"><span><span id="flight-essential-vario-label">V/S</span><small> m/s</small></span><b id="flight-essential-vario-value">0.0</b></div></div>
+          <div id="flight-essential-alert" role="status" hidden><span id="ground-warning-text" hidden></span><span id="flight-warning-text" hidden></span></div>
+        </div>
+      </section>
       <section id="cockpit-hud" class="cockpit-hud" aria-label="操縦席の飛行表示" hidden>
         <svg id="cockpit-conformal" class="cockpit-conformal" aria-hidden="true"></svg>
         <div id="cockpit-speed" class="cockpit-tape"></div>
@@ -100,10 +107,10 @@
           <div class="meter" id="steer-control-meter"><div><span id="steer-label">自機の左右</span><output id="steer-value">0°</output></div><div class="meter-track bilateral"><i id="steer-meter"></i></div><small id="steer-caption">下げた側へ曲がる</small></div>
           <div class="meter" id="twist-control-meter"><div><span id="twist-label">スマホを回す</span><output id="twist-value">0°</output></div><div class="meter-track bilateral"><i id="twist-meter"></i></div><small id="twist-caption">右に回して上・左で下へ</small></div>
         </div>
-        <div class="flight-line"><span>速さ <b id="speed-value">0.0</b> <span id="speed-unit">km/h</span></span><span id="ground-proximity" data-level="clear"><span id="ground-clearance">高さ</span> <b id="altitude-value">7.0</b> m<span id="ground-height-meter" aria-hidden="true" hidden><i></i></span></span><span id="stop-hint">逆側を下げるとブレーキ</span><span id="ground-warning-text" hidden>地面との間隔</span></div>
+        <div class="flight-line"><span id="stop-hint">逆側を下げるとブレーキ</span></div>
         <div class="flight-attitude" id="flight-attitude" hidden><span>機首 <b id="nose-value">0°</b></span><span>翼の傾き <b id="bank-value">0°</b></span><span>昇降 <b id="climb-value">0.0</b> m/s</span><small id="view-assist-note">中立で翼を戻す</small></div>
         <div class="flight-throttle" id="flight-throttle" hidden>
-          <div class="throttle-heading"><label for="throttle-input">エンジン出力</label><div id="target-height-inline" class="target-height-guide" hidden></div><output id="throttle-value" for="throttle-input">0%</output></div>
+          <div class="throttle-heading"><label for="throttle-input">エンジン出力</label><output id="throttle-value" for="throttle-input">0%</output></div>
           <input id="throttle-input" type="range" min="0" max="120" step="1" value="0" aria-label="エンジン出力" aria-describedby="afterburner-status" disabled />
           <div class="throttle-hint-line"><span id="afterburner-hud" aria-live="off"><b>AB</b><span class="ab-meter"><i></i></span><output>0</output></span><span id="afterburner-status">EMPTY</span><span class="ab-zone-hint">DRAG · 100% → AB</span></div>
 
@@ -123,7 +130,7 @@
         <section class="intro-card" id="intro-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-description">
           <span class="card-symbol" aria-hidden="true">↝</span>
           <p class="card-kicker" id="dialog-kicker">スマホの動きで操作検証</p>
-          <p class="intro-version" id="intro-version">twist <b>v0.1.28</b><span>操作検証版</span></p>
+          <p class="intro-version" id="intro-version">twist <b>v0.1.29</b><span>操作検証版</span></p>
           <h1 id="dialog-title">自分はそのまま。<br />世界を動かそう。</h1>
           <aside id="orientation-notice" class="orientation-notice" role="status" aria-live="polite" hidden><button type="button" aria-label="向き固定の案内を閉じる">×</button><strong data-notice-title></strong><p data-notice-copy></p></aside>
           <p class="dialog-description" id="dialog-description">自機はスマホと一緒に傾かず、最初の上向きを保ちます。ピンクの光を3つ集めて出口へ。</p>
@@ -173,19 +180,24 @@
           <p class="installation-advice" id="installation-advice" hidden></p>
           <button class="secondary-button pwa-action" id="install-button" type="button" hidden>ホーム画面に追加</button>
           <button class="secondary-button pwa-action" id="release-screen-button" type="button" hidden>全画面と向き固定を解除</button>
-          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.28" target="_blank" rel="noopener">ブラウザーで開く</a></p>
+          <p class="installation-advice" id="installed-screen-advice" hidden>ホーム画面のアプリは全画面のままになる場合があります。<a href="https://twist.sikumilab.com/?mode=flight&v=0.1.29" target="_blank" rel="noopener">ブラウザーで開く</a></p>
           <aside id="update-notice" class="update-notice" role="status" hidden><p>新しい版 <b id="update-version"></b> があります。</p><button id="update-button" type="button">最新版を開く</button></aside>
           <button class="primary-button" id="start-button" type="button">スマホの傾きで始める</button>
           <button class="secondary-button" id="practice-button" type="button">画面で操縦（スマホ傾きは無効）</button>
           <button class="text-button" id="reset-button" type="button" hidden>最初からやり直す</button>
           <section class="flight-result" id="flight-result" aria-label="今回の飛行記録" hidden>
-            <h2>今回の飛行記録</h2><p class="result-outcome" id="result-outcome"></p>
+            <h2 id="result-title">今回の飛行記録</h2><p class="result-outcome" id="result-outcome"></p>
+            <dl class="result-readings"><div><dt>今回のコース時間</dt><dd id="result-course-time">未完了</dd></div><div><dt>自己ベスト</dt><dd id="result-best-time">—</dd></div></dl><small id="result-best-status"></small>
+            <div id="result-flight-stats">
             <h3>この挑戦の合計 <span id="result-legs"></span></h3>
             <dl><div><dt>飛行時間</dt><dd id="result-elapsed"></dd></div><div><dt>接地</dt><dd id="result-contacts"></dd></div><div><dt>復帰補助の合計</dt><dd id="result-recovery"></dd></div></dl>
             <h3>最後の1回</h3><dl><div><dt>飛行時間</dt><dd id="result-last-elapsed"></dd></div><div><dt>接地</dt><dd id="result-last-contacts"></dd></div><div><dt>復帰補助</dt><dd id="result-last-recovery"></dd></div></dl>
-            <h3>目標が画面に入るまで（最後の1回）</h3><dl id="result-target-views"></dl><h3>区間ごとの時間（最後の1回）</h3><dl id="result-segments"></dl><dl><div><dt>出口が開いてから初めて表示</dt><dd id="result-exit-discovery"></dd></div></dl>
+            </div>
+            <h3>目標が画面に入るまで（最後の1回）</h3><dl id="result-target-views" class="result-readings"></dl><h3>区間ごとの時間（最後の1回）</h3><dl id="result-segments" class="result-readings"></dl><dl><div><dt>出口が開いてから初めて表示</dt><dd id="result-exit-discovery"></dd></div></dl>
+            <h3>目標への最接近（最後の1回）</h3><dl id="result-approaches" class="result-readings"></dl><small>目標の15m以内へ入り、取らずに18m以上離れると1回として数えます。</small>
+            <h3 id="result-straights-heading" hidden>直線区間でのAB（最後の1回）</h3><dl id="result-straights" class="result-readings" hidden></dl>
             <p id="result-modes"></p><p id="result-afterburner" hidden></p><p id="result-settings"></p>
-            <small>合計は飛び直しも含み、最後の1回は飛び直しで区切ります。一時停止では区切りません。設定は到着・接地時点の値です。</small>
+            <small id="result-record-note">合計は飛び直しも含み、最後の1回は飛び直しで区切ります。一時停止では区切りません。設定は到着・接地時点の値です。</small>
             <button id="result-copy" type="button">記録をコピー</button>
             <p id="result-copy-status" role="status"></p><textarea id="result-copy-text" aria-label="コピーする飛行記録" readonly hidden></textarea>
           </section>
@@ -193,8 +205,9 @@
             <summary>調整</summary><p id="adjustment-scope-note">機首と旋回の入力角度を別々に調整します。</p>
             <p class="range-help">1回に変える設定は1つだけにすると、効果を比べやすくなります。</p>
             <details id="settings-troubles" class="settings-troubles"><summary>こう感じたら</summary><div id="settings-troubles-list"></div></details>
-            <p class="range-help"><a id="settings-guide-link" href="./settings-guide.html?v=0.1.28" target="_blank" rel="noopener">調整の早見表を開く</a></p>
+            <p class="range-help"><a id="settings-guide-link" href="./settings-guide.html?v=0.1.29" target="_blank" rel="noopener">調整の早見表を開く</a></p>
             <div id="flight-settings-fields"></div>
+            <aside id="radar-upgrade-notice" class="update-notice radar-upgrade-notice" role="status" aria-live="polite" hidden><p>ステージが広くなりました。保存中のレーダー半径60mを、新しい初期値180mに更新しますか？</p><button id="radar-upgrade-accept" type="button">180mに更新する（おすすめ）</button><button id="radar-upgrade-keep" type="button">60mのまま使う</button></aside>
             <fieldset class="feedback-settings"><legend>音と振動</legend><div id="feedback-settings-fields"></div><p id="vibration-support"></p><p id="feedback-audio-status"></p><p id="feedback-save-status"></p></fieldset>
             <!-- 調整パネル内のヘルプへ挿入。設定項目名・操作ボタン・結果の説明文は日本語を保つ。 -->
 <details class="settings-troubles">

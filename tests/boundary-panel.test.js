@@ -5,7 +5,7 @@ class Element{
  hasAttribute(name){return this.attrs.has(name);}toggleAttribute(name,force){if(force)this.attrs.add(name);else this.attrs.delete(name);}
  setAttribute(name,value){this[name]=String(value);}getClientRects(){return !this.hasAttribute('hidden')&&this.area.right>this.area.left?[this.area]:[];}getBoundingClientRect(){return this.area;}
 }
-const ids=['app','stage-boundary-warning','boundary-return-arrow','boundary-title','boundary-detail','navigation','bottom-panel','radar','practice-panel','guidance-director','guidance-flight-path'];
+const ids=['app','stage-boundary-warning','boundary-return-arrow','boundary-title','boundary-detail','navigation','flight-essential-speed','flight-essential-altitude','bottom-panel','radar','practice-panel','guidance-director','guidance-flight-path'];
 function setup(width=390,height=844){
  const elements=new Map(ids.map(id=>[id,new Element()]));globalThis.innerWidth=width;globalThis.innerHeight=height;
  globalThis.document={getElementById:id=>elements.get(id)??null,querySelector:selector=>elements.get(selector.slice(1))??null,documentElement:{}};
@@ -22,8 +22,9 @@ test('warning placement avoids the real FPM, director, navigation, radar and con
  const elements=setup(844,390);elements.get('navigation').area={left:84,right:314,top:8,bottom:42};
  elements.get('bottom-panel').area={left:470,right:824,top:225,bottom:380};elements.get('practice-panel').area={left:20,right:250,top:190,bottom:380};
  elements.get('radar').area={left:12,right:112,top:65,bottom:165};elements.get('guidance-flight-path').area={left:400,right:444,top:65,bottom:105};elements.get('guidance-director').area={left:450,right:510,top:80,bottom:140};
+ elements.get('flight-essential-altitude').area={left:250,right:390,top:42,bottom:142};
  const result=updateBoundaryPanel({position:{x:330,y:10,z:0},heading:0,speed:20});assert.ok(result?.visible);const b=result.panel;
- for(const id of ['navigation','bottom-panel','practice-panel','radar','guidance-flight-path','guidance-director']){const r=elements.get(id).area;
+ for(const id of ['navigation','flight-essential-speed','flight-essential-altitude','bottom-panel','practice-panel','radar','guidance-flight-path','guidance-director']){const r=elements.get(id).area;
   assert.equal(b.left<r.right&&b.right>r.left&&b.top<r.bottom&&b.bottom>r.top,false,id);}
  assert.ok(b.left>=0&&b.right<=844&&b.top>=0&&b.bottom<=390);
 });

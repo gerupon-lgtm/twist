@@ -1,5 +1,6 @@
 import { mkdir,writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { parseMmlFragment,MML_FRAGMENTS } from './mml-fragments.mjs';
 const PPQ=480;
 const vlq=n=>{const b=[n&127];while((n>>=7)>0)b.unshift((n&127)|128);return b;};
 const chunk=(name,data)=>Buffer.concat([Buffer.from(name),Buffer.from([(data.length>>>24)&255,(data.length>>>16)&255,(data.length>>>8)&255,data.length&255]),Buffer.from(data)]);
@@ -155,7 +156,7 @@ function braveSong() {
 }
 export function generateMusic(){
   const legacy=generateLegacyMusic();
-  return Object.fromEntries([...HARD_SONGS.map(song=>[song.id,hardSong(song)]),['brave',braveSong()],['rock',rockSong()],['clear',hardClear()],['flight-legacy',legacy.flight],...ROCK_TRILOGY.map(song=>[song.id,trilogySong(song)])]);
+  return Object.fromEntries([...HARD_SONGS.map(song=>[song.id,hardSong(song)]),['brave',braveSong()],['rock',rockSong()],['clear',hardClear()],['flight-legacy',legacy.flight],...ROCK_TRILOGY.map(song=>[song.id,trilogySong(song)]),...MML_SONGS.map(song=>[song.id,mmlSong(song)]),['afterburner',afterburnerScore()]]);
 }
 export const ROCK_SONG={id:'rock',title:'黒曜の翼',bpm:156,beats:192};
 function rockSong(){
@@ -310,18 +311,156 @@ function trilogySong({id,bpm,beats,title,form}){
   return midi(tracks,bpm,beats,`Twist original - ${title}`);
 }
 
+// The following three scores arrange the author's original MML document.
+// Seven-beat excerpts receive one beat of rest. Ignition's nine-beat chorus is
+// followed by new answering notes inside a four-bar phrase; no source notes are
+// removed, reordered or stretched to conceal the incomplete bar.
+export const MML_SONGS=[
+  {id:'ignition',title:'Ignition Sky',bpm:165,beats:256,key:'D minor / D major',
+    form:[['intro',4],['verse',12],['lift',8],['chorus',16],['bridge',8],['final',12],['turn',4]]},
+  {id:'advance',title:'Steel Advance',bpm:145,beats:256,key:'E minor',
+    form:[['intro',4],['verse',12],['lift',8],['chorus',16],['bridge',8],['final',12],['turn',4]]},
+  {id:'overdrive',title:'Overdrive Horizon',bpm:175,beats:288,key:'A minor',
+    form:[['intro',8],['verse',12],['lift',8],['chorus',16],['bridge',8],['final',16],['turn',4]]},
+];
+const SOURCE=Object.fromEntries(Object.entries(MML_FRAGMENTS).map(([id,text])=>[id,parseMmlFragment(text)]));
+
+function mmlSong(song){
+  const {id,bpm,beats,title,form}=song,tracks=Array.from({length:6},()=>[]);
+  const cc=(part,at,value)=>tracks[part].push({t:Math.round(at*PPQ),b:[176+(part===5?9:part),7,value]});
+  const bend=(part,at,value)=>tracks[part].push({t:Math.round(at*PPQ),b:[224+part,value&127,(value>>7)&127]});
+  const hit=(part,at,pitch,length,velocity=100,style='plain')=>{
+    if(at>=beats)return;
+    length=Math.min(length,beats-at);
+    note(tracks[part],part===5?9:part,at,pitch,length,velocity);
+    if(style==='guitar'){
+      cc(part,at,120);cc(part,at+Math.min(.075,length*.3),94);cc(part,at+length*.68,72);
+      bend(part,at,8192);
+      if(length>=.65){
+        bend(part,at+.08,7680);bend(part,at+.2,8192);
+        for(let i=0,t=at+.5;t<at+length-.07;i++,t+=.18)bend(part,t,8192+(i%2?-288:320));
+      }
+      bend(part,at+length-.015,8192);
+    }else if(style==='brass'){
+      cc(part,at,92);cc(part,at+Math.min(.05,length*.2),120);cc(part,at+length*.48,101);cc(part,at+length*.9,80);
+    }else if(style==='bass'){
+      cc(part,at,116);cc(part,at+length*.42,87);
+    }
+  };
+  const phrase=(part,at,events,velocity=100,style='plain')=>{
+    for(const [offset,pitch,length]of events)hit(part,at+offset,pitch,length,velocity,style);
+  };
+  const source=(part,at,name,velocity=100,style='plain',transpose=0)=>{
+    for(const event of SOURCE[name].notes)hit(part,at+event.beat,event.pitch+transpose,event.duration*.9,velocity,style);
+  };
+  let bar=0;
+  for(const [section,count]of form)for(let local=0;local<count;local++,bar++){
+    const at=bar*4,singing=section==='chorus'||section==='final',quiet=section==='bridge';
+    if(id==='ignition'){
+      const major=singing||section==='turn',roots=section==='turn'?[38,43,45,45]:major?[38,43,45,47,38,43,45,38]:quiet?[34,36,38,45]:section==='lift'?[34,36,43,45]:[38,34,36,38];
+      const root=roots[local%roots.length],third=major?(root===47?3:4):[38,43].includes(root)?3:4;
+      if(singing&&local%4===0){
+        source(0,at,'ignitionChorus',104,'brass');
+        phrase(0,at,local%8===0?[[9.5,78,.8],[10.5,81,.8],[11.5,83,.8],[12.5,81,.8],[13.5,78,.8],[14.5,76,.35],[15,74,.8]]:
+          [[9.5,81,.8],[10.5,83,.8],[11.5,85,.8],[12.5,83,.8],[13.5,81,.8],[14.5,78,.35],[15,74,.8]],104,'brass');
+      }else if(!singing&&local%2===0){
+        if(['intro','verse'].includes(section)&&local%4===0)source(0,at,'ignitionVerse',98,'brass');
+        else if(quiet)phrase(0,at,[[.5,65,2.3],[3.5,64,1.2],[5,62,2.1]],86,'brass');
+        else if(section==='turn')phrase(0,at,local===0?[[0,78,1.3],[1.5,76,1.3],[3,74,.75],[4,73,2.5],[7,69,.7]]:[[0,73,2.2],[3,69,2.4],[6,61,1.5]],96,'brass');
+        else phrase(0,at,section==='lift'?[[0,65,.7],[1,67,.7],[2,69,1.3],[3.5,72,.7],[4.5,73,1.3],[6,76,1.5]]:
+          [[.5,65,.7],[1.5,69,1.2],[3,67,.7],[4,64,1.3],[5.5,60,.7],[6.5,62,.7]],98,'brass');
+      }
+      // Literal root-eighth source is retained in the intro and first verse.
+      if(['intro','verse'].includes(section)&&local%4===0)source(3,at,'ignitionBass',94,'bass');
+      else if(!['intro','verse'].includes(section))for(let i=0;i<8;i++)hit(3,at+i*.5,root+(i===7&&local%4===3?12:0),quiet?.35:.38,quiet?76:96,'bass');
+      for(const time of quiet?[0,2.5]:[0,.75,1.5,2.5,3.25])hit(1,at+time,root+12+(local%2?7:0),quiet?1.1:.24,quiet?66:90,'guitar');
+      if(!quiet)for(let i=0;i<(singing?16:8);i++)hit(4,at+i*(singing?.25:.5),root+24+[0,third,7,12,7,third,12,7][i%8],singing?.16:.28,singing?43:36);
+      for(let i=0;i<(quiet?8:16);i++)hit(5,at+i*(quiet?.5:.25),42,.045,quiet?28:i%2?34:48);
+      for(const time of quiet?[0,2]:[0,1.5,2,2.75])hit(5,at+time,36,.07,quiet?74:103);
+      for(const time of [1,3])if(local!==count-1||time<3||quiet)hit(5,at+time,38,.07,quiet?70:100);
+    }else if(id==='advance'){
+      const roots=quiet?[36,38,40,47]:section==='lift'?[36,38,45,47]:[40,36,38,40],root=roots[local%4];
+      if(!singing&&!quiet&&section!=='lift'&&local%2===0)source(1,at,'advanceRiff',103,'guitar',local%4===2?-2:0);
+      else if(singing||quiet||section==='lift')for(const time of quiet?[0,2]:[0,.75,1.5,2,2.75,3.5])hit(1,at+time,root+12+(time===2.75?7:0),quiet?1.35:.26,quiet?77:103,'guitar');
+      if(singing&&local%4===0)source(0,at,'advanceBrass',108,'brass');
+      else if(local%2===0&&(!singing||local%4===2)){
+        if(quiet)phrase(0,at,[[0,67,2.6],[3.5,66,1.2],[5,64,2.2]],87,'brass');
+        else if(section==='intro'&&local===0){} // The low riff establishes the song first.
+        else phrase(0,at,section==='lift'?[[0,67,1.2],[1.5,69,.7],[2.5,71,1.2],[4,74,1.2],[5.5,78,1.7]]:
+          singing?[[0,67,1.3],[1.5,71,.7],[2.5,74,1.2],[4,72,1.3],[5.5,71,.7],[6.5,64,.7]]:
+          [[0,64,1.4],[2,67,.7],[3,66,.7],[4,62,1.4],[6,64,1.4]],singing?108:97,'brass');
+      }
+      for(let i=0;i<(quiet?4:8);i++)hit(3,at+i*(quiet?1:.5),root-12+(i%4===3?7:0),quiet?.65:.34,quiet?78:99,'bass');
+      if(singing&&local%2===1)for(const time of [1.5,3.25])hit(4,at+time,root+19,.28,48,'guitar');
+      // The four-beat source march is mapped to MIDI snare 38, not pitched C.
+      if(!quiet)for(const event of SOURCE.advanceMarch.notes)hit(5,at+event.beat,38,Math.min(.07,event.duration*.5),event.beat>=3?71:91);
+      else for(const time of [1,3])hit(5,at+time,38,.08,73);
+      for(let i=0;i<8;i++)hit(5,at+i*.5,42,.045,quiet?25:i%2?30:40);
+      for(const time of quiet?[0,2]:[0,2,2.75])hit(5,at+time,36,.08,quiet?76:103);
+      if(local%4===2)for(const time of [0,2])hit(5,at+time,45,.08,77);
+    }else{
+      const roots=singing?[41,43,40,45,41,43,45,45]:quiet?[41,40,43,45]:[45,41,43,45],root=roots[local%roots.length];
+      if(singing&&local%4===0)source(0,at,'overdriveChorus',106,'guitar');
+      else if(local%2===0&&(!singing||local%4===2)&&!(section==='intro'&&local<4)){
+        phrase(0,at,quiet?[[.5,76,2.2],[3,74,1.2],[4.5,72,2.2]]:section==='lift'?
+          [[0,76,.65],[.75,79,.65],[1.5,81,.65],[2.25,83,.65],[3,84,.65],[4,83,1.1],[5.5,79,.65],[6.5,76,1.1]]:
+          singing?[[0,84,1.2],[1.5,83,.65],[2.5,79,1.2],[4,81,1.4],[6,76,.65],[7,81,.7]]:
+          [[0,69,.65],[1,76,1.15],[2.5,74,.65],[3.5,72,1.15],[5,71,.65],[6,76,1.4]],quiet?89:106,'guitar');
+      }
+      if((section==='intro'||section==='verse')&&local%4===0)source(3,at,'overdriveBass',96,'bass');
+      else if(section!=='intro'&&section!=='verse')for(let i=0;i<8;i++)hit(3,at+i*.5,section==='lift'?45:root,.36,quiet?78:99,'bass');
+      if(!quiet||local>=4){
+        if(local%4===0&&!singing)source(1,at,'overdriveArp',58);
+        else{
+          const third=[40,45].includes(root)?3:4,base=singing?root+24:69;
+          for(let i=0;i<16;i++)hit(1,at+i*.25,base+[0,7,third,12,7,third,14,7][(i+local)%8],.16,singing?57:50);
+        }
+      }
+      if(!quiet)for(const time of [.75,2.75])hit(4,at+time,root+19,.25,50,'guitar');
+      for(let i=0;i<8;i++)hit(5,at+i*.5,42,.04,quiet?30:i%2?38:51);
+      for(const time of quiet?[0,2]:singing?[0,.25,.75,1.5,2,2.25,2.75,3.5]:[0,.25,1.5,2,2.25,3.5])hit(5,at+time,36,.065,quiet?77:102);
+      for(const time of [1,3])if(local!==count-1||time<3||quiet)hit(5,at+time,38,.07,quiet?72:99);
+    }
+    if(local===count-1&&!quiet){
+      // Advance keeps its complete source snare roll; the other fills occupy
+      // the space where their normal beat-three snare was omitted above.
+      if(id!=='advance')for(let i=0;i<4;i++)hit(5,at+3+i*.25,[38,45,47,38][i],.06,82+i*4);
+      else for(const time of [2.5,3.5])hit(5,at+time,47,.07,73);
+    }
+    if(local===0&&!quiet)hit(5,at,49,.1,85);
+  }
+  tracks.forEach((track,i)=>track.push({t:beats*PPQ,b:[176+(i===5?9:i),123,0]}));
+  return midi(tracks,bpm,beats,`Twist original MML arrangement - ${title}`);
+}
+
+function afterburnerScore(){
+  const drums=[];
+  for(let bar=0;bar<4;bar++){
+    const at=bar*4;
+    for(let i=0;i<16;i++)note(drums,9,at+i*.25,42,.04,i%2?27:38);
+    for(const time of [0,.75,2,2.75,3.5])note(drums,9,at+time,36,.065,77);
+    for(const time of [1,3])note(drums,9,at+time,38,.065,70);
+    if(bar===3)for(const time of [3.25,3.75])note(drums,9,at+time,45,.055,58);
+  }
+  drums.push({t:16*PPQ,b:[185,123,0]});
+  return midi([drums],120,16,'Twist original - AB Pulse');
+}
+
 export function generatedTracks(){
   const parts={'1':{waveform:1,volume:94},'2':{waveform:4,volume:74},'3':{waveform:0,volume:68},'4':{waveform:1,volume:92},'5':{waveform:1,volume:54},'10':{volume:100}};
-  return {flightPlaylist:['flight','flight2'],flightSets:{brave:['brave'],rock:['rock'],steel:['steel'],horizon:['horizon'],storm:['storm'],newrock:['steel','horizon','storm'],all:['flight','flight2','brave','rock','steel','horizon','storm']},
+  return {flightPlaylist:['flight','flight2'],flightSets:{brave:['brave'],rock:['rock'],steel:['steel'],horizon:['horizon'],storm:['storm'],newrock:['steel','horizon','storm'],ignition:['ignition'],advance:['advance'],overdrive:['overdrive'],proposals:['ignition','advance','overdrive'],all:['flight','flight2','brave','rock','steel','horizon','storm','ignition','advance','overdrive']},
+    flightTempos:{flight:160,flight2:168,brave:170,rock:156,steel:144,horizon:148,storm:152,ignition:165,advance:145,overdrive:175},
     rock:{title:ROCK_SONG.title,file:'rock.mid',loop:{start:0,end:Math.round(60000000/ROCK_SONG.bpm)/1000000*ROCK_SONG.beats},parts:{'1':{waveform:1,volume:111},'2':{waveform:0,volume:55},'3':{waveform:0,volume:49},'4':{waveform:1,volume:88},'5':{waveform:1,volume:43},'10':{volume:104}}},
     brave:{title:BRAVE_SONG.title,file:'brave.mid',loop:{start:0,end:Math.round(60000000/BRAVE_SONG.bpm)/1000000*BRAVE_SONG.beats},parts:{'1':{waveform:4,volume:101},'2':{waveform:1,volume:66},'3':{waveform:0,volume:64},'4':{waveform:1,volume:96},'5':{waveform:1,volume:44},'10':{volume:105}}},
     ...Object.fromEntries(HARD_SONGS.map(song=>[song.id,{title:song.title,file:`${song.id}.mid`,loop:{start:0,end:Math.round(60000000/song.bpm)/1000000*192},parts}])),
     ...Object.fromEntries(ROCK_TRILOGY.map(song=>[song.id,{title:song.title,file:`${song.id}.mid`,loop:{start:0,end:Math.round(60000000/song.bpm)/1000000*song.beats},parts:{'1':{waveform:1,volume:101},'2':{waveform:0,volume:51},'3':{waveform:0,volume:45},'4':{waveform:1,volume:83},'5':{waveform:1,volume:38},'10':{volume:96}}}])),
+    ...Object.fromEntries(MML_SONGS.map(song=>[song.id,{title:song.title,file:`${song.id}.mid`,loop:{start:0,end:Math.round(60000000/song.bpm)/1000000*song.beats},parts:{'1':{waveform:song.id==='overdrive'?1:4,volume:song.id==='advance'?95:99},'2':{waveform:song.id==='overdrive'?4:1,volume:song.id==='overdrive'?46:72},'4':{waveform:1,volume:79},'5':{waveform:1,volume:42},'10':{volume:87}}}])),
+    afterburner:{title:'AB Pulse',file:'afterburner.mid',loop:{start:0,end:8},parts:{'10':{volume:72}},bpm:120,minSeconds:3},
     clear:{title:'突破の凱歌',file:'clear.mid',parts:{'1':{waveform:4,volume:96},'2':{waveform:1,volume:78},'3':{waveform:1,volume:88},'4':{waveform:1,volume:50},'10':{volume:98}}},
     comparison:{title:'ひかりの航路（比較）',file:'flight-legacy.mid',loop:{start:0,end:45},parts:{'1':{waveform:4,volume:96},'2':{waveform:2,volume:78},'3':{waveform:0,volume:96},'10':{volume:85}}}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   await mkdir('public/music',{recursive:true});for(const [name,bytes]of Object.entries(generateMusic()))await writeFile(`public/music/${name}.mid`,bytes);
   await writeFile('public/music/tracks.json',JSON.stringify(generatedTracks(),null,2)+'\n');
-  console.log('Generated originals: preserved preceding six MIDI tracks; added steel / horizon / storm, 64 bars each.');
+  console.log('Generated originals: preserved preceding nine MIDI tracks; added ignition / advance / overdrive and the drums-only AB Pulse.');
 }

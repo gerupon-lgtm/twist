@@ -6,6 +6,9 @@ import {convertSpeed,normalizeSpeedUnit} from './speed-units.js';
 import './style.css';
 import './guidance.css';
 import './boundary.css';
+import './speedfeel-results.css';
+import './essential-hud.css';
+import {updateEssentialHud} from './essential-hud.js';
 import {getCourse,COURSE_CRITERIA} from './course.js';
 import {loadCourseChoice,saveCourseChoice} from './course-choice.js';
 import {STAGE_HALF_EXTENT} from './boundary.js';
@@ -27,6 +30,11 @@ import { updateTargetHeightPanel } from './target-height-panel.js';
 import { createRangeEditor } from './range-editor.js';
 import { preserveTiltInput } from './controls.js';
 import { createRouteTiming } from './route-timing.js';
+import {createApproachRecords} from './approach-records.js';
+import {createStraightRecords} from './straight-records.js';
+import {createPassByTracker} from './passby-events.js';
+import {createCourseBestStore,courseBestKey} from './course-bests.js';
+import {radarUpgradeOffer} from './radar-upgrade.js';
 import { exitCenterVisible } from './exit-visibility.js';
 import { layoutCockpitObjective,updateCockpitObjective } from './cockpit-objective-panel.js';
 import { createFeedbackController } from './feedback/controller.js';
@@ -50,13 +58,42 @@ let cameraMode = normalizeCameraMode(new URLSearchParams(location.search).get('c
 const flightSession = createFlightSession();
 const afterburnerSession=createAfterburnerSession();
 const routeTiming=createRouteTiming(selectedCourse.lights.length);
+const approaches=createApproachRecords(selectedCourse.lights.length),straights=createStraightRecords(selectedCourse.abStraights),passbys=createPassByTracker();
+const courseBests=createCourseBestStore(courseStorage);let courseTime=null,radarOffer=radarUpgradeOffer(courseStorage);
+let passScenery=null,passTargetId=null,passCandidates=[];
 const feedback = createFeedbackController();
 const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dialog });
 let inputMode = null;
 let inputHeld=false,lastPauseReason='',exitNoticeUntil=0,activeFrameAt=0;
 const inputTransitions=[];
-const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:routeTiming.snapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length}, stageSize:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2}, ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...pwa.report() }));
-function resetRoute(){stage.reset();afterburnerSession.beginLeg();routeTiming.reset(selectedCourse.lights.length);exitNoticeUntil=0;}
+function recordedSegments(){const records=approaches.snapshot();return routeTiming.snapshot().map((segment,index)=>({...segment,...records[index]}));}
+function courseTimeSnapshot(){return courseTime?{...courseTime}:{courseId:selectedCourse.id,courseKey:courseBestKey(selectedCourse,playMode),mode:playMode,seconds:null,bestSeconds:courseBests.best(selectedCourse,playMode),newBest:false,saved:null};}
+const flightPanel = createFlightPanel(() => ({ pitch: pitchMode, steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length}, stageSize:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2}, ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...pwa.report() }));
+const radarNotice=$('radar-upgrade-notice'),radarAdjustments=$('flight-adjustments');let radarOfferSeen=false;
+$('setting-radarRange').closest('label').after(radarNotice);
+function resetRouteRecords(){routeTiming.reset(selectedCourse.lights.length);approaches.reset(selectedCourse.lights.length);straights.reset(selectedCourse.abStraights);passbys.reset();courseTime=null;passScenery=null;passTargetId=null;passCandidates=[];}
+function resetRoute(){stage.reset();afterburnerSession.beginLeg();resetRouteRecords();exitNoticeUntil=0;}
+function passObjects(state){
+  const scenery=stage.getPassObjects(),targetId=state.collected<state.total?`target-${selectedCourse.id}-${state.collected+1}`:null;
+  if(scenery!==passScenery||targetId!==passTargetId){passScenery=scenery;passTargetId=targetId;passCandidates=targetId?[...scenery,{id:targetId,position:{...state.targetPosition},radius:state.targetRadius}]:scenery;}
+  return passCandidates;
+}
+function renderRadarUpgrade(){
+  const open=phase==='paused'&&!radarAdjustments.hidden&&radarAdjustments.open;
+  if(radarOffer&&(!open&&radarOfferSeen||flightPanel.getSettings().radarRange!==radarOffer.current))radarOffer=null;
+  radarNotice.hidden=!(radarOffer&&open);
+}
+function markRadarOfferShown(){if(radarOffer&&phase==='paused'&&radarAdjustments.open&&!radarNotice.hidden){radarOffer.shown();radarOfferSeen=true;}}
+if(typeof IntersectionObserver==='function'){
+  const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting&&entry.intersectionRatio>=.8))markRadarOfferShown();},{threshold:.8});
+  observer.observe(radarNotice.querySelector('p'));
+}else{
+  const visible=()=>{const r=radarNotice.querySelector('p').getBoundingClientRect(),v=$('veil').getBoundingClientRect();if(r.height>0&&r.top>=Math.max(0,v.top)&&r.bottom<=Math.min(innerHeight,v.bottom)&&r.left>=Math.max(0,v.left)&&r.right<=Math.min(innerWidth,v.right))markRadarOfferShown();};
+  $('veil').addEventListener('scroll',visible,{passive:true});window.addEventListener('resize',visible);radarAdjustments.addEventListener('toggle',()=>requestAnimationFrame(visible));
+}
+radarAdjustments.addEventListener('toggle',renderRadarUpgrade);$('setting-radarRange').addEventListener('input',renderRadarUpgrade);
+$('radar-upgrade-accept').addEventListener('click',()=>{if(!radarOffer||phase!=='paused'||!radarAdjustments.open)return;markRadarOfferShown();flightPanel.setSetting('radarRange',radarOffer.next);radarOffer=null;renderRadarUpgrade();});
+$('radar-upgrade-keep').addEventListener('click',()=>{if(!radarOffer||phase!=='paused'||!radarAdjustments.open)return;markRadarOfferShown();radarOffer=null;renderRadarUpgrade();});
 function setInputMode(next,reason) {
   if(inputMode!==next){inputTransitions.push({from:inputMode,to:next,reason,phase,at:new Date().toISOString()});if(inputTransitions.length>8)inputTransitions.shift();}
   inputMode=next;app.dataset.input=next??'';
@@ -94,6 +131,7 @@ const controls = ['pitch', 'steer', 'twist'];
 
 function setPhase(next) {
   phase = next;
+  if(next!=='running')$('flight-essential-hud').hidden=true;
   app.dataset.phase = next;
   flightPanel.setPhase(next, playMode);
   $('pause-button').disabled = next !== 'running';
@@ -109,6 +147,7 @@ function setPhase(next) {
   for (const steering of ['twist', 'tilt']) $(`steering-${steering}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   $('course-select').disabled=['waiting','ready','running'].includes(next);
   pwa.render();
+  renderRadarUpgrade();
 }
 
 const modeNote = () => playMode === 'flight'
@@ -237,7 +276,7 @@ function applyModeUI() {
     ? 'スマホの面を保って回す。時計回りで右旋回。'
     : '右端・左端を上下にひねる。下げた側へ旋回。';
   $('practice-panel').open = !flight;
-  $('practice-summary').hidden = !flight;
+  $('practice-summary').hidden = false;
   $('mode-explore').setAttribute('aria-pressed', String(!flight));
   $('mode-flight').setAttribute('aria-pressed', String(flight));
   $('pitch-caption').textContent = flight ? (pitchMode === 'angle' ? '画面上辺で機首角度・中立で水平' : '画面上辺を起こすと機首上げ') : '先端側で加速・逆で制動';
@@ -338,7 +377,7 @@ function selectCourse(id){
   stage.dispose();
   try{stage=createStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,turnGravity:flightPanel.getSettings().turnGravity});}
   catch(error){stage=null;setPhase('error');dialog({title:'コースを開けませんでした',description:'ページを再読み込みして、もう一度お試しください。',action:'再読み込みする',error:error.message});return;}
-  reference=null;previousCollected=0;exitNoticeUntil=0;routeTiming.reset(next.lights.length);flightSession.reset();afterburnerSession.reset();feedback.reset();
+  reference=null;previousCollected=0;exitNoticeUntil=0;resetRouteRecords();flightSession.reset();afterburnerSession.reset();feedback.reset();
   $('toast').hidden=true;flightPanel.showResult(null);resize();stage.update(0,{mode:playMode,speed:0,craftQuaternion});
   const url=new URL(location.href);url.searchParams.set('course',next.id);url.searchParams.set('v',APP_VERSION);history.replaceState(null,'',url);
   applyModeUI();
@@ -407,6 +446,9 @@ function pause(message = '止まっています。スマホを楽な持ち方に
   halt();
   reference = null;
   setPhase('paused');
+  // Publish the final active-frame records before a pause/copy can read them.
+  // The regular HUD is throttled; the observations themselves are already held.
+  if(stage)updateHud(performance.now(),stage.getStatus());
   dialog({ title: '一時停止', description: message, note: modeNote(), action: inputMode === 'sensor' ? 'この持ち方で再開する' : '画面操作を再開する', guide: false });
 }
 
@@ -434,7 +476,7 @@ function run(mode,reason) {
   else craftQuaternion.identity();
   setPhase('running');
   activeFrameAt=performance.now();
-  routeTiming.advance(0,{...stage.getStatus(),targetVisible:targetCenterInViewport(stage.getStatus())});
+  const initial=stage.getStatus();routeTiming.advance(0,{...initial,targetVisible:targetCenterInViewport(initial)});approaches.advance(0,initial);straights.advance(initial);passbys.advance(0,{...initial,objects:passObjects(initial)});
   feedback.start({flightNumber:flightSession.snapshot().legs});
   $('pause-button').focus({ preventScroll: true });
   keepAwake();
@@ -699,7 +741,9 @@ function updateGroundProximity(state, language='en') {
   $('altitude-value').textContent = proximity.known ? proximity.clearance.toFixed(1) : '—';
   const message = hudGroundWarning(level,language);
   if ($('ground-warning-text').textContent !== message) $('ground-warning-text').textContent = message;
-  $('ground-warning-text').dataset.level = level;
+  if($('ground-warning-text').dataset.level!==level)$('ground-warning-text').dataset.level=level;
+  const warningHidden=!flight||!['low','danger','stopped','unknown'].includes(level);
+  if($('ground-warning-text').hidden!==warningHidden)$('ground-warning-text').hidden=warningHidden;
   const edge = $('ground-edge-warning');
   edge.dataset.level = level;
   edge.hidden = !flight || phase !== 'running' || !['low', 'danger'].includes(level);
@@ -773,7 +817,7 @@ function updateHud(now, state) {
   const settings = flightPanel.getSettings();
   // Only the passive, running HUD changes language. Source state and record values stay Japanese.
   const language=phase==='running'?normalizeHudLanguage(settings.hudLanguage):'ja';
-  $('speed-value').parentElement.firstChild.textContent=language==='ja'?'速さ ':'SPD ';
+  $('speed-value').parentElement.firstChild.textContent=language==='ja'?(playMode==='flight'?'速度 ':'移動速度 '):'SPD ';
   $('ground-clearance').textContent=hudText(language,playMode==='flight'?'groundClearance':'altitudeShort');
   $('nose-value').parentElement.firstChild.textContent=`${hudText(language,'nose')} `;
   $('bank-value').parentElement.firstChild.textContent=`${hudText(language,'bank')} `;
@@ -847,14 +891,17 @@ function updateHud(now, state) {
   app.dataset.navigationTargets = JSON.stringify(state.navigationTargets);
   app.dataset.exitAppearance=JSON.stringify(state.exitAppearance);
   app.dataset.inputHeld=String(inputHeld);
-  app.dataset.segments=JSON.stringify(routeTiming.snapshot());
+  app.dataset.segments=JSON.stringify(recordedSegments());
+  app.dataset.approaches=JSON.stringify(approaches.snapshot());app.dataset.abStraights=JSON.stringify(straights.snapshot());app.dataset.passbys=JSON.stringify(passbys.snapshot());app.dataset.courseTime=JSON.stringify(courseTimeSnapshot());
+  app.dataset.groundPattern=JSON.stringify(state.groundPattern);app.dataset.abLane=JSON.stringify(state.abLane);
   app.dataset.exitDiscovery=JSON.stringify(routeTiming.exitSnapshot());
   app.dataset.targetViews=JSON.stringify(routeTiming.targetViewsSnapshot());
   app.dataset.course=JSON.stringify(state.course);app.dataset.stageSize=JSON.stringify(state.stageSize);app.dataset.turnGravity=String(state.turnGravity);app.dataset.boundary=JSON.stringify(state.boundary);
   const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
   $('cockpit-exit-notice').hidden=!(cockpitActive&&visibility==='assisted'&&state.collected===state.total&&now<exitNoticeUntil);
   $('cockpit-exit-notice').textContent=hudText(language,'exitOpen');
-  const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive,language});
+  const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive,language,inlineParent:$('flight-essential-height')});
+  updateEssentialHud({...state,inputHeld},{phase,mode:playMode,camera:cameraMode,language});
   updateRadar(state, { phase, visibility, range: settings.radarRange,language });
   const cockpitLayout = layoutCockpitHud(cockpitActive);
   updateEdgeMarker(state,language);
@@ -868,6 +915,7 @@ function frame(now) {
   const dt = Math.min((now - previousFrame) / 1000, 0.05);
   previousFrame = now;
   if (stage) {
+    stage.setGroundPatternStrength(flightPanel.getSettings().groundPatternStrength);
     if (phase === 'running') {
       if (inputMode === 'sensor') {
         // An unchanged held pose may produce no new events. Keep its last valid value while visible.
@@ -908,6 +956,7 @@ function frame(now) {
     if(wasRunning){
       const targetVisible=targetCenterInViewport(state);
       routeTiming.advance(activeSeconds,{...state,targetVisible,exitVisible:state.collected===state.total&&targetCenterInPlayArea(state)});activeFrameAt=now;
+      approaches.advance(activeSeconds,state);straights.advance(state);
     }
     if (wasFlying) {flightSession.advance(activeSeconds, state);afterburnerSession.advance(state.afterburner);}
     if (phase === 'running' && playMode === 'flight' && !state.grounded) {
@@ -923,11 +972,13 @@ function frame(now) {
       else showToast(hudCollectedNotice(state,language));
     }
     if (state.complete && phase === 'running') {
+      const segments=routeTiming.snapshot();
+      if(segments.every(segment=>Number.isFinite(segment.seconds)))courseTime=courseBests.complete(selectedCourse,playMode,segments.reduce((sum,segment)=>sum+segment.seconds,0));
       halt();
       setPhase('complete');
       feedback.event('clear');
       dialog({ title: '出口に到着しました', description: playMode === 'flight' ? `${state.total}つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？` : `${state.total}つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？`, note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
-      if (playMode === 'flight') flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'clear', flightSession.lastLegSnapshot()));
+      flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'clear', flightSession.lastLegSnapshot()));
     }
     if (state.grounded && phase === 'running') {
       let description = '地面まで0mで接触しました。';
@@ -949,6 +1000,7 @@ function frame(now) {
     const guidance=updateGuidancePanel(state,{phase,camera:cameraMode,settings:flightPanel.getSettings(),now,dt});
     updateBoundaryPanel(state,{phase,settings:flightPanel.getSettings()});
     feedback.update(state,angles,inputMode,flightSteering,now,{enabled:phase==='running'&&playMode==='flight'&&flightPanel.getSettings().audioGuidance,bearingDeg:guidance?.bearingDeg});
+    if(phase==='running')for(const event of passbys.advance(activeSeconds,{...state,objects:passObjects(state)}))feedback.passBy(event);
   }
   feedback.frameTiming(performance.now()-frameStart);
   if (now > toastUntil) $('toast').hidden = true;
@@ -959,6 +1011,7 @@ applyModeUI();
 try {
   stage = createStage(canvas, { visibility, display: flightDisplay, cameraMode, course:selectedCourse, turnGravity:flightPanel.getSettings().turnGravity });
   stage.update(0, { mode: playMode, speed: 0, craftQuaternion });
+  stage.setGroundPatternStrength(flightPanel.getSettings().groundPatternStrength);renderRadarUpgrade();
   resize();
   pwa.initialize();
   requestAnimationFrame(frame);

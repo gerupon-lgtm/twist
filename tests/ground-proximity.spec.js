@@ -49,7 +49,8 @@ async function advanceToLevel(page, expected) {
 async function expectClearWarningLayout(page) {
   const layout = await page.evaluate(() => {
     const rect = id => document.getElementById(id).getBoundingClientRect();
-    const hud = rect('bottom-panel');
+    const hud = rect('flight-essential-altitude');
+    const controls = rect('bottom-panel');
     const warning = rect('ground-warning-text');
     const clearance = rect('ground-proximity');
     const marker = rect('target-edge-marker');
@@ -60,9 +61,11 @@ async function expectClearWarningLayout(page) {
     const inside = r => r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
     const markerShown = !document.getElementById('target-edge-marker').hidden;
     return {
-      warningInside: inside(warning) && warning.left >= hud.left && warning.right <= hud.right,
-      clearanceInside: inside(clearance),
-      hudLeavesCraft: !overlaps(hud, craft),
+      warningInside: inside(warning) && warning.left >= hud.left && warning.right <= hud.right
+        && warning.top >= hud.top && warning.bottom <= hud.bottom,
+      clearanceInside: inside(clearance) && clearance.left >= hud.left && clearance.right <= hud.right
+        && clearance.top >= hud.top && clearance.bottom <= hud.bottom,
+      hudLeavesCraft: !overlaps(hud, craft) && !overlaps(hud,controls) && !overlaps(hud,nav),
       markerClear: !markerShown || (inside(marker) && !overlaps(marker, hud)
         && !overlaps(marker, nav) && !overlaps(marker, craft)),
       frameDoesNotIntercept: getComputedStyle(document.getElementById('ground-edge-warning')).pointerEvents === 'none',

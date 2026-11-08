@@ -68,7 +68,8 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
     : `<span>HDG ${(heading+350)%360}│${(heading+355)%360}│<strong>${heading%360}°</strong>│${(heading+5)%360}│${(heading+10)%360}</span>`;
   const ground = getGroundProximity(state);
   const warning = hudCockpitWarning(state,ground,language);
-  $('cockpit-power').innerHTML = `<span>${warning}</span>`;
+  const power=$('cockpit-power'),warningMarkup=`<span>${warning}</span>`;
+  if(power.innerHTML!==warningMarkup)power.innerHTML=warningMarkup;
   const projection = cockpitProjection(state,w,h,settings);
   const horizon = horizonSegment(projection.horizon,w,h);
   const left = insets.left+82, right = w-insets.right-102;

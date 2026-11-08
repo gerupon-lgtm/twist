@@ -48,7 +48,7 @@ test('guide setting survives reload, is copied, is hidden in legacy, and also wo
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await expect(page.locator('#setting-targetHeightGuide')).not.toBeChecked();await page.locator('#setting-targetHeightGuide').check();
  await page.locator('#view-classic').click();await expect(page.locator('#setting-targetHeightGuide')).toBeDisabled();await page.locator('#settings-copy').click();expect(await page.evaluate(()=>JSON.parse(window.copied).inactiveSettings)).toContain('targetHeightGuide');
  await page.locator('#start-button').click();await page.clock.runFor(100);await expect(page.locator('#target-height-inline')).toBeHidden();
- await page.locator('#pause-button').click();await page.locator('#view-assisted').click();await page.locator('#mode-explore').click();await page.locator('#start-button').click();await page.clock.runFor(100);await expect(page.locator('.flight-line #target-height-inline')).toBeVisible();
+ await page.locator('#pause-button').click();await page.locator('#view-assisted').click();await page.locator('#mode-explore').click();await page.locator('#start-button').click();await page.clock.runFor(100);await expect(page.locator('#flight-essential-height #target-height-inline')).toBeVisible();
 });
 
 useLegacyCourse(test);

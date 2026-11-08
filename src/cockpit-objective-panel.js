@@ -8,8 +8,8 @@ export function layoutCockpitObjective(layout) {
   const top=compassY+($('cockpit-exit-notice').hidden?70:98);
   const area={left:insets.left+82,right:w-insets.right-102,top,bottom:powerY-8};
   const bounds={left:area.left+17,right:area.right-17,top:area.top+17,bottom:area.bottom-17};
-  const obstacles=['radar','cockpit-speed','cockpit-altitude','cockpit-vario','cockpit-heading','cockpit-target-height','cockpit-exit-notice','practice-panel']
-    .map($).filter(el=>!el.hidden&&el.getClientRects().length).map(el=>el.getBoundingClientRect());
+  const obstacles=['radar','flight-essential-speed','flight-essential-altitude','cockpit-speed','cockpit-altitude','cockpit-vario','cockpit-heading','cockpit-target-height','cockpit-exit-notice','practice-panel']
+    .map($).filter(el=>el&&!el.hidden&&el.getClientRects().length).map(el=>el.getBoundingClientRect());
   geometry={w,h,area,bounds,obstacles};
 }
 export function updateCockpitObjective(state,active,{language='en'}={}) {

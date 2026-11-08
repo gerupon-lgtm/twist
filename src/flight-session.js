@@ -28,14 +28,14 @@ export function createFlightSession() {
   };
 }
 
-export function flightReport({ version, pitch, steer, display = 'bank', camera = 'overlay', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted', feedback, input, segments, exitDiscovery, targetViews, course, stageSize, afterburner, launch = 'browser', fullscreen = false }) {
+export function flightReport({ version, pitch, steer, display = 'bank', camera = 'overlay', result, settings, stats, lastLeg, mode = 'flight', view = 'assisted', feedback, input, segments, approaches, abStraights, passbys, courseTime, exitDiscovery, targetViews, course, stageSize, afterburner, launch = 'browser', fullscreen = false }) {
   const normalized=normalizeFlightSettings(settings);
   const inactiveSettings = [...(pitch === 'rate' ? [...(mode==='flight'&&normalized.flightDirector?[]:['maxPitch']), 'timeConstant'] : []),
     ...(display !== 'fixed' ? ['displayTimeConstant'] : []), ...(view !== 'assisted' ? ['radarRange'] : []),
     ...(camera !== 'chase' || mode !== 'flight' ? ['chaseTimeConstant'] : [])];
   inactiveSettings.push(...(steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone']));
   if(mode!=='flight'||camera!=='cockpit')inactiveSettings.push('ladderRange','cockpitFov');
-  if(view!=='assisted')inactiveSettings.push('targetHeightGuide','streakAmount');
+  if(view!=='assisted')inactiveSettings.push('targetHeightGuide','streakAmount','groundPatternStrength');
   if(mode==='flight'&&!normalized.autoAfterburner)inactiveSettings.push('autoAfterburnerAngle');
   if(mode!=='flight')inactiveSettings.push('speedFov','highSpeedShake','autoAfterburner','autoAfterburnerAngle');
   if(mode!=='flight')inactiveSettings.push('flightDirector','targetHeadingCue','edgeGuidance','nextTargetNotice','audioGuidance');
@@ -46,6 +46,10 @@ export function flightReport({ version, pitch, steer, display = 'bank', camera =
     ...(feedback ? {feedback:structuredClone(feedback)} : {}),
     ...(input ? {input:structuredClone(input)} : {}),
     ...(segments ? {segments:structuredClone(segments)} : {}),
+    ...(approaches ? {approaches:structuredClone(approaches)} : {}),
+    ...(abStraights ? {abStraights:structuredClone(abStraights)} : {}),
+    ...(passbys ? {passbys:structuredClone(passbys)} : {}),
+    ...(courseTime ? {courseTime:structuredClone(courseTime)} : {}),
     ...(exitDiscovery ? {exitDiscovery:structuredClone(exitDiscovery)} : {}),
     ...(targetViews ? {targetViews:structuredClone(targetViews)} : {}),
     ...(course ? {course:structuredClone(course)} : {}),

@@ -8,6 +8,8 @@ import { advanceDisplayRoll, flightDisplayPose, withoutViewRoll } from './flight
 import { advanceChaseAngles, bodyViewAngles, chaseView, normalizeCameraMode } from './flight-camera.js';
 import { createAircraft } from './aircraft.js';
 import { createScenery } from './scenery.js';
+import { createGroundPattern } from './ground-pattern.js';
+import { abLaneStatus } from './ab-straight.js';
 import { createExitBeacon } from './exit-beacon.js';
 import { COURSE } from './course.js';
 import { FLIGHT_TURN, normalizeTurnGravity, flightYawForBank, applyHorizontalTurn } from './flight-turn.js';
@@ -58,7 +60,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   // Both cameras remain fixed for the entire simulation.
   const world = new THREE.Group();
   scene.add(world);
-  const scenery=createScenery({halfExtent:STAGE_HALF_EXTENT,avoidPoints:[layout.start,...layout.lights,layout.exit]});world.add(scenery.group);
+  const scenery=createScenery({halfExtent:STAGE_HALF_EXTENT,avoidPoints:[layout.start,...layout.lights,layout.exit],
+    coursePoints:[layout.start,...layout.lights,layout.exit],abStraights:layout.abStraights});world.add(scenery.group);
   const airflow=createSpeedEffects();camera.add(airflow.group);scene.add(camera);
   const boundaryVisual=createStageBoundary({halfExtent:STAGE_HALF_EXTENT});world.add(boundaryVisual.group);
   scene.add(new THREE.HemisphereLight(0xf4fcff, 0x7896a2, 2.4));
@@ -167,6 +170,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   outerGround.rotation.x = -Math.PI / 2;
   outerGround.position.y = -0.08;
   world.add(outerGround);
+  const groundPattern=createGroundPattern({maxAnisotropy:renderer.capabilities.getMaxAnisotropy()});
+  groundPattern.applyWorldUV(islandTop);groundPattern.applyWorldUV(outerGround);
   // New cameras have a true level horizon beyond the finite stage mesh.
   // Center this background hemisphere on the eye; its equator is world Y=0.
   const horizonBackdrop = new THREE.Mesh(new THREE.SphereGeometry(220,64,16,0,Math.PI*2,Math.PI/2,Math.PI/2),
@@ -520,6 +525,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   let speed = 0;
   let throttle = 0;
   let afterburner=createAfterburnerState(),overspeedFromAB=false;
+  let afterburnerMotion=Object.freeze([]);
   let speedSettings={streakAmount:0,speedFov:0,highSpeedShake:false,autoAfterburner:false,autoAfterburnerAngle:35};
   let speedExtraFov=0,baseVerticalFov=64;
   const effectShake=new THREE.Quaternion(),effectEuler=new THREE.Euler();
@@ -639,6 +645,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
 
   function launchFlight() {
     if (disposed || grounded || complete) return;
+    afterburnerMotion=Object.freeze([]);
     if (mode !== 'flight') {
       baseOrientation.copy(orientation);
       bank = 0;
@@ -735,6 +742,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     camera.far=1800;
     camera.updateProjectionMatrix();
     scenery.group.visible=visibility==='assisted';
+    islandTop.material=outerGround.material=visibility==='assisted'?groundPattern.material:groundMaterial;
+    groundTiles.visible=visibility!=='assisted';
     directionLandmarks.visible = visibility === 'assisted';
     refreshTargets();
   }
@@ -759,8 +768,18 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     render();
   }
 
+  function setGroundPatternStrength(value){
+    if(disposed)return;
+    if(groundPattern.setStrength(value))render();
+  }
+  // Stable, frozen metadata is shared with the audio observer without copying
+  // every pillar on every animation frame. Hidden legacy scenery makes no sound.
+  const noPassObjects=Object.freeze([]);
+  function getPassObjects(){return visibility==='assisted'?scenery.passObjects:noPassObjects;}
+
   function update(dt, input = {}) {
     if (disposed) return;
+    afterburnerMotion=[];
     const compensation = input.craftQuaternion;
     if (compensation && [compensation.x, compensation.y, compensation.z, compensation.w]
       .every(Number.isFinite)) {
@@ -804,6 +823,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     const targetThrottle = THREE.MathUtils.clamp(
       finite(input.throttle, FLIGHT_MODEL.defaultThrottle), 0, 1);
     if (elapsed === 0 || (mode === 'flight' && (grounded || complete))) {
+      afterburnerMotion=Object.freeze(afterburnerMotion);
       stopMotion();
       syncWorld();
       render();
@@ -892,6 +912,18 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         if (position.y >= 45 && velocity.y > 0) velocity.y = 0;
         speed = velocity.length();
         yawRate = grounded ? 0 : flightYawForBank(bank, speed, turnGravity);
+        // Observation only: collection already treats this stored movement as
+        // a line. Attribute paid AB to the first paid/step part of that line,
+        // without changing the force, position, clamp or collection updates.
+        if(paid>0){
+          const fraction=paid/step;
+          afterburnerMotion.push(Object.freeze({
+            from:Object.freeze({x:previousPosition.x,y:previousPosition.y,z:previousPosition.z}),
+            to:Object.freeze({x:previousPosition.x+(position.x-previousPosition.x)*fraction,
+              y:previousPosition.y+(position.y-previousPosition.y)*fraction,
+              z:previousPosition.z+(position.z-previousPosition.z)*fraction}),seconds:paid,
+          }));
+        }
       } else {
         // Exploration remains direct movement at the supplied speed, with no
         // stored momentum or force calculation.
@@ -910,6 +942,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       }
       if (mode === 'flight' && (grounded || complete)) break;
     }
+    afterburnerMotion=Object.freeze(afterburnerMotion);
     syncWorld(elapsed);
     render();
   }
@@ -928,6 +961,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       boundary:stageBoundaryStatus(position,{heading:Math.atan2(forward.x,-forward.z),velocity,speed,turnGravity,maxBank:turnBankLimit}),
       boundaryAppearance:boundaryVisual.snapshot(),
       afterburner:{...afterburner},
+      afterburnerMotion,
       speedEffects:{...airflow.snapshot(),extraFov:speedExtraFov,baseVerticalFov,highSpeedShake:speedSettings.highSpeedShake===true},
       complete,
       radarHeading: Math.hypot(velocity.x, velocity.z) > .1 ? Math.atan2(velocity.x, -velocity.z) : Math.atan2(forward.x, -forward.z),
@@ -991,6 +1025,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       fieldOfView: { ...fieldOfView },
       cameraClipping:{near:camera.near,far:camera.far},
       scenery:{visible:scenery.group.visible,...scenery.details},
+      groundPattern:{...groundPattern.snapshot(),visible:visibility==='assisted',centralPavingVisible:groundTiles.visible},
+      abLane:abLaneStatus(layout.abStraights,position),
       targetLocal: { x: localRelative.x, y: localRelative.y, z: localRelative.z },
       landmarks: visibility === 'assisted' ? DIRECTION_LANDMARKS.map((landmark) => ({
         ...landmark, position: { ...landmark.position },
@@ -1000,6 +1036,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
 
   function reset() {
     afterburner=createAfterburnerState();overspeedFromAB=false;
+    afterburnerMotion=Object.freeze([]);
     position.copy(START);
     baseOrientation.identity();
     orientation.identity();
@@ -1023,7 +1060,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     if (disposed) return;
     disposed = true;
     const geometries = new Set();
-    const materials = new Set([guide, dimGuide, gold, core, haloMaterial, brightCore, brightRing, brightHalo, brightStem, ...beaconVisuals.map(v => v.stem.userData.legacyMaterial)]);
+    const materials = new Set([groundMaterial, guide, dimGuide, gold, core, haloMaterial, brightCore, brightRing, brightHalo, brightStem, ...beaconVisuals.map(v => v.stem.userData.legacyMaterial)]);
     [scene, craftScene].forEach((root) => root.traverse((object) => {
       if(object.isInstancedMesh)object.dispose();
       if (object.geometry) geometries.add(object.geometry);
@@ -1033,7 +1070,9 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       }
     }));
     geometries.forEach((geometry) => geometry.dispose());
+    materials.delete(groundPattern.material);
     materials.forEach((material) => material.dispose());
+    groundPattern.dispose();
     hintTexture.dispose();
     exitVisual.dispose();
     renderer.dispose();
@@ -1042,5 +1081,5 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   updateProjection();
   reset();
   function setCameraMode(value) { cameraMode = normalizeCameraMode(value); chaseAngles = null; updateProjection(); syncWorld(); render(); }
-  return { resize, update, getStatus, reset, launchFlight, setVisibility, setDisplay, setCameraMode, resetDisplayRotation, dispose };
+  return { resize, update, getStatus, reset, launchFlight, setVisibility, setGroundPatternStrength, getPassObjects, setDisplay, setCameraMode, resetDisplayRotation, dispose };
 }

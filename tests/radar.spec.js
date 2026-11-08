@@ -26,8 +26,8 @@ for(const mode of ['flight','explore'])test(`${mode} radar uses actual heading a
   const layout=await page.evaluate(()=>{
    const r=document.getElementById('radar').getBoundingClientRect();
    const intersects=b=>r.left<b.right&&r.right>b.left&&r.top<b.bottom&&r.bottom>b.top;
-   const ids=['bottom-panel','toast','practice-panel','target-edge-marker'];
-   const obstacles=ids.map(id=>document.getElementById(id)).filter(el=>!el.hidden&&el.getClientRects().length).map(el=>el.getBoundingClientRect());
+   const ids=['flight-essential-speed','flight-essential-altitude','bottom-panel','toast','practice-panel','target-edge-marker'];
+   const obstacles=ids.map(id=>document.getElementById(id)).filter(el=>el&&!el.hidden&&el.getClientRects().length).map(el=>el.getBoundingClientRect());
    obstacles.push(document.querySelector('.navigation').getBoundingClientRect(),document.querySelector('.topbar').getBoundingClientRect(),{left:innerWidth/2-32,right:innerWidth/2+32,top:innerHeight/2-26,bottom:innerHeight/2+26});
    return {clear:!obstacles.some(intersects),inside:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight,size:r.width};
   });expect(layout).toEqual({clear:true,inside:true,size:100});
