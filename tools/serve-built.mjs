@@ -2,7 +2,9 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 const root=path.resolve('dist');
-const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.webmanifest':'application/manifest+json','.png':'image/png','.svg':'image/svg+xml','.mid':'audio/midi','.txt':'text/plain; charset=utf-8'};
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.webmanifest':'application/manifest+json','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.mid':'audio/midi','.txt':'text/plain; charset=utf-8'};
+const builtPort=Number(process.env.TWIST_BUILT_TEST_PORT??4174);
+if(!Number.isInteger(builtPort)||builtPort<1024||builtPort>65535)throw Error('Invalid built verification port');
 // Verification server only: the same build can be checked at / and /twist/.
 http.createServer(async(req,res)=>{
   let pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
@@ -15,4 +17,4 @@ http.createServer(async(req,res)=>{
   if(!file.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}
   try{const data=await readFile(file);res.writeHead(200,{'content-type':types[path.extname(file)]||'application/octet-stream','cache-control':'no-store'});res.end(data);}
   catch{res.writeHead(404);res.end('Not found');}
-}).listen(4174,'localhost',()=>console.log('Built verification server http://localhost:4174'));
+}).listen(builtPort,'localhost',()=>console.log(`Built verification server http://localhost:${builtPort}`));

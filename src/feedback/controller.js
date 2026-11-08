@@ -11,6 +11,7 @@ import { FEEDBACK_HELP } from '../settings-help.js';
 import {createSonicEventConsumer} from './supersonic-model.js';
 import {resolveFlightSelection,resolvePreviewRequest,resolveMusicQuery} from '../music/catalog.js';
 import {createLaunchMusicGate} from './launch-music.js';
+import {createBriefingAudioBridge} from './briefing-audio-bridge.js';
 
 export function createFeedbackController(){
   let storage;try{storage=localStorage;}catch{/* Defaults work without storage. */}
@@ -24,6 +25,7 @@ export function createFeedbackController(){
   const music=createMusicPlayer(audio);music.setSettings(settings);
   const launchMusic=createLaunchMusicGate({play:()=>music.play('flight'),stop:()=>music.stop(),
     isAllowed:()=>active&&!document.hidden&&settings.sound&&settings.bgm&&settings.volume>0});
+  const briefingAudio=createBriefingAudioBridge({output:audio,readSettings:()=>settings,isVisible:()=>!document.hidden,isInactive:()=>!active});
   const sonicEvents=createSonicEventConsumer();
   const supported=!isIPhone(navigator.userAgent)&&typeof navigator.vibrate==='function';
   const haptics=createHaptics(supported?navigator.vibrate.bind(navigator):null);
@@ -51,7 +53,7 @@ export function createFeedbackController(){
         const home=document.getElementById('home-link'),link=new URL(home.href);link.searchParams.set('music',settings.musicSet);home.href=link.href;
       }
       if(field.group==='vibration')jitter.reset();
-      haptics.stop();audio.configure(settings);music.setSettings(settings);
+      briefingAudio.settingsChanged();haptics.stop();audio.configure(settings);music.setSettings(settings);
       if(!settings.sound)audio.stop();else if(active)audio.start();
       if(active)launchMusic.request();
       if(previewIntent){
@@ -83,7 +85,7 @@ export function createFeedbackController(){
   });
   previewStart.addEventListener('click',()=>{void playPreview();});previewStop.addEventListener('click',stopPreview);
   const adjustments=document.getElementById('flight-adjustments');adjustments.addEventListener('toggle',()=>{if(!adjustments.open)stopPreview();});
-  const hidden=()=>{stopPreview();launchMusic.stop();audio.cancelCountdown();};
+  const hidden=()=>{stopPreview();briefingAudio.stop('hidden');launchMusic.stop();audio.cancelCountdown();};
   document.addEventListener('visibilitychange',()=>{if(document.hidden)hidden();});window.addEventListener('pagehide',hidden);
   function previewSettings(){return {...settings,bgm:true,sfx:false,abMusic:false};}
   function previewLabelFor(id){
@@ -160,16 +162,17 @@ export function createFeedbackController(){
   refresh();void loadCatalog();
   return {
     unlock(){stopPreview();haptics.arm();if(settings.sound){void audio.unlock();void music.preload();}},
+    briefingAudio(signal){if(signal?.type==='arm')return briefingAudio.arm();if(signal?.type==='cancel'){briefingAudio.stop(signal.reason);return;}briefingAudio.signal(signal);},
     countdownAudio(signal){
       if(signal?.type==='cancel'){launchMusic.cancelSession(signal.session);audio.cancelCountdown(signal.session);return;}
-      if(signal?.type==='prepare'){launchMusic.prepare(signal.session);audio.configure(settings);return audio.prepareCountdown(signal.session,settings);}
+      if(signal?.type==='prepare'){briefingAudio.stop('countdown');launchMusic.prepare(signal.session);audio.configure(settings);return audio.prepareCountdown(signal.session,settings);}
       if(signal?.type==='tick')return audio.countdownTone(signal.session,signal.number,settings);
       if(signal?.type==='go'&&active){const played=audio.countdownTone(signal.session,'go',settings);
         launchMusic.go(signal.session,{played,completion:played?audio.waitForCountdownEnd(signal.session):null});return played;}
     },
-    start({flightNumber=1}={}){stopPreview();active=true;lastAfterburner=null;lastModel=null;music.setFlightNumber(flightNumber);audio.start();audio.configure(settings);launchMusic.start();},
-    stop(){stopPreview();active=false;lastAfterburner=null;lastModel=null;launchMusic.stop();audio.stop();haptics.stop();jitter.clearWindow();},
-    event(kind){haptics.event(kind,settings,performance.now());
+    start({flightNumber=1}={}){stopPreview();briefingAudio.stop('flight');active=true;lastAfterburner=null;lastModel=null;music.setFlightNumber(flightNumber);audio.start();audio.configure(settings);launchMusic.start();},
+    stop(){stopPreview();briefingAudio.stop('stop');active=false;lastAfterburner=null;lastModel=null;launchMusic.stop();audio.stop();haptics.stop();jitter.clearWindow();},
+    event(kind){briefingAudio.stop('event');haptics.event(kind,settings,performance.now());
       if(kind==='clear'){launchMusic.stop();void music.play('clear').then(result=>{if(result==='unavailable')audio.event(kind,settings);});}
       else audio.event(kind,settings);
     },
@@ -186,10 +189,10 @@ export function createFeedbackController(){
       for(const event of crossings){haptics.sonic(event,settings,now,model);audio.sonicTransition(event,settings);}
     },
     frameTiming(ms){if(active&&Number.isFinite(ms)){frames++;frameSum+=ms;frameMax=Math.max(frameMax,ms);}},
-    reset(){launchMusic.stop();jitter.reset();music.reset();audio.resetMetrics();sonicEvents.reset();frames=0;frameSum=0;frameMax=0;},
+    reset(){briefingAudio.stop('reset');launchMusic.stop();jitter.reset();music.reset();audio.resetMetrics();sonicEvents.reset();frames=0;frameSum=0;frameMax=0;},
     exitOpened(){if(active)audio.event('exitOpen',settings);},
     report(){return {settings:{...settings},changedSettings:changedSettings(FEEDBACK_FIELDS,settings),vibrationSupported:supported,sensorJitter:jitter.snapshot(),
-      audio:audio.snapshot(),music:music.snapshot(),launchMusic:launchMusic.snapshot(),sonicTransitions:sonicEvents.snapshot(),frameCpu:{meanMs:frames?frameSum/frames:0,maxMs:frameMax}};},
+      audio:audio.snapshot(),music:music.snapshot(),launchMusic:launchMusic.snapshot(),briefingAudio:briefingAudio.snapshot(),sonicTransitions:sonicEvents.snapshot(),frameCpu:{meanMs:frames?frameSum/frames:0,maxMs:frameMax}};},
     updateDiagnostics(){
       if(!adjustments.hidden)refreshPreview();
       const s=audio.snapshot(),j=jitter.snapshot();

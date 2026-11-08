@@ -5,6 +5,7 @@ import { NAVIGATION_BURST_MS,navigationCue,navigationBlockReason } from './navig
 import {SONIC_TRANSITION,sonicWarning,validSonicTransition} from './supersonic-model.js';
 import {countdownTone as toneForCountdown,applyCountdownRegisters,validCountdownSession,validCountdownCue} from './countdown-audio.js';
 import {FmEngine} from '../music/fm-engine.js';
+import {briefingCue,applyBriefingRegisters} from './briefing-audio.js';
 
 class TwistAudioProcessor extends AudioWorkletProcessor {
   constructor(){
@@ -20,6 +21,8 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
     this.sonicMetrics={accepted:0,suppressed:0,reason:'inactive',id:null,direction:null};
     this.countdownSession=null;this.countdownCancelled=0;this.countdownSeen=new Set();this.countdown=null;this.countdownAt=0;
     this.countdownMetrics={accepted:0,suppressed:0,reason:'inactive',history:[]};
+    this.briefing=null;this.briefingLastSession=0;this.briefingRegisters=new Uint8Array(14);
+    this.briefingMetrics={accepted:0,suppressed:0,reason:'inactive',history:[]};
     this.busyMs=0;this.frames=0;this.untilUpdate=0;
     this.varioPhase=0;this.varioRunning=false;
     this.navigation=null;this.navigationBurst=null;this.navigationAt=0;this.navigationLastAt=null;this.navigationNextAt=0;this.navigationWasAllowed=false;this.navigationLastBlock='inactive';
@@ -31,13 +34,22 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       }
       if(m.type==='stop'||m.type==='musicStop'){this.fm.stop();this.fmEnabled=false;}
       if(m.type==='settings'&&!m.settings.sound){this.fm.stop();this.fmEnabled=false;this.musicQueue=this.musicQueue.slice(this.musicHead).filter(w=>w.kind!=='fm');this.musicHead=0;}
-      if(m.type==='stop'){this.cancelCountdownBus(this.countdownSession);this.active=false;this.event=null;this.cue='quiet';this.cueAt=currentTime;this.musicQueue=[];this.musicHead=0;this.cancelledMusicTags.clear();this.musicPlaying=false;this.varioPhase=0;this.varioRunning=false;this.untilUpdate=0;this.navigation=null;this.afterburnerReleaseAt=null;this.endSonic('inactive');this.endPassby('inactive');this.endNavigation('inactive');this.mixer.stop();}
+      if(m.type==='stop'){this.endBriefing('stop');this.cancelCountdownBus(this.countdownSession);this.active=false;this.event=null;this.cue='quiet';this.cueAt=currentTime;this.musicQueue=[];this.musicHead=0;this.cancelledMusicTags.clear();this.musicPlaying=false;this.varioPhase=0;this.varioRunning=false;this.untilUpdate=0;this.navigation=null;this.afterburnerReleaseAt=null;this.endSonic('inactive');this.endPassby('inactive');this.endNavigation('inactive');this.mixer.stop();}
       if(m.type==='resetMetrics'){this.busyMs=0;this.frames=0;this.mixer.takePeak();this.navigationMetrics={accepted:0,suppressed:0,lastPan:null,lastIntervalMs:null,lastAt:null,reason:this.navigationMetrics.reason};this.publishNavigation();}
-      if(m.type==='settings'){this.settings=m.settings;this.mixer.setVolume(m.settings.volume);this.untilUpdate=0;this.blockCountdown();this.blockSonic();this.blockNavigation();this.blockPassby();if(!this.settings.sound||!this.settings.sfx)this.afterburnerReleaseAt=null;}
+      if(m.type==='settings'){this.settings=m.settings;this.mixer.setVolume(m.settings.volume);this.untilUpdate=0;this.blockBriefing();this.blockCountdown();this.blockSonic();this.blockNavigation();this.blockPassby();if(!this.settings.sound||!this.settings.sfx)this.afterburnerReleaseAt=null;}
       if(m.type==='countdownBegin'&&validCountdownSession(m.session)&&m.session>this.countdownCancelled&&(this.countdownSession===null||m.session>=this.countdownSession)){
+        this.endBriefing('countdown');
         if(this.countdownSession!==m.session){this.countdownSession=m.session;this.countdownSeen.clear();this.endCountdown('new-session');}
       }
       if(m.type==='countdownCancel')this.cancelCountdownBus(m.session);
+      if(m.type==='briefingBegin'&&validCountdownSession(m.session)&&m.session>this.briefingLastSession){
+        this.endBriefing('new-map');this.briefingLastSession=m.session;
+        this.briefing={session:m.session,sequence:0,seen:new Set(),needsFuture:true,closed:false,motif:null,point:null};
+        this.briefingMetrics.reason='ready';this.blockBriefing();this.publishBriefing();
+      }
+      if(m.type==='briefingCancel'&&m.session===this.briefing?.session)this.endBriefing(m.reason??'cancelled');
+      if(m.type==='briefingVisualEnd'&&m.session===this.briefing?.session){this.briefing.needsFuture=false;this.stepBriefing();this.publishBriefing();}
+      if(m.type==='briefingTone')this.receiveBriefing(m);
       if(m.type==='countdownTone'){
         const valid=validCountdownCue(m.cue)&&validCountdownSession(m.session)&&m.session===this.countdownSession;
         let reason=!valid?'stale':this.countdownSeen.has(m.cue)?'duplicate':null;
@@ -75,12 +87,14 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
         if(this.model.afterburner?.active&&!m.model.afterburner?.active)this.afterburnerReleaseAt=currentTime;
         if(m.model.afterburner?.active||!m.settings.sound||!m.settings.sfx)this.afterburnerReleaseAt=null;
         this.active=true;this.model=m.model;this.stateAt=currentTime;this.settings=m.settings;this.mixer.setVolume(m.settings.volume);
+        this.endBriefing('flight');
         this.navigation=m.navigation||null;this.blockCountdown();this.blockSonic();this.blockNavigation();this.blockPassby();this.untilUpdate=0;
         if(this.cue!==m.model.cue||m.phase?.restarted){this.cue=m.model.cue;this.cueAt=currentTime-(m.phase?.elapsedMs||0)/1000;}
       }
       if(m.type==='event'&&EVENT_FEEDBACK[m.kind]){
         if(this.event&&EVENT_FEEDBACK[this.event].priority>EVENT_FEEDBACK[m.kind].priority)return;
         this.settings=m.settings;this.mixer.setVolume(m.settings.volume);this.event=m.kind;this.eventAt=currentTime;
+        this.endBriefing('event');
         this.blockCountdown();this.blockSonic();this.blockNavigation();this.blockPassby();this.untilUpdate=0;
       }
       if(m.type==='sonic'){
@@ -105,9 +119,50 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       if(m.type==='poll'){
         this.port.postMessage({type:'metrics',load:this.frames?this.busyMs/1000/(this.frames/sampleRate):0,
           peak:this.mixer.takePeak(),active:this.active,event:this.event,music:this.musicPlaying,
-          vario:this.active&&this.settings.sound&&this.settings.sfx&&varioMaySound(this.model,Boolean(this.event||this.sonic||this.countdown)),navigation:this.navigationSnapshot(),afterburner:this.afterburnerSnapshot(),passby:this.passbySnapshot(),sonic:this.sonicSnapshot(),countdown:this.countdownSnapshot(),fm:{...this.fm.snapshot(),prePostPeak:this.mixer.fmPrePostPeak??0,pending:this.musicQueue.slice(this.musicHead).filter(w=>w.kind==='fm').length},musicSchedule:{...this.musicScheduleMetrics,pending:this.musicQueue.length-this.musicHead}});this.busyMs=0;this.frames=0;
+          vario:this.active&&this.settings.sound&&this.settings.sfx&&varioMaySound(this.model,Boolean(this.event||this.sonic||this.countdown)),navigation:this.navigationSnapshot(),afterburner:this.afterburnerSnapshot(),passby:this.passbySnapshot(),sonic:this.sonicSnapshot(),countdown:this.countdownSnapshot(),briefing:this.briefingSnapshot(),fm:{...this.fm.snapshot(),prePostPeak:this.mixer.fmPrePostPeak??0,pending:this.musicQueue.slice(this.musicHead).filter(w=>w.kind==='fm').length},musicSchedule:{...this.musicScheduleMetrics,pending:this.musicQueue.length-this.musicHead}});this.busyMs=0;this.frames=0;
       }
     };
+  }
+  briefingBlockReason(){
+    if(!this.settings.sound||!this.settings.sfx)return 'disabled';if(this.settings.volume<=0)return 'volume';
+    if(this.active)return 'flight';if(this.event)return 'event';if(this.countdownSession!==null)return 'countdown';return null;
+  }
+  briefingSnapshot(){const record=this.briefing;return {...this.briefingMetrics,history:this.briefingMetrics.history.map(row=>({...row})),
+    session:record?.session??null,sequence:record?.sequence??0,active:Boolean(record&&(record.motif||record.point)),
+    needsFuture:record?.needsFuture??false,closed:record?.closed??true,atSeconds:currentTime};}
+  publishBriefing(){this.port.postMessage({type:'briefing',briefing:this.briefingSnapshot()});}
+  endBriefing(reason){
+    const record=this.briefing;if(!record||record.closed)return;
+    record.closed=true;record.needsFuture=false;record.motif=null;record.point=null;this.briefingMetrics.reason=reason;this.untilUpdate=0;
+    if(!this.active&&!this.event&&!this.countdown&&!this.sonic&&!this.passby&&!this.navigationBurst)this.mixer.stopSfx();
+    this.publishBriefing();
+  }
+  blockBriefing(){const reason=this.briefingBlockReason();if(reason)this.endBriefing(reason);return reason;}
+  receiveBriefing(message){
+    const record=this.briefing,validPoint=message.kind!=='point'||Number.isInteger(message.index)&&Number.isInteger(message.total),
+      cue=validPoint?briefingCue(message.kind,message.index,message.total):null,key=message.kind==='point'?`point-${message.index}`:message.kind;
+    let reason=!record||record.session!==message.session?'stale':!Number.isSafeInteger(message.sequence)||message.sequence<=record.sequence?'duplicate':null;
+    if(!reason){record.sequence=message.sequence;
+      reason=record.closed?'closed':record.seen.has(key)?'duplicate':!cue?'invalid':!Number.isFinite(message.expiresAt)||currentTime>message.expiresAt?'expired':this.briefingBlockReason();
+      record.seen.add(key);
+    }
+    if(reason){this.briefingMetrics.suppressed++;this.briefingMetrics.reason=reason;}
+    else{
+      if(message.kind==='point')record.point={cue,at:currentTime};
+      else {record.motif={cue,at:currentTime};if(message.kind==='complete'){record.point=null;record.needsFuture=false;}}
+      this.briefingMetrics.accepted++;this.briefingMetrics.reason='playing';
+      this.briefingMetrics.history.push({session:message.session,sequence:message.sequence,kind:message.kind,index:message.index,total:message.total,at:currentTime,durationMs:cue.durationMs});
+      if(this.briefingMetrics.history.length>16)this.briefingMetrics.history.shift();this.untilUpdate=0;
+    }
+    this.publishBriefing();
+  }
+  stepBriefing(){
+    const record=this.briefing;if(!record||record.closed)return;
+    if(this.blockBriefing())return;
+    let ended=false;
+    for(const key of ['motif','point'])if(record[key]&&(currentTime-record[key].at)*1000>=record[key].cue.durationMs){record[key]=null;ended=true;this.untilUpdate=0;}
+    if(!record.needsFuture&&!record.motif&&!record.point){this.endBriefing('finished');return;}
+    if(ended){this.briefingMetrics.reason='waiting';this.publishBriefing();}
   }
   applyMusicWrite(w){
     if(w.kind==='fm'){
@@ -204,6 +259,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
   process(_inputs,outputs){
     const t=Date.now(),left=outputs[0]?.[0],right=outputs[0]?.[1];if(!left)return true;
     if(this.event&&(currentTime-this.eventAt)*1000>=EVENT_FEEDBACK[this.event].duration)this.event=null;
+    this.stepBriefing();const briefingActive=Boolean(this.briefing&&!this.briefing.closed&&(this.briefing.motif||this.briefing.point));
     this.blockCountdown();if(this.countdown&&(currentTime-this.countdownAt)*1000>=this.countdown.durationMs)this.endCountdown('finished');
     this.blockSonic();if(this.sonic&&(currentTime-this.sonicAt)*1000>=SONIC_TRANSITION.duration)this.endSonic('finished');
     this.blockPassby();if(this.passby&&(currentTime-this.passbyAt)*1000>=140)this.endPassby('finished');
@@ -211,7 +267,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
     if(!varioEnabled){this.varioPhase=0;this.varioRunning=false;}
     else if(!this.varioRunning){this.varioPhase=0;this.varioRunning=true;this.untilUpdate=0;}
     this.stepNavigation();
-    if((this.active||this.event||this.musicPlaying||this.countdown)&&this.settings.sound){
+    if((this.active||this.event||this.musicPlaying||this.countdown||briefingActive)&&this.settings.sound){
       if(this.untilUpdate<=0){
         const model=this.active?this.model:this.silentModel;
         this.mixer.writeSfx(sfxRegisters(model,this.event,(currentTime-this.eventAt)*1000,
@@ -220,6 +276,10 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
           {afterburnerRelease:this.afterburnerRelease(),passby:this.passby?{...this.passby,elapsedMs:(currentTime-this.passbyAt)*1000}:null,sonic:this.sonic?{...this.sonic,elapsedMs:(currentTime-this.sonicAt)*1000}:null}));
         if(this.countdown&&!this.countdownBlockReason())applyCountdownRegisters(this.registers,this.countdown.cue,(currentTime-this.countdownAt)*1000);
         if(this.countdown)this.mixer.writeSfx(this.registers);
+        if(briefingActive){this.briefingRegisters.fill(0);this.briefingRegisters[7]=63;
+          for(const key of ['motif','point']){const tone=this.briefing[key];if(tone)applyBriefingRegisters(this.briefingRegisters,tone.cue,(currentTime-tone.at)*1000);}
+          this.mixer.writeSfx(this.briefingRegisters);
+        }
         this.untilUpdate=sampleRate/100;
       }
       const end=currentTime+left.length/sampleRate;

@@ -1,15 +1,15 @@
-/* The normal entry uses these screens; the explicit diagnostic opening is preserved. */
+/* v35 cache candidate only. Normal entry screens; explicit diagnostic opening preserved. */
 .app[data-start-flow=on] #veil{display:none!important}
 .app[data-start-flow=on]:not([data-start-step=play])>.topbar{visibility:hidden}
 .app[data-start-flow=on]:not([data-start-step=play]) .bottom-panel{visibility:hidden}
-.app[data-start-flow=on] .start-flow-panel{position:absolute;inset:0;z-index:8;pointer-events:auto;background:#eaf3f4f7;color:#25485a;padding:max(16px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));font-size:14px}
+.app[data-start-flow=on] .start-flow-panel{--flow-sky:#dcebf1;--flow-surface:#f7fbf9;--flow-ink:#25485a;--flow-action:#117f97;--flow-target:#df4295;--flow-exit:#c29130;position:absolute;inset:0;z-index:8;pointer-events:auto;background:var(--flow-sky);color:var(--flow-ink);padding:max(16px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));font-size:14px}
 .app[data-start-flow=on] .flow-screen{width:min(860px,100%);height:100%;min-height:0;margin:auto;display:grid;align-content:center;gap:14px}
 .app[data-start-flow=on] .flow-screen h1,.app[data-start-flow=on] .flow-screen h2,.app[data-start-flow=on] .flow-screen p{margin:0}
-.app[data-start-flow=on] .flow-screen h2{font-size:25px;line-height:1.4;font-weight:650;letter-spacing:.015em}
+.app[data-start-flow=on] .flow-screen h2{font-size:24px;line-height:1.35;font-weight:700;letter-spacing:.01em}
 .app[data-start-flow=on] .flow-description{font-size:14px;line-height:1.75;color:#4b6c79;max-width:42em}
 .app[data-start-flow=on] .flow-note{font-size:11px;line-height:1.65;color:#64808b}
-.app[data-start-flow=on] .flow-button{min-height:44px;padding:10px 16px;border:1px solid #a2c0c8;border-radius:10px;background:#f7fbf9;color:#315d6d;font-size:14px;line-height:1.45;font-weight:600;touch-action:manipulation}
-.app[data-start-flow=on] .flow-button-primary{background:#117f97;border-color:#117f97;color:#fff;min-height:50px}
+.app[data-start-flow=on] .flow-button{min-height:44px;padding:10px 16px;border:1px solid #a2c0c8;border-radius:10px;background:var(--flow-surface);color:var(--flow-ink);font-size:14px;line-height:1.45;font-weight:600;touch-action:manipulation}
+.app[data-start-flow=on] .flow-button-primary{background:var(--flow-action);border-color:var(--flow-action);color:#fff;min-height:52px}
 .app[data-start-flow=on] .flow-button-text{border-color:transparent;background:transparent;font-size:12px;font-weight:500}
 .app[data-start-flow=on] .flow-screen-header,.app[data-start-flow=on] .flow-screen-footer,.app[data-start-flow=on] .flow-inline-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .app[data-start-flow=on] .flow-screen-header h2{font-size:23px}
@@ -22,16 +22,20 @@
 .app[data-start-flow=on] .flow-platform .update-notice{margin:0;padding:7px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .app[data-start-flow=on] .flow-platform .update-notice p{font-size:11px}
 .app[data-start-flow=on] .flow-platform .update-notice button{min-height:40px;padding:7px 10px;font-size:11px}
-.app[data-start-flow=on] .flow-title{width:min(620px,100%);grid-template-rows:minmax(70px,1fr) auto auto auto;gap:14px;text-align:center}
-.app[data-start-flow=on] .flow-title-art{min-height:0;display:grid;place-items:center}
-.app[data-start-flow=on] .flow-title-art svg{height:100%;max-height:190px;max-width:100%;fill:#f6fafa;stroke:#df4295;stroke-width:3;overflow:visible}
-.app[data-start-flow=on] .flow-title-art .flow-route{fill:none;stroke:#88aeb9;stroke-width:2;stroke-dasharray:5 5}
-.app[data-start-flow=on] .flow-title-art .flow-plane{fill:#117f97;stroke:#117f97;stroke-linejoin:round}
-.app[data-start-flow=on] .flow-title-art .flow-exit{fill:none;stroke:#c29130;stroke-width:5}
-.app[data-start-flow=on] .flow-title-copy h1{font-size:clamp(65px,17vw,90px);font-weight:760;line-height:1.05;letter-spacing:-.07em;color:#25485a}
-.app[data-start-flow=on] .flow-title-copy>p{margin-top:10px;font-size:15px;letter-spacing:.04em}
-.app[data-start-flow=on] #start-flow-version{display:block;margin-top:9px;font-size:10px;color:#6e8a95}
-.app[data-start-flow=on] .flow-title-actions{width:min(320px,100%);justify-self:center}
+.app[data-start-flow=on] .flow-title{width:min(620px,100%);grid-template-rows:auto minmax(160px,1fr) auto auto auto;gap:12px;text-align:left}
+.app[data-start-flow=on] .flow-title-copy{grid-row:1;z-index:1}
+.app[data-start-flow=on] .flow-title-art{grid-row:2;position:relative;min-height:0;isolation:isolate;pointer-events:none}
+.app[data-start-flow=on] .flow-title-route{position:absolute;inset:0;width:100%;height:100%;fill:var(--flow-surface);stroke:var(--flow-target);stroke-width:3;overflow:visible}
+.app[data-start-flow=on] .flow-title-art .flow-route{fill:none;stroke:var(--flow-action);stroke-opacity:.45;stroke-width:2;stroke-dasharray:5 6}
+.app[data-start-flow=on] .flow-title-art .flow-exit{fill:none;stroke:var(--flow-exit);stroke-width:5}
+.app[data-start-flow=on] .flow-title-aircraft{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;user-select:none}
+.app[data-start-flow=on] .flow-title-copy h1{font-size:clamp(68px,18vw,88px);font-weight:800;line-height:.95;letter-spacing:-.065em;color:var(--flow-ink)}
+.app[data-start-flow=on] .flow-title-copy>p{margin-top:12px;font-size:15px;letter-spacing:.015em}
+.app[data-start-flow=on] .flow-title-credit{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:11px;color:#557785}
+.app[data-start-flow=on] .flow-author-signature{font-size:11px;font-weight:650;letter-spacing:.035em}
+.app[data-start-flow=on] #start-flow-version{display:block;font-size:11px;color:#557785;text-align:right}
+.app[data-start-flow=on] .flow-title-actions{width:100%;justify-self:stretch}
+.app[data-start-flow=on] .flow-title-actions .flow-inline-actions{justify-content:space-between;gap:16px;margin-top:4px}
 .app[data-start-flow=on] #start-flow-start{width:100%;font-size:18px;min-height:56px}
 .app[data-start-flow=on] .flow-tutorial{width:min(600px,100%);grid-template-rows:auto minmax(100px,1fr) auto auto auto}
 .app[data-start-flow=on] .flow-step-count{font-size:12px;color:#63818c}
@@ -45,16 +49,20 @@
 .app[data-start-flow=on] .flow-diagram-arrow{stroke:#b78732;stroke-width:3}
 .app[data-start-flow=on] .flow-diagram-knob{fill:#117f97;stroke:#edf6f3;stroke-width:5}
 .app[data-start-flow=on] .flow-courses{grid-template-rows:auto minmax(0,1fr) auto auto;gap:12px}
-.app[data-start-flow=on] .flow-course-cards{min-height:0;display:grid;grid-template-rows:repeat(3,minmax(0,1fr));gap:10px}
-.app[data-start-flow=on] .flow-course-cards[data-course-count="4"]{grid-template-rows:repeat(4,minmax(0,1fr))}
-.app[data-start-flow=on] .flow-course-card{display:grid;grid-template-columns:100px minmax(0,1fr);align-items:center;gap:14px;width:100%;min-height:0;text-align:left;border:1px solid #b8cfd5;border-radius:14px;background:#f6faf8;padding:10px 12px;color:#25485a}
-.app[data-start-flow=on] .flow-course-card[aria-pressed=true]{border:2px solid #117f97;padding:9px 11px;background:#edf8f6}
-.app[data-start-flow=on] .flow-course-preview{min-width:0;min-height:0;display:grid;place-items:center;height:100%;max-height:130px}
-.app[data-start-flow=on] .flow-course-preview svg{display:block;width:100%;height:100%;max-height:130px}
-.app[data-start-flow=on] .flow-course-description{display:flex;flex-direction:column;gap:5px;min-width:0}
-.app[data-start-flow=on] .flow-course-description strong{font-size:19px;line-height:1.3}
-.app[data-start-flow=on] .flow-course-description>span{font-size:11px;line-height:1.45;color:#62828c}
-.app[data-start-flow=on] .flow-course-best{font-size:11px;line-height:1.5;color:#117f97}
+.app[data-start-flow=on] .flow-course-stage{display:grid;grid-template-rows:minmax(120px,1fr) auto;gap:12px;min-height:0}
+.app[data-start-flow=on] .flow-selected-course{display:grid;grid-template-rows:auto minmax(60px,1fr) auto auto;gap:6px;min-width:0;min-height:0;padding:14px 16px;background:var(--flow-surface);border-radius:12px}
+.app[data-start-flow=on] .flow-selected-course h3{margin:0;font-size:20px;line-height:1.3;font-weight:700;overflow-wrap:anywhere}
+.app[data-start-flow=on] .flow-selected-route{min-width:0;min-height:0;overflow:hidden}
+.app[data-start-flow=on] .flow-selected-route svg{display:block;width:100%;height:100%}
+.app[data-start-flow=on] #start-flow-selected-course-detail{font-size:12px;line-height:1.45;color:#4b6c79}
+.app[data-start-flow=on] #start-flow-selected-course-best{font-size:12px;line-height:1.4;color:var(--flow-action);font-variant-numeric:tabular-nums}
+.app[data-start-flow=on] .flow-course-cards{min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(52px,auto);gap:8px}
+.app[data-start-flow=on] .flow-course-cards[data-course-count="4"]{grid-template-rows:repeat(2,minmax(0,1fr))}
+.app[data-start-flow=on] .flow-course-card{display:flex;align-items:center;width:100%;min-width:0;min-height:52px;text-align:left;border:2px solid transparent;border-radius:8px;background:#f7fbf980;padding:7px 10px;color:var(--flow-ink);transition:border-color 140ms,background-color 140ms}
+.app[data-start-flow=on] .flow-course-card[aria-pressed=true]{border-color:var(--flow-action);background:var(--flow-surface)}
+.app[data-start-flow=on] .flow-course-description{display:flex;flex-direction:column;gap:2px;min-width:0}
+.app[data-start-flow=on] .flow-course-description strong{font-size:16px;line-height:1.3;font-weight:700;overflow-wrap:anywhere}
+.app[data-start-flow=on] .flow-course-description>span{font-size:11px;line-height:1.35;color:#4b6c79;overflow-wrap:anywhere}
 .app[data-start-flow=on] .flow-camera-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .app[data-start-flow=on] .flow-camera-picker button{min-height:44px;background:#f3f8f6;border:1px solid #b6cdd2;border-radius:8px;padding:8px 4px;font-size:12px}
 .app[data-start-flow=on] .flow-camera-picker button[aria-pressed=true]{border-color:#117f97;background:#dcefee;color:#117f97;font-weight:650}
@@ -90,15 +98,21 @@
 .app[data-start-flow=on] .flow-input-history-row .range-history{font-size:11px;flex-wrap:wrap}
 .app[data-start-flow=on] .flow-input-history-row .range-history button{min-height:40px;font-size:12px}
 .app[data-start-flow=on] .flow-settings .flight-result{border:0;margin:0;padding-top:8px}
-.app[data-start-flow=on] .flow-result{width:min(600px,100%);text-align:center;gap:15px}
-.app[data-start-flow=on] .flow-result-summary .result-readings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 10px}
-.app[data-start-flow=on] .flow-result-summary .result-readings>div{padding:18px 8px;background:#f8fcf9;border:1px solid #c0d9d9;border-radius:12px}
+.app[data-start-flow=on] .flow-result{width:min(600px,100%);text-align:left;gap:12px}
+.app[data-start-flow=on] .flow-result-summary .result-readings{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin:8px 0 10px}
+.app[data-start-flow=on] .flow-result-summary .result-readings>div{padding:0;background:transparent;border:0;border-radius:0}
 .app[data-start-flow=on] .flow-result-summary dt{font-size:12px;color:#5e7c88}
-.app[data-start-flow=on] .flow-result-summary dd{margin:7px 0 0;font-size:27px;font-weight:650;color:#117f97;font-variant-numeric:tabular-nums}
-.app[data-start-flow=on] .flow-result-summary #result-supersonic-summary{grid-column:1/-1;padding:8px 10px}
-.app[data-start-flow=on] .flow-result-summary #result-supersonic-summary dd{font-size:14px;line-height:1.4;margin-top:4px;white-space:pre-line}
+.app[data-start-flow=on] .flow-result-summary dd{margin:0;font-weight:700;color:var(--flow-ink);font-variant-numeric:tabular-nums}
+.app[data-start-flow=on] .flow-result-current{display:flex;flex-direction:column;gap:6px}
+.app[data-start-flow=on] .flow-result-current dt{order:2}
+.app[data-start-flow=on] .flow-result-current dd{order:1;font-size:clamp(56px,17vw,76px);line-height:1;letter-spacing:-.045em}
+.app[data-start-flow=on] .flow-result[data-new-best=true] .flow-result-current dd,.app[data-start-flow=on] .flow-result[data-new-best=true] #result-best-status{color:var(--flow-exit)}
+.app[data-start-flow=on] .flow-result-best{display:flex;align-items:baseline;gap:12px}
+.app[data-start-flow=on] .flow-result-best dd{font-size:17px;line-height:1.4}
+.app[data-start-flow=on] .flow-result-summary #result-supersonic-summary{grid-column:1/-1;padding:10px 0 0;border-top:1px solid #25485a2e}
+.app[data-start-flow=on] .flow-result-summary #result-supersonic-summary dd{font-size:13px;line-height:1.45;margin-top:4px;white-space:pre-line}
 .app[data-start-flow=on] .flow-result-summary>small{font-size:12px;color:#117f97}
-.app[data-start-flow=on] .flow-result-summary .result-outcome{font-size:13px;color:#117f97;margin:0 0 5px}
+.app[data-start-flow=on] .flow-result-summary .result-outcome{font-size:12px;color:var(--flow-action);margin:0 0 5px}
 .app[data-start-flow=on] .flow-result-actions{display:grid;gap:8px}
 .app[data-start-flow=on] #start-flow-result-copy-host{min-width:0}
 .app[data-start-flow=on] #result-copy{border:0;background:transparent;min-height:40px;padding:7px;font-size:12px;text-decoration:underline}
@@ -160,25 +174,29 @@
 @media(max-height:700px) and (max-width:599px){
  .app[data-start-flow=on] .start-flow-panel{padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
  .app[data-start-flow=on] .flow-screen{gap:10px}
- .app[data-start-flow=on] .flow-course-card{grid-template-columns:78px minmax(0,1fr);gap:10px;padding:8px}
- .app[data-start-flow=on] .flow-course-card[aria-pressed=true]{padding:7px}
- .app[data-start-flow=on] .flow-course-description strong{font-size:17px}
+ .app[data-start-flow=on] .flow-course-stage{gap:8px}
+ .app[data-start-flow=on] .flow-selected-course{padding:10px 12px;gap:4px}
+ .app[data-start-flow=on] .flow-selected-course h3{font-size:18px}
+ .app[data-start-flow=on] .flow-course-card{padding:6px 8px}
+ .app[data-start-flow=on] .flow-course-description strong{font-size:15px}
  .app[data-start-flow=on] .flow-course-cards{gap:8px}
  .app[data-start-flow=on] .flow-description{font-size:13px;line-height:1.65}
  .app[data-start-flow=on] .flow-pose-symbol{height:100px}
  .app[data-start-flow=on] .flow-pose .flow-button-text{min-height:38px}
- .app[data-start-flow=on] .flow-result-summary .result-readings>div{padding:12px 6px}
+ .app[data-start-flow=on] .flow-result-summary .result-readings{gap:8px;margin:4px 0 6px}
+ .app[data-start-flow=on] .flow-result-current{gap:4px}
 }
 @media(max-height:500px) and (min-width:600px){
  .app[data-start-flow=on] .start-flow-view-button{left:calc(224px + env(safe-area-inset-left))}
  .app[data-start-flow=on] .start-flow-panel{padding:12px max(20px,env(safe-area-inset-right)) 12px max(20px,env(safe-area-inset-left))}
  .app[data-start-flow=on] .flow-screen{gap:10px}
- .app[data-start-flow=on] .flow-title{width:min(720px,100%);grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) auto;column-gap:40px}
- .app[data-start-flow=on] .flow-title-art{grid-column:1;grid-row:1;opacity:.3;align-self:center;height:160px}
- .app[data-start-flow=on] .flow-title-copy{grid-column:1;grid-row:1;z-index:1;align-self:center}
+ .app[data-start-flow=on] .flow-title{width:min(900px,100%);grid-template-columns:minmax(0,1.2fr) minmax(260px,1fr);grid-template-rows:minmax(0,1fr) auto auto;gap:12px 28px}
+ .app[data-start-flow=on] .flow-title-art{grid-column:1;grid-row:1/3;align-self:stretch}
+ .app[data-start-flow=on] .flow-title-copy{grid-column:2;grid-row:1;align-self:end}
  .app[data-start-flow=on] .flow-title-copy h1{font-size:80px}
- .app[data-start-flow=on] .flow-title-actions{grid-column:2;grid-row:1;align-self:center;width:100%}
- .app[data-start-flow=on] #start-flow-title-platform{grid-column:1/-1;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 18px}
+ .app[data-start-flow=on] .flow-title-actions{grid-column:2;grid-row:2;align-self:start;width:100%}
+ .app[data-start-flow=on] .flow-title-credit{grid-column:1/-1;grid-row:3}
+ .app[data-start-flow=on] #start-flow-title-platform{grid-column:1/-1;grid-row:4;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 18px}
  .app[data-start-flow=on] #start-flow-title-platform>*{max-width:48%}
  .app[data-start-flow=on] .flow-tutorial{width:min(760px,100%);grid-template-columns:230px 1fr;grid-template-rows:auto auto minmax(0,1fr) auto;column-gap:26px}
  .app[data-start-flow=on] .flow-tutorial>.flow-screen-header{grid-column:1/-1}
@@ -186,15 +204,18 @@
  .app[data-start-flow=on] .flow-tutorial>h2,.app[data-start-flow=on] .flow-tutorial>.flow-description,.app[data-start-flow=on] .flow-tutorial>.flow-screen-footer{grid-column:2}
  .app[data-start-flow=on] .flow-tutorial h2{font-size:22px}
  .app[data-start-flow=on] .flow-courses{grid-template-rows:auto minmax(0,1fr) 44px 46px;gap:8px}
- .app[data-start-flow=on] .flow-course-cards{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:1fr;gap:10px}
- .app[data-start-flow=on] .flow-course-cards[data-course-count="4"]{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:8px}
- .app[data-start-flow=on] .flow-course-cards[data-course-count="4"] .flow-course-card{grid-template-columns:64px minmax(0,1fr);gap:8px;padding:5px 8px}
- .app[data-start-flow=on] .flow-course-cards[data-course-count="4"] .flow-course-card[aria-pressed=true]{padding:4px 7px}
- .app[data-start-flow=on] .flow-course-cards[data-course-count="4"] .flow-course-description{gap:1px}
- .app[data-start-flow=on] .flow-course-card{grid-template-columns:74px minmax(0,1fr);padding:8px;gap:10px}
- .app[data-start-flow=on] .flow-course-card[aria-pressed=true]{padding:7px}
- .app[data-start-flow=on] .flow-course-description strong{font-size:16px}
- .app[data-start-flow=on] .flow-course-description>span,.app[data-start-flow=on] .flow-course-best{font-size:10px}
+ .app[data-start-flow=on] .flow-course-stage{grid-template-columns:minmax(0,1.3fr) minmax(220px,1fr);grid-template-rows:minmax(0,1fr);gap:20px}
+ .app[data-start-flow=on] .flow-selected-course{padding:10px 14px;gap:6px 12px;grid-template-columns:minmax(140px,.85fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto}
+ .app[data-start-flow=on] .flow-selected-course h3{grid-column:1;grid-row:1}
+ .app[data-start-flow=on] #start-flow-course-preview{grid-column:2;grid-row:1/-1}
+ .app[data-start-flow=on] #start-flow-selected-course-detail{grid-column:1;grid-row:2;align-self:end}
+ .app[data-start-flow=on] #start-flow-selected-course-best{grid-column:1;grid-row:3}
+ .app[data-start-flow=on] .flow-selected-course h3{font-size:18px}
+ .app[data-start-flow=on] .flow-course-cards,.app[data-start-flow=on] .flow-course-cards[data-course-count="4"]{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(52px,auto));align-content:center;gap:8px}
+ .app[data-start-flow=on] .flow-course-card{padding:6px 8px}
+ .app[data-start-flow=on] .flow-course-description strong{font-size:15px}
+ .app[data-start-flow=on] .flow-course-description>span{font-size:11px}
+ .app[data-start-flow=on] #start-flow-selected-course-detail,.app[data-start-flow=on] #start-flow-selected-course-best{font-size:13px}
  .app[data-start-flow=on] .flow-courses>.flow-camera-picker{max-width:420px;width:100%;justify-self:center}
  .app[data-start-flow=on] .flow-courses .flow-screen-footer>.flow-button-primary{flex:none;min-width:240px;min-height:44px}
  .app[data-start-flow=on] .flow-pose{display:grid;width:min(720px,100%);grid-template-columns:230px 1fr;grid-template-rows:auto auto auto auto;gap:8px 24px;text-align:left}
@@ -210,12 +231,12 @@
  .app[data-start-flow=on] .flow-pause-actions{grid-column:2;grid-row:1/4;align-self:center}
  .app[data-start-flow=on] #start-flow-pause-platform{grid-column:1;grid-row:4}
  .app[data-start-flow=on] #start-flow-course-exit{grid-column:2;grid-row:4}
- .app[data-start-flow=on] .flow-result{width:min(720px,100%);grid-template-columns:1fr 1fr;gap:8px 26px;text-align:left}
+ .app[data-start-flow=on] .flow-result{width:min(840px,100%);grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:8px 32px;text-align:left}
  .app[data-start-flow=on] .flow-result>h2,.app[data-start-flow=on] .flow-result>.flow-description,.app[data-start-flow=on] .flow-result>.flow-result-summary{grid-column:1}
  .app[data-start-flow=on] .flow-result-actions{grid-column:2;grid-row:1/5;align-self:center;gap:5px}
  .app[data-start-flow=on] .flow-result h2{font-size:22px}
- .app[data-start-flow=on] .flow-result-summary .result-readings>div{padding:10px 6px}
- .app[data-start-flow=on] .flow-result-summary dd{font-size:23px}
+ .app[data-start-flow=on] .flow-result-summary .result-readings{gap:8px;margin:4px 0 6px}
+ .app[data-start-flow=on] .flow-result-current dd{font-size:60px}
  .app[data-start-flow=on][data-start-step=play] .bottom-panel{left:auto;right:max(16px,env(safe-area-inset-right));transform:none;width:330px;padding:7px 10px}
  .app[data-start-flow=on][data-start-step=play][data-play-mode=flight] .bottom-panel{width:330px}
  .app[data-start-flow=on][data-start-step=play][data-camera=cockpit] .bottom-panel{display:block;height:auto}
@@ -224,4 +245,7 @@
  .app[data-start-flow=on][data-start-step=play] .practice-panel label{grid-template-columns:64px minmax(0,1fr) 32px}
  .app[data-start-flow=on][data-start-step=play] .practice-footer button{min-height:36px}
  .app[data-start-flow=on][data-start-step=play] .practice-panel:not([open]){position:absolute;left:calc(-100vw + 100% + 32px);right:auto;bottom:0;width:270px;padding:6px 10px;background:#f3faf5ed;border-radius:10px}
+}
+@media(prefers-reduced-motion:reduce){
+ .app[data-start-flow=on] .flow-course-card{transition:none}
 }

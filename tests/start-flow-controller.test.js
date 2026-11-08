@@ -176,3 +176,16 @@ test('disposing an active countdown cancels every later launch and closes both v
   const f=fixture(t);await freshPose(f);f.controller.poseReady('sensor','held-pose-start');f.controller.dispose();f.advance(20000);
   assert.deepEqual(f.launches,[]);assert.equal(f.disposed(),1);assert.equal(f.hidden(),1);
 });
+test('result details passes the records section and returns to the same result without changing cancellation',async t=>{
+  const f=fixture(t);f.state.phase='complete';f.controller.result({title:'今回の結果',newBest:true});
+  await f.controller.action('settings','records');assert.equal(f.controller.snapshot().step,'settings');assert.equal(f.shown.at(-1).data.section,'records');
+  assert.deepEqual(f.launches,[]);await f.controller.action('settings-close');assert.equal(f.controller.snapshot().step,'result');
+  assert.equal(f.shown.at(-1).data.title,'今回の結果');assert.equal(f.shown.at(-1).data.newBest,true);
+  await f.controller.action('title');await f.controller.action('settings');assert.equal(f.shown.at(-1).data.section,undefined);
+  await f.controller.action('settings-close');assert.equal(f.controller.snapshot().step,'title');
+});
+test('records settings entered during countdown still cancels future ticks and returns to pose',async t=>{
+  const f=fixture(t);await freshPose(f);f.controller.poseReady('sensor','held');f.advance(500);
+  await f.controller.action('settings','records');assert.equal(f.shown.at(-1).data.section,'records');assert.deepEqual(f.cancellations,[true]);
+  f.advance(10000);assert.deepEqual(f.launches,[]);await f.controller.action('settings-close');assert.equal(f.controller.snapshot().step,'pose');
+});

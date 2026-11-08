@@ -1,4 +1,5 @@
 import './start-flow.css';
+import {APP_VERSION} from './version.js';
 
 const $=id=>document.getElementById(id);
 const cameraNames={overlay:'外から',chase:'追尾3D',cockpit:'操縦席'};
@@ -15,14 +16,16 @@ const phoneDiagram=kind=>`<svg class="flow-tutorial-diagram" viewBox="0 0 260 16
 export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}){
   if(!enabled)return {show(){},hide(){},setCourses(){},setSettings(){},refreshPlayControls(){},get element(){return null;}};
   const app=$('app');
+  const aircraftImage=new URL('./menu-aircraft.webp',document.baseURI);aircraftImage.searchParams.set('v',APP_VERSION);
   app.dataset.startFlow='on';
   const root=document.createElement('section');root.id='start-flow-panel';root.className='start-flow-panel';root.hidden=true;
   root.setAttribute('role','dialog');root.setAttribute('aria-modal','true');root.dataset.step='title';
   root.innerHTML=`
     <section class="flow-screen flow-title" data-flow-screen="title" aria-labelledby="start-flow-title-heading" hidden>
-      <div class="flow-title-art" aria-hidden="true"><svg viewBox="0 0 300 180"><path class="flow-route" d="M38 145 106 102 70 58 183 34 244 94"/><circle cx="106" cy="102" r="8"/><circle cx="70" cy="58" r="8"/><circle cx="183" cy="34" r="8"/><path class="flow-plane" d="m38 134 13 27-13-7-13 7z"/><path class="flow-exit" d="M230 110V80h28v30"/></svg></div>
-      <div class="flow-title-copy"><h1 id="start-flow-title-heading">twist</h1><p>Tilt to Play.</p><small id="start-flow-version"></small></div>
+      <div class="flow-title-art" aria-hidden="true"><svg class="flow-title-route" viewBox="0 0 420 320"><path class="flow-route" d="M-12 291 102 225 78 134 239 73 361 113 431 21"/><circle cx="102" cy="225" r="8"/><circle cx="78" cy="134" r="8"/><circle cx="239" cy="73" r="8"/><path class="flow-exit" d="M347 129V99h28v30"/></svg><img class="flow-title-aircraft" src="${aircraftImage.href}" alt="" width="768" height="768" decoding="async" draggable="false"></div>
+      <div class="flow-title-copy"><h1 id="start-flow-title-heading">twist</h1><p>Tilt to Play.</p></div>
       <div class="flow-title-actions">${button('start-flow-start','start','はじめる','primary')}<div class="flow-inline-actions">${button('start-flow-title-settings','settings','設定','text')}${button('start-flow-title-help','help','遊び方','text')}</div></div>
+      <footer class="flow-title-credit"><span class="flow-author-signature">SIKUMI LAB</span><small id="start-flow-version"></small></footer>
       <div id="start-flow-title-platform" class="flow-platform"></div>
     </section>
     <section class="flow-screen flow-tutorial" data-flow-screen="tutorial" aria-labelledby="start-flow-tutorial-title" hidden>
@@ -32,7 +35,7 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     </section>
     <section class="flow-screen flow-courses" data-flow-screen="courses" aria-labelledby="start-flow-courses-title" hidden>
       <header class="flow-screen-header"><h2 id="start-flow-courses-title">コースを選ぶ</h2>${button('start-flow-course-settings','settings','設定','text')}</header>
-      <div id="start-flow-course-cards" class="flow-course-cards"></div>
+      <div class="flow-course-stage"><section id="start-flow-selected-course" class="flow-selected-course" aria-labelledby="start-flow-selected-course-name"><h3 id="start-flow-selected-course-name"></h3><div id="start-flow-course-preview" class="flow-selected-route" aria-hidden="true"></div><p id="start-flow-selected-course-detail"></p><p id="start-flow-selected-course-best"></p></section><div id="start-flow-course-cards" class="flow-course-cards" role="group" aria-label="コース"></div></div>
       ${cameraPicker('start-flow-course-camera')}
       <footer class="flow-screen-footer">${button('start-flow-courses-back','title','タイトルへ','text')}${button('start-flow-course-start','course-start','このコースへ','primary')}</footer>
     </section>
@@ -47,8 +50,9 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     <section class="flow-screen flow-result" data-flow-screen="result" aria-labelledby="start-flow-result-title" hidden><h2 id="start-flow-result-title">おつかれさまでした</h2><p id="start-flow-result-description" class="flow-description"></p><div id="start-flow-result-summary" class="flow-result-summary"></div><footer class="flow-result-actions">${button('start-flow-retry','retry','もう一度','primary')}${button('start-flow-result-courses','course-exit','コース選択へ')}<div id="start-flow-result-copy-host"></div>${button('start-flow-result-details','settings','詳しい記録・設定','text')}</footer></section>
     <section class="flow-screen flow-confirm" data-flow-screen="confirm-exit" aria-labelledby="start-flow-confirm-title" hidden><h2 id="start-flow-confirm-title">飛行を終えますか？</h2><p class="flow-description">今の飛行を終えて、コース選択へ戻ります。</p><footer class="flow-screen-footer">${button('start-flow-confirm-cancel','confirm-cancel','飛行へ戻る')}${button('start-flow-confirm-exit','confirm-course-exit','コース選択へ','primary')}</footer></section>`;
   app.append(root);
+  $('start-flow-result-details').dataset.flowValue='records';
   const view=document.createElement('button');view.id='start-flow-view-button';view.className='start-flow-view-button';view.type='button';view.hidden=true;view.dataset.flowAction='camera-cycle';view.textContent='視点';view.setAttribute('aria-label','視点を切り替える');app.append(view);
-  let settings={camera:'overlay',inputMethod:'sensor',briefingMode:'every',mode:'flight',steering:'tilt'},cards=[],step='',selectedCourseId=null;
+  let settings={camera:'overlay',inputMethod:'sensor',briefingMode:'every',mode:'flight',steering:'tilt'},cards=[],step='',selectedCourseId=null,renderedCourse=null,renderedPreviewCourse=null,renderedPreviewWidth=null,renderedPreviewHeight=null;
   const move=(id,host)=>{const element=$(id);if(element&&host)host.append(element);return element;};
   const text=(id,value)=>{if(value!==undefined&&$(id).textContent!==String(value))$(id).textContent=String(value);};
 
@@ -56,6 +60,7 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
   move('flight-adjustments',$('start-flow-adjustments-host'));
   const records=move('flight-result',$('start-flow-record-host'));
   const readings=records?.querySelector('.result-readings');if(readings)$('start-flow-result-summary').append(readings);
+  $('result-course-time')?.closest('div')?.classList.add('flow-result-current');$('result-best-time')?.closest('div')?.classList.add('flow-result-best');
   const outcome=$('result-outcome');if(outcome)$('start-flow-result-summary').prepend(outcome);
   move('result-best-status',$('start-flow-result-summary'));
   for(const id of ['result-copy','result-copy-status','result-copy-text'])move(id,$('start-flow-result-copy-host'));
@@ -113,19 +118,42 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     view.textContent=`視点 · ${cameraNames[settings.camera]??cameraNames.overlay}`;
     view.hidden=step!=='play'||settings.mode==='explore';
     $('start-flow-course-cards').querySelectorAll('[data-course-id]').forEach(element=>element.setAttribute('aria-pressed',String(element.dataset.courseId===selectedCourseId)));
+    if(step==='courses')renderSelectedCourse();
     refreshPlayControls();
   }
+  const courseDetail=card=>card.detail??`光${card.targetCount??''}個${card.timeHint?` · ${card.timeHint}`:''}`;
+  function courseBest(card){
+    const value=String(card.bestLabel??(Number.isFinite(card.bestSeconds)?`${card.bestSeconds.toFixed(1)}秒`:'まだ記録なし'));
+    return value.startsWith('自己ベスト')?value:`自己ベスト ${value}`;
+  }
+  function renderSelectedCourse(){
+    const card=cards.find(item=>item.id===selectedCourseId)??cards[0],section=$('start-flow-selected-course');section.hidden=!card;
+    if(!card)return;
+    if(renderedCourse!==card){
+      renderedCourse=card;section.dataset.selectedCourseId=card.id;text('start-flow-selected-course-name',card.name);text('start-flow-selected-course-detail',courseDetail(card));text('start-flow-selected-course-best',courseBest(card));
+    }
+    const picture=$('start-flow-course-preview'),box=picture.getBoundingClientRect(),width=Math.round(box.width),height=Math.round(box.height);
+    const factory=typeof card.createPreviewSVG==='function'&&Number.isFinite(width)&&Number.isFinite(height)&&width>22&&height>22;
+    const renderedWidth=factory?width:null,renderedHeight=factory?height:null;
+    if(renderedPreviewCourse===card&&renderedPreviewWidth===renderedWidth&&renderedPreviewHeight===renderedHeight)return;
+    let preview=card.previewSvg??card.previewSVG,mode='fallback';
+    if(factory){try{const value=card.createPreviewSVG({width,height});if(typeof value==='string'||value?.cloneNode){preview=value;mode='factory';}}catch{/* Existing SVG remains usable if an optional renderer fails. */}}
+    renderedPreviewCourse=card;renderedPreviewWidth=renderedWidth;renderedPreviewHeight=renderedHeight;picture.replaceChildren();
+    if(typeof preview==='string')picture.innerHTML=preview;else if(preview?.cloneNode)picture.append(preview.cloneNode(true));
+    picture.dataset.previewMode=mode;if(mode==='factory'){picture.dataset.previewWidth=String(width);picture.dataset.previewHeight=String(height);}else{delete picture.dataset.previewWidth;delete picture.dataset.previewHeight;}
+  }
   function setCourses(value=[]){
-    cards=Array.isArray(value)?value:[];const list=$('start-flow-course-cards');list.replaceChildren();list.dataset.courseCount=String(cards.length);
+    cards=Array.isArray(value)?value:[];renderedCourse=null;const list=$('start-flow-course-cards'),focusedCourse=list.contains(document.activeElement)?document.activeElement.dataset.courseId:null;let replacementFocus=null;list.replaceChildren();list.dataset.courseCount=String(cards.length);
     for(const card of cards){
       const element=document.createElement('button');element.type='button';element.className='flow-course-card';element.dataset.flowAction='course-select';element.dataset.courseId=card.id;element.setAttribute('aria-pressed',String(card.id===selectedCourseId));
-      const picture=document.createElement('span');picture.className='flow-course-preview';picture.setAttribute('aria-hidden','true');const preview=card.previewSvg??card.previewSVG;
-      if(typeof preview==='string')picture.innerHTML=preview;else if(preview?.cloneNode)picture.append(preview.cloneNode(true));
       const description=document.createElement('span');description.className='flow-course-description';
-      const title=document.createElement('strong');title.textContent=card.name;
-      const hint=document.createElement('span');hint.textContent=card.detail??`光${card.targetCount??''}個${card.timeHint?` · ${card.timeHint}`:''}`;
-      const best=document.createElement('small');best.className='flow-course-best';best.textContent=card.bestLabel??(Number.isFinite(card.bestSeconds)?`自己ベスト ${card.bestSeconds.toFixed(1)}秒`:'自己ベスト まだ記録なし');description.append(title,hint,best);element.append(picture,description);list.append(element);
+      const [label,...remainder]=String(card.name).split('・'),title=document.createElement('strong');title.textContent=label;
+      const hint=document.createElement('span');hint.textContent=remainder.join('・')||(card.detail?String(card.detail).split(' · ')[0]:`${card.targetCount??''}個の目標`);
+      element.setAttribute('aria-label',`${card.name}。${courseDetail(card)}。${courseBest(card)}`);description.append(title,hint);element.append(description);list.append(element);
+      if(card.id===focusedCourse)replacementFocus=element;
     }
+    renderSelectedCourse();
+    replacementFocus?.focus({preventScroll:true});
   }
   function show(next,data={}){
     const changed=step!==next;step=next;root.dataset.step=next;app.dataset.startStep=next;
@@ -134,8 +162,9 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     if(next==='play'||next==='briefing'){root.hidden=true;view.hidden=next!=='play'||settings.mode==='explore';if(next==='play'&&changed&&settings.inputMethod==='practice')$('practice-panel').open=true;return;}
     root.hidden=false;view.hidden=true;
     for(const element of root.querySelectorAll('[data-flow-screen]'))element.hidden=element.dataset.flowScreen!==next;
+    if(next==='courses')renderSelectedCourse();
     const screen=root.querySelector(`[data-flow-screen="${next}"]`);if(screen?.getAttribute('aria-labelledby'))root.setAttribute('aria-labelledby',screen.getAttribute('aria-labelledby'));
-    if(next==='title'){text('start-flow-version',`操作検証 ${data.version?`v${String(data.version).replace(/^v/,'')}`:document.querySelector('.version b')?.textContent??''}`);$('start-flow-start').disabled=Boolean(data.loading||data.disabled);text('start-flow-start',data.loading?'準備しています…':'はじめる');}
+    if(next==='title'){text('start-flow-version',data.version?`v${String(data.version).replace(/^v/,'')}`:document.querySelector('.version b')?.textContent??'');$('start-flow-start').disabled=Boolean(data.loading||data.disabled);text('start-flow-start',data.loading?'準備しています…':'はじめる');}
     if(next==='tutorial'){
       const index=Math.max(0,Math.min(2,data.slide??data.index??0)),slide=index===1&&settings.steering==='twist'?{title:'水平のまま回して、旋回',text:'時計回りに回すと右へ、反時計回りなら左へ。中立へ戻すと、翼も水平へ戻ります。',kind:'bank'}:slides[index];root.dataset.slide=String(index);text('start-flow-tutorial-count',`${index+1} / 3`);text('start-flow-tutorial-title',slide.title);text('start-flow-tutorial-text',slide.text);$('start-flow-tutorial-picture').innerHTML=phoneDiagram(slide.kind);$('start-flow-tutorial-back').disabled=index===0;text('start-flow-tutorial-next',index===2?'コースを選ぶ':'次へ');
     }
@@ -155,8 +184,11 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
       const adjustments=$('flight-adjustments');adjustments.hidden=false;adjustments.open=true;for(const id of ['release-screen-button','installed-screen-advice'])move(id,$('start-flow-settings-platform'));
       if(data.section==='records')$('start-flow-record-details').open=true;
     }
-    if(next==='result'){text('start-flow-result-title',data.title??($('result-outcome').textContent==='clear'?'コースクリア':$('result-outcome').textContent==='クリア'?'コースクリア':$('result-outcome').textContent==='墜落'?'地面に接触しました':'おつかれさまでした'));text('start-flow-result-description',data.description??'今回の記録です。');}
+    if(next==='result'){screen.dataset.newBest=String(data.newBest===true);text('start-flow-result-title',data.title??($('result-outcome').textContent==='clear'?'コースクリア':$('result-outcome').textContent==='クリア'?'コースクリア':$('result-outcome').textContent==='墜落'?'地面に接触しました':'おつかれさまでした'));text('start-flow-result-description',data.description??cards.find(card=>card.id===selectedCourseId)?.name??'今回の記録です。');}
     if(changed){const focus=screen?.querySelector('.flow-button-primary')??screen?.querySelector('button');focus?.focus({preventScroll:true});}
+  }
+  if(typeof ResizeObserver==='function'){
+    const observer=new ResizeObserver(()=>{if(step==='courses')renderSelectedCourse();});observer.observe($('start-flow-course-preview'));
   }
   return {show,hide(){show('play');},setCourses,setSettings,refreshPlayControls,get element(){return root;}};
 }

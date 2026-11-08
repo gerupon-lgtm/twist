@@ -1,6 +1,7 @@
 import workletUrl from './audio-worklet.js?worker&url';
 import {validSonicTransition} from './supersonic-model.js';
 import {COUNTDOWN_AUDIO,validCountdownSession,validCountdownCue} from './countdown-audio.js';
+import {BRIEFING_AUDIO,briefingCue} from './briefing-audio.js';
 
 /** AudioContext construction/resume happens only through an explicit start click. */
 export function createGameAudio(){
@@ -11,6 +12,10 @@ export function createGameAudio(){
   let navigationAcknowledged=null,afterburnerAcknowledged=null,passbyAcknowledged=null,sonicAcknowledged=null;
   let musicPending=[],musicFlush=false,scheduleTime=null;
   let countdownSession=null,countdownAcknowledged=null,countdownPreparation=null,countdownEnd=null;
+  let briefingSession=null,briefingAcknowledged=null,lastBriefingSession=0;
+  const briefingVisible=()=>typeof document==='undefined'||!document.hidden;
+  const briefingNeedsSound=()=>Boolean(briefingSession&&(briefingSession.needsFuture||briefingSession.sounding));
+  const idle=()=>!wanted&&!countdownSession&&!briefingNeedsSound();
   const cancelledMusicTags=new Set();
   const post=m=>node?.port.postMessage(m);
   async function unlock(){
@@ -34,12 +39,13 @@ export function createGameAudio(){
             if(data.passby)passbyAcknowledged=data.passby;
             if(data.sonic)sonicAcknowledged=data.sonic;
             if(data.countdown){countdownAcknowledged=data.countdown;observeCountdownEnd(data.countdown);}
+            if(data.briefing){briefingAcknowledged=data.briefing;observeBriefing(data.briefing);}
             if(data.fm)fmAcknowledged=data.fm;
           };
           poll=setInterval(()=>post({type:'poll'}),1000);
         }
         status='ready';
-        if(wanted||countdownSession){if(wanted&&lastState)post(lastState);}else await context.suspend();
+        if(!idle()){if(wanted&&lastState)post(lastState);}else await context.suspend();
       })().catch(()=>{status='unavailable';clearInterval(poll);node?.disconnect();node=null;}).finally(()=>{pending=null;});
       await pending;
     }catch{status='unavailable';}
@@ -59,7 +65,39 @@ export function createGameAudio(){
   function cancelCountdown(session){
     if(!countdownSession||(session!==undefined&&session!==countdownSession.id))return;
     const record=countdownSession,id=record.id;finishCountdownEnd(record,'cancelled');countdownSession=null;post({type:'countdownCancel',session:id});
-    if(!wanted)context?.suspend().catch(()=>{});
+    if(idle())context?.suspend().catch(()=>{});
+  }
+  const briefingPermitted=settings=>Boolean(settings?.sound&&settings?.sfx&&settings.volume>0);
+  const briefingReady=record=>record===briefingSession&&!disposed&&Boolean(node)&&context?.state==='running'&&briefingVisible()
+    &&!wanted&&!countdownSession&&record?.needsFuture&&briefingPermitted(record.settings);
+  function suspendBriefingIfIdle(){if(idle())context?.suspend().catch(()=>{});}
+  function observeBriefing(ack){
+    const record=briefingSession;
+    if(!record||ack.session!==record.id||(ack.sequence??-1)<record.sequence)return;
+    record.sounding=Boolean(ack.active);
+    if(ack.closed||ack.needsFuture===false)record.needsFuture=false;
+    suspendBriefingIfIdle();
+  }
+  function cancelBriefing(session,reason='cancelled'){
+    const record=briefingSession;
+    if(!record||(session!==undefined&&session!==record.id))return false;
+    briefingSession=null;post({type:'briefingCancel',session:record.id,reason});suspendBriefingIfIdle();return true;
+  }
+  function beginBriefingBus(record){
+    if(!briefingReady(record))return false;
+    if(!record.begun){post({type:'settings',settings:record.settings});post({type:'briefingBegin',session:record.id});record.begun=true;}
+    return true;
+  }
+  function beginBriefing(session,settings){
+    if(!validCountdownSession(session)||session<=lastBriefingSession||disposed||wanted||countdownSession
+      ||!briefingVisible()||!briefingPermitted(settings))return false;
+    lastBriefingSession=session;cancelBriefing(undefined,'new-map');
+    const record={id:session,settings:{...settings},needsFuture:true,sounding:false,begun:false,sequence:0};briefingSession=record;
+    // A preceding halt may still be suspending. Queue resume immediately,
+    // including when an older warm-up promise has not resolved yet.
+    const resuming=context?Promise.resolve(context.resume()).catch(()=>{}):Promise.resolve();
+    const loading=unlock();
+    return Promise.all([resuming,loading]).then(()=>{const ready=record===briefingSession&&beginBriefingBus(record);suspendBriefingIfIdle();return ready;},()=>{suspendBriefingIfIdle();return false;});
   }
   function finishCountdownEnd(record,reason,atSeconds=context?.currentTime??0){
     const ending=record?.goEnd;if(!ending||ending.done)return;
@@ -95,6 +133,7 @@ export function createGameAudio(){
     return true;
   }
   function prepareCountdown(session,settings){
+    cancelBriefing(undefined,'countdown');
     cancelCountdown();
     if(!validCountdownSession(session))return {ready:false,waitMilliseconds:0,reason:'invalid'};
     const record={id:session,begun:false,seen:new Set()};countdownSession=record;countdownEnd=null;
@@ -111,13 +150,26 @@ export function createGameAudio(){
     const timeout=new Promise(resolve=>{timer=setTimeout(resolve,COUNTDOWN_AUDIO.prepareTimeoutMs);});
     const loading=pending;
     const resuming=Promise.resolve(context.resume()).catch(()=>{}).then(()=>{
-      if(!wanted&&!countdownSession)return context?.suspend().catch(()=>{});
+      if(idle())return context?.suspend().catch(()=>{});
     });
     const preparation=Promise.all([loading,resuming]);
     return Promise.race([preparation,timeout]).then(finish,finish).finally(()=>clearTimeout(timer));
   }
   return {
     unlock,
+    warmBriefing(settings){if(!disposed&&!wanted&&!countdownSession&&briefingVisible()&&briefingPermitted(settings))return unlock();return Promise.resolve();},
+    beginBriefing,
+    briefingReady:session=>briefingSession?.id===session&&briefingReady(briefingSession),
+    briefingCue(session,{kind,index=0,total=1,remainingSeconds}={},settings){
+      const record=briefingSession,cue=briefingCue(kind,index,total);
+      if(!record||record.id!==session||!cue||!briefingPermitted(settings)||!Number.isFinite(remainingSeconds)||remainingSeconds<=0
+        ||remainingSeconds>BRIEFING_AUDIO.maxCueAgeSeconds||!beginBriefingBus(record))return false;
+      record.sounding=true;const sequence=++record.sequence;
+      post({type:'briefingTone',session,sequence,kind,index,total,expiresAt:context.currentTime+remainingSeconds});return true;
+    },
+    finishBriefing(session){const record=briefingSession;if(!record||record.id!==session)return;record.needsFuture=false;
+      if(record.begun)post({type:'briefingVisualEnd',session});suspendBriefingIfIdle();},
+    cancelBriefing,
     prepareCountdown,
     countdownTone(session,cue,settings){
       const record=countdownSession;
@@ -134,7 +186,7 @@ export function createGameAudio(){
     async waitForReady(){if(pending)await pending;return Boolean(node);},
     musicReady:()=>Boolean(node),
     resume:()=>context?context.resume():Promise.resolve(),
-    suspendIfIdle(){if(!wanted&&!countdownSession)context?.suspend().catch(()=>{});},
+    suspendIfIdle:suspendBriefingIfIdle,
     musicClock:{
       get sampleRate(){return context?.sampleRate;},
       now:()=>context?.currentTime||0,
@@ -147,8 +199,8 @@ export function createGameAudio(){
     cancelMusicLayer(tag){cancelledMusicTags.add(tag);musicPending=musicPending.filter(w=>w.tag!==tag);post({type:'musicCancel',tag});},
     stopMusic(){musicSession++;musicPending=[];scheduleTime=null;cancelledMusicTags.clear();post({type:'musicStop',session:musicSession});},
     setMusicGain(gain){post({type:'musicGain',gain});},
-    configure(settings){post({type:'settings',settings});if(!settings.sound||!settings.sfx||settings.volume<=0)finishCountdownEnd(countdownSession,'disabled');},
-    start(){wanted=true;if(context)context.resume().catch(()=>{});if(lastState)post(lastState);},
+    configure(settings){if(briefingSession)briefingSession.settings={...settings};post({type:'settings',settings});if(!settings.sound||!settings.sfx||settings.volume<=0){cancelBriefing(undefined,'disabled');finishCountdownEnd(countdownSession,'disabled');}},
+    start(){cancelBriefing(undefined,'flight');wanted=true;if(context)context.resume().catch(()=>{});if(lastState)post(lastState);},
     update(model,settings,phase,navigation=null){lastState={type:'state',model,settings,phase,navigation};if(wanted)post(lastState);},
     event(kind,settings){
       if(!node||!settings.sound||!settings.sfx)return;
@@ -167,14 +219,15 @@ export function createGameAudio(){
       if(!node||!wanted||context?.state!=='running'||!settings.sound||!settings.sfx||!validSonicTransition(event))return false;
       post({type:'sonic',event:{...event},settings});return true;
     },
-    stop(){generation++;musicSession++;musicPending=[];wanted=false;cancelCountdown();varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop',session:musicSession});context?.suspend().catch(()=>{});},
+    stop(){generation++;musicSession++;musicPending=[];wanted=false;cancelBriefing(undefined,'stop');cancelCountdown();varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop',session:musicSession});context?.suspend().catch(()=>{});},
     snapshot:()=>({status,load,maxLoad,peak,musicActive,varioActive,lastEvent,contextState:context?.state||'none',workletReady:Boolean(node),musicSchedule:musicSchedule?{...musicSchedule}:null,
       afterburner:{requested:lastState?.model?.afterburner?{...lastState.model.afterburner}:null,acknowledged:afterburnerAcknowledged?{...afterburnerAcknowledged}:null},
       passby:passbyAcknowledged?{...passbyAcknowledged}:null,
       sonic:sonicAcknowledged?{...sonicAcknowledged}:null,fm:fmAcknowledged?structuredClone(fmAcknowledged):null,musicSession,
       countdown:{session:countdownSession?.id??null,preparation:countdownPreparation?{...countdownPreparation}:null,acknowledged:countdownAcknowledged?structuredClone(countdownAcknowledged):null,end:countdownEnd?{...countdownEnd}:null},
+      briefing:{session:briefingSession?.id??null,needsFuture:briefingSession?.needsFuture??false,sounding:briefingSession?.sounding??false,acknowledged:briefingAcknowledged?structuredClone(briefingAcknowledged):null},
       navigation:{requested:lastState?.navigation?{...lastState.navigation}:null,acknowledged:navigationAcknowledged?{...navigationAcknowledged}:null}}),
     resetMetrics(){load=0;maxLoad=0;peak=0;post({type:'resetMetrics'});},
-    dispose(){disposed=true;generation++;wanted=false;cancelCountdown();musicPending=[];clearInterval(poll);clearTimeout(eventTimer);node?.disconnect();node=null;return context?.close().catch(()=>{})??Promise.resolve();},
+    dispose(){disposed=true;generation++;wanted=false;cancelBriefing(undefined,'disposed');cancelCountdown();musicPending=[];clearInterval(poll);clearTimeout(eventTimer);node?.disconnect();node=null;return context?.close().catch(()=>{})??Promise.resolve();},
   };
 }

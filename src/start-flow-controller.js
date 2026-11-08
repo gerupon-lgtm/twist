@@ -8,6 +8,7 @@ export function createStartFlowController({ui,map,pwa,preferences,briefingPrefer
   function settings(){const state=read();ui.setSettings({camera:state.camera,inputMethod:preferences.get().inputMethod,briefingMode:briefingPreferences.getMode(),steering:state.steering,mode:state.mode,courseId:state.course.id});}
   function show(next,data={}){step=next;settings();ui.show(next,data);}
   function cancel(){
+    actions.briefingAudio?.({type:'cancel',reason:'flow-cancel'});
     if(countdownSession!==null)actions.countdownAudio?.({type:'cancel',session:countdownSession});
     countdownSession=null;token++;clearTimeout(timer);timer=null;if(step==='title')show('title',{loading:false,disabled:false});
   }
@@ -23,7 +24,7 @@ export function createStartFlowController({ui,map,pwa,preferences,briefingPrefer
   function beginFresh({preserveSession=false,retry=false}={}){
     cancel();resultData={};if(actions.prepareFresh({preserveSession})===false)return;fresh=true;briefing={shown:false,skipped:false,seconds:0,revisits:[]};
     if(retry||record.snapshot()?.flightStartedAt!=null){record.begin(now(),{firstTime:false,tutorialShown:false,entrySource:retry?'retry':'course'});record.fullscreen(pwa.report());}
-    if(briefingPreferences.shouldShow(read().course))openMap('start');else pose();
+    if(briefingPreferences.shouldShow(read().course)){actions.briefingAudio?.({type:'arm'});openMap('start');}else pose();
   }
   function startCountdown(mode,reason){
     if(read().phase==='running')return;
@@ -58,6 +59,7 @@ export function createStartFlowController({ui,map,pwa,preferences,briefingPrefer
     switch(name){
       case 'start':{
         cancel();const generation=token,firstTime=!preferences.get().tutorialSeen;
+        if(briefingPreferences.shouldShow(read().course))actions.briefingAudio?.({type:'arm'});
         show('title',{loading:true,disabled:true});
         record.begin(now(),{tutorialShown:firstTime,firstTime});
         const request=pwa.requestFullscreen({source:'title'});record.fullscreen(pwa.report());await request;
@@ -89,7 +91,7 @@ export function createStartFlowController({ui,map,pwa,preferences,briefingPrefer
       }
       case 'recenter':cancel();pose('楽な持ち方に合わせ直して、ボタンを押してください。');break;
       case 'map':cancel();openMap('pause');break;
-      case 'settings':returnStep=step;cancel();if(['waiting','ready','error'].includes(read().phase))actions.cancelPending(fresh);actions.openSettings();show('settings');break;
+      case 'settings':returnStep=step==='countdown'?'pose':step;cancel();if(['waiting','ready','error'].includes(read().phase))actions.cancelPending(fresh);actions.openSettings();show('settings',{section:value});break;
       case 'settings-close':actions.closeSettings();if(returnStep==='courses')courses();else if(returnStep==='pose')pose();else if(returnStep==='pause')show('pause',{description:read().pauseReason});else if(returnStep==='result')show('result',resultData);else show('title');break;
       case 'retry':beginFresh({preserveSession:read().state.grounded,retry:true});break;
       case 'course-exit':if(read().phase==='complete'||read().state.grounded){actions.endFlight();courses();}else show('confirm-exit');break;

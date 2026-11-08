@@ -1077,7 +1077,7 @@ function frame(now) {
       feedback.event('clear');
       dialog({ title: '出口に到着しました', description: sonicMode()?'5枚の門と出口を通過しました。高速空域クリア。':playMode === 'flight' ? `${state.total}つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？` : `${state.total}つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？`, note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
       flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'clear', flightSession.lastLegSnapshot()));
-      flowCoordinator?.result();
+      flowCoordinator?.result({newBest:courseTime?.newBest===true});
     }
     if (state.grounded && phase === 'running') {
       let description = '地面まで0mで接触しました。';
@@ -1120,6 +1120,7 @@ function courseCard(id){
   const course=getCourse(id),range=COURSE_CRITERIA.difficulties[id]?.cruiseTimeRange;
   const bestSeconds=id==='supersonic'?sonicBests.best(supersonicBestKey(createSupersonicProfile(sonicPanel.getSettings()),course)):courseBests.best(course,playMode);
   return {id,name:course.name,targetCount:course.lights.length,timeHint:range?'目安 '+range[0]+'〜'+range[1]+'秒':'',bestSeconds,bestLabel:formatCourseTime(bestSeconds),previewSvg:createCoursePreviewSVG(course),
+    createPreviewSVG:({width,height})=>createCoursePreviewSVG(course,{width,height,featured:true}),
     ...(id==='supersonic'?{detail:'門5枚＋出口 · 40km四方 · ABでM2'}:{})};
 }
 function cancelFlowPending(fresh){
@@ -1129,14 +1130,14 @@ function cancelFlowPending(fresh){
 function setupStartFlow(){
   if(!flowEnabled||flowUI)return;
   flowUI=createStartFlowPanel({enabled:true,dev:flowDev,onAction:(name,value)=>{void flowCoordinator?.action(name,value);}});
-  briefingUI=createBriefingPanel({root:app,onClose:info=>flowCoordinator?.mapClosed(info)});
+  briefingUI=createBriefingPanel({root:app,onClose:info=>flowCoordinator?.mapClosed(info),onSignal:signal=>feedback.briefingAudio(signal)});
   flowCoordinator=createStartFlowController({ui:flowUI,map:briefingUI,pwa,preferences:startPreferences,briefingPreferences,record:startRecord,
-    read:()=>({phase,mode:playMode,camera:cameraMode,steering:flightSteering,input:inputMode,course:selectedCourse,state:stage?.getStatus()??{grounded:false},pauseReason:lastPauseReason}),
+    read:()=>({phase,mode:playMode,camera:cameraMode,steering:flightSteering,input:inputMode,course:selectedCourse,state:stage?.getStatus()??{grounded:false},pauseReason:lastPauseReason,result:{newBest:phase==='complete'&&courseTime?.newBest===true}}),
     actions:{
       courseCards:()=>(playMode==='flight'?PLAYABLE_COURSE_IDS:NORMAL_COURSE_IDS).map(courseCard),
       prepareFresh:prepareFlowFresh,cancelPending:cancelFlowPending,
       selectCourse:id=>selectCourse(id),selectMode:mode=>{if(flowDev)selectMode(mode);},setCamera:value=>selectCamera(value),
-      ready:()=>setPhase('ready'),launch:(mode,reason)=>run(mode,reason),unlock:()=>feedback.unlock(),countdownAudio:signal=>feedback.countdownAudio(signal),
+      ready:()=>setPhase('ready'),launch:(mode,reason)=>run(mode,reason),unlock:()=>feedback.unlock(),countdownAudio:signal=>feedback.countdownAudio(signal),briefingAudio:signal=>feedback.briefingAudio(signal),
       hold:mode=>{
         if(!stage){location.reload();return;}
         feedback.unlock();

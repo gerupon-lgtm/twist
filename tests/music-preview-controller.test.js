@@ -44,6 +44,8 @@ function environment({query='brave',musicSet='proposals',unlockGate=null,closeGa
   const storage={getItem:key=>storageData.get(key)??null,setItem:(key,value)=>{writes.push({key,value});storageData.set(key,value);}};
   const unit={createRangeEditor:()=>({sync(){}}),createGameAudio:()=>{
     const audio={state:'none',ready:false,unlocks:0,resumes:0,configure(){},start(){this.state='running';},stop(){if(this.state!=='none')this.state='suspended';},musicReady(){return this.ready;},
+      intro:[],introSession:null,warmBriefing(){this.ready=true;this.state='suspended';},beginBriefing(session){this.introSession=session;this.ready=true;this.state='running';return Promise.resolve(true);},briefingReady(session){return this.introSession===session&&this.ready;},
+      briefingCue(session,cue){this.intro.push({session,...cue});return true;},finishBriefing(){},cancelBriefing(session){if(this.introSession===session){this.introSession=null;this.state='suspended';}},
       prepareCountdown:session=>({session,ready:countdownReady}),countdownTone:(_session,_cue,value)=>Boolean(countdownReady&&value.sound&&value.sfx&&value.volume>0),cancelCountdown(){},waitForCountdownEnd:()=>goEnd??Promise.resolve({reason:'finished'}),
       unlock(){this.unlocks++;this.ready=true;this.state='running';return unlockGate??Promise.resolve();},resume(){this.resumes++;this.state='running';return Promise.resolve();},dispose(){return (closeGate??Promise.resolve()).then(()=>{this.state='closed';});},snapshot(){return {contextState:this.state,workletReady:this.ready};},resetMetrics(){}};audios.push(audio);return audio;
   },createMusicPlayer:audio=>{
@@ -73,6 +75,26 @@ test('fresh audio defaults select Ignition and the individual Overdrive clear pr
     assert.equal(settings.musicSet,'ignition');assert.equal(settings.musicEngine,'scc');assert.equal(settings.clearTrackId,'clear');
     assert.equal(settings.abMusic,true);assert.equal(settings.passbySound,true);
     assert.equal(f.map.get('music-preview-track').value,'clear-overdrive');assert.deepEqual(f.writes,[]);assert.equal(f.plays.length,0);
+  }finally{f.cleanup();}
+});
+test('map cues use the main audio owner without music, haptics or saved-setting writes',async()=>{
+  const f=environment({query:null,feedbackSettings:{sfx:true,bgm:false}});try{
+    await settle();f.controller.briefingAudio({type:'arm'});
+    const open={type:'open',session:1,origin:'start',courseId:'fixture',visibleSeconds:0,progress:0,drawSeconds:3.6,reducedMotion:false,visible:true,
+      points:[{id:'tgt-1',kind:'target',progress:.5},{id:'exit',kind:'exit',progress:1}]};
+    f.controller.briefingAudio(open);f.controller.briefingAudio({...open,type:'progress',visibleSeconds:1.8,progress:.5});
+    f.controller.briefingAudio({...open,type:'progress',visibleSeconds:3.6,progress:1});
+    assert.deepEqual(f.audios[0].intro.map(cue=>cue.kind),['opening','point','complete']);assert.equal(f.audios.length,1);
+    assert.deepEqual(f.plays,[]);assert.deepEqual(f.writes,[]);assert.deepEqual(f.vibrations,[]);
+    f.controller.briefingAudio({...open,type:'close'});
+  }finally{f.cleanup();}
+});
+test('a setting input cancels the current map and re-enabling SFX cannot replay its next point',async()=>{
+  const f=environment({query:null,feedbackSettings:{sfx:true,bgm:true}});try{
+    await settle();const open={type:'open',session:1,origin:'start',courseId:'fixture',visibleSeconds:0,progress:0,drawSeconds:3.6,reducedMotion:false,visible:true,
+      points:[{id:'tgt-1',kind:'target',progress:.5},{id:'exit',kind:'exit',progress:1}]};
+    f.controller.briefingAudio(open);const input=f.map.get('feedback-sfx');input.checked=false;input.emit('input');input.checked=true;input.emit('input');
+    f.controller.briefingAudio({...open,type:'progress',visibleSeconds:1.8,progress:.5});assert.equal(f.audios[0].intro.length,1);assert.equal(f.audios[0].introSession,null);assert.deepEqual(f.plays,[]);
   }finally{f.cleanup();}
 });
 

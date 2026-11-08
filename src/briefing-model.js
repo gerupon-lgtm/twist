@@ -78,9 +78,10 @@ export function fitBriefingMap(model,{width,height,padding=36,thumbnail=false}={
     north:{...model.north,rotationDegrees:-model.heading*180/Math.PI}};
 }
 
-export function createCoursePreviewSVG(course,{width=160,height=92}={}){
-  const map=fitBriefingMap(createBriefingModel(course),{width,height,padding:11,thumbnail:true});
+export function createCoursePreviewSVG(course,{width=160,height=92,featured=false}={}){
+  const markerRadius=featured?5:3,routeWidth=featured?2.2:1.7,targetColor=featured?'#df4295':'#d69736';
+  const map=fitBriefingMap(createBriefingModel(course),{width,height,padding:featured?14:11,thumbnail:true});
   const lanes=map.abStraights.map(lane=>`<path d="M${lane.corners.map(p=>`${number(p.x)} ${number(p.y)}`).join('L')}Z" fill="#91c4c2" fill-opacity=".5"/>`).join('');
-  const targets=map.targets.map(target=>`<circle cx="${number(target.x)}" cy="${number(target.y)}" r="3" fill="#d69736"/>`).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" class="briefing-preview" role="img" aria-label="${escape(course.name??course.id??'Course')} route"><title>${escape(course.name??course.id??'Course')} route</title>${lanes}<path d="${map.path}" fill="none" stroke="#4d7180" stroke-width="1.7" stroke-linejoin="round"/>${targets}<path d="M${number(map.start.x)} ${number(map.start.y-5)}l4 8-4-2-4 2Z" fill="#117f97"/><rect x="${number(map.exit.x-3)}" y="${number(map.exit.y-3)}" width="6" height="6" fill="#fff5cc" stroke="#b67e25" stroke-width="1.5"/></svg>`;
+  const targets=map.targets.map(target=>`<circle cx="${number(target.x)}" cy="${number(target.y)}" r="${markerRadius}" fill="${targetColor}"/>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" class="briefing-preview" role="img" aria-label="${escape(course.name??course.id??'Course')} route"><title>${escape(course.name??course.id??'Course')} route</title>${lanes}<path d="${map.path}" fill="none" stroke="#4d7180" stroke-width="${routeWidth}" stroke-linejoin="round"/>${targets}<path d="M${number(map.start.x)} ${number(map.start.y-5)}l4 8-4-2-4 2Z" fill="#117f97"/><rect x="${number(map.exit.x-3)}" y="${number(map.exit.y-3)}" width="6" height="6" fill="#fff5cc" stroke="#b67e25" stroke-width="1.5"/></svg>`;
 }
