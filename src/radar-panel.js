@@ -17,7 +17,7 @@ export function updateRadar(state, { visibility, phase, range, language='en' }) 
   const ja=normalizeHudLanguage(language)==='ja';
   panel.setAttribute('aria-label',ja?'進行方向が上のレーダー。▲は上、▼は下':'RADAR TRK UP. ▲ + ALT, ▼ − ALT');
   panel.querySelector('.radar-heading').textContent=hudText(language,'radarTrack');
-  const rects = ['flight-essential-speed','flight-essential-altitude','bottom-panel','toast','practice-panel'].map($)
+  const rects = ['start-flow-view-button','flight-essential-speed','flight-essential-altitude','bottom-panel','toast','practice-panel'].map($)
     .filter(el => el&&!el.hidden && el.getClientRects().length&&!(cockpit&&el.id==='toast')).map(el => el.getBoundingClientRect());
   rects.push(document.querySelector('.navigation').getBoundingClientRect(), document.querySelector('.topbar').getBoundingClientRect(),
     { left: innerWidth/2-40, right: innerWidth/2+40, top: innerHeight/2-40, bottom: innerHeight/2+40 });
@@ -54,7 +54,7 @@ export function updateRadar(state, { visibility, phase, range, language='en' }) 
 /** Keep a 100×50 edge marker away from the radar while retaining its arrow. */
 export function avoidRadarMarker(point, bounds, extraObstacles = []) {
   const radar = $('radar');
-  const essential=['flight-essential-speed','flight-essential-altitude'].map($)
+  const essential=['start-flow-view-button','flight-essential-speed','flight-essential-altitude'].map($)
     .filter(element=>element&&!element.hidden&&element.getClientRects().length).map(element=>element.getBoundingClientRect());
   const obstacles = [...(radar.hidden ? [] : [radar.getBoundingClientRect()]),
     ...essential,...extraObstacles];

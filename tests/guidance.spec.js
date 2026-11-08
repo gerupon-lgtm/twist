@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 for(const camera of ['cockpit','chase','overlay'])for(const size of [[390,844],[360,640],[844,390]])test(`displayed guidance follows real course ${camera} ${size}`,async({page})=>{
  test.setTimeout(90000);await page.setViewportSize({width:size[0],height:size[1]});await page.clock.install();await page.goto(`/?mode=flight&camera=${camera}`);await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));await page.locator('#practice-button').click();await page.clock.runFor(100);
  await page.screenshot({path:`test-results/v0125-guidance-${camera}-${size[0]}x${size[1]}.png`});

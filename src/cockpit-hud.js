@@ -20,9 +20,13 @@ export function layoutCockpitHud(active) {
   const bottom = $('bottom-panel').getBoundingClientRect();
   const radar = $('radar').getBoundingClientRect(),radarShown=!$('radar').hidden;
   const nav = document.querySelector('.navigation').getBoundingClientRect();
+  const practice=$('practice-panel');
+  const practiceRect=$('app').dataset.startFlow==='on'&&practice&&!practice.hidden&&practice.getClientRects().length?practice.getBoundingClientRect():null;
+  const tapesBottom=practiceRect?.width&&practiceRect?.height?Math.min(bottom.top,practiceRect.top):bottom.top;
   const compassY = nav.bottom+10;
   const tapeY = Math.max(h/2-65,radarShown?radar.bottom+10:0);
-  const tapeHeight = Math.max(60,Math.min(130,bottom.top-tapeY-12));
+  const tapeHeight = Math.max(60,Math.min(130,tapesBottom-tapeY-12));
+  root.dataset.compactTapes=String($('app').dataset.startFlow==='on'&&tapeHeight<80);
   const powerY = bottom.top-30;
   let headingX=w/2-90;
   if(radarShown&&radar.top<compassY+28&&radar.bottom>compassY&&radar.left<headingX+180&&radar.right>headingX) {
@@ -75,7 +79,7 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   const left = insets.left+82, right = w-insets.right-102;
   const top = compassY+(!$('cockpit-exit-notice').hidden?98:$('cockpit-target-height').hidden?38:70), low = Math.max(top+20,powerY-8);
   let clip = `M${left},${top}H${right}V${low}H${left}Z`;
-  for(const marker of [$('target-edge-marker'),$('cockpit-objective-label'),$('practice-panel')].filter(e=>!e.hidden&&e.getClientRects().length)) {
+  for(const marker of [$('start-flow-view-button'),$('target-edge-marker'),$('cockpit-objective-label'),$('practice-panel')].filter(e=>e&&!e.hidden&&e.getClientRects().length)) {
     const r=marker.getBoundingClientRect();
     const holeLeft=Math.max(left,r.left-4),holeRight=Math.min(right,r.right+4);
     const holeTop=Math.max(top,r.top-4),holeBottom=Math.min(low,r.bottom+4);

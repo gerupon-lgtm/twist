@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 const music=p=>p.locator('#feedback-diagnostics').getAttribute('data-music').then(JSON.parse);
 test('rock lead can be selected, stored and recorded without replacing preceding songs',async({page})=>{
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>window.copied=text},configurable:true}));

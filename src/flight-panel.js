@@ -93,6 +93,7 @@ export function createFlightPanel(getModes) {
       const button=document.createElement('button');button.type='button';button.textContent=item.label;button.dataset.jumpSetting=key;
       button.addEventListener('click',()=>{
         const input=$(`setting-${key}`),row=input.closest('label');
+        for(let parent=row.parentElement;parent&&parent!==$('flight-settings-fields');parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
         for(const previous of document.querySelectorAll('.setting-highlight'))previous.classList.remove('setting-highlight');
         row.classList.add('setting-highlight');row.scrollIntoView({block:'center',behavior:'instant'});
         if(key==='cockpitFov'&&input.disabled)fovAuto.focus({preventScroll:true});else input.focus({preventScroll:true});
@@ -185,7 +186,7 @@ export function createFlightPanel(getModes) {
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = phase !== 'paused';
       const inactiveSteering = getModes().steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone'];
-      for (const label of $('flight-settings-fields').querySelectorAll(':scope > label')) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','speedUnit','streakAmount','groundPatternStrength'].includes(label.dataset.settingKey))
+      for (const label of $('flight-settings-fields').querySelectorAll('label[data-setting-key]')) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','speedUnit','streakAmount','groundPatternStrength'].includes(label.dataset.settingKey))
         || inactiveSteering.includes(label.dataset.settingKey);
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       refreshLayout();

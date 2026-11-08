@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 import {getCourse,validateCourse} from '../src/course.js';
 import {FEEDBACK_SETTINGS_KEY} from '../src/feedback/settings.js';
 import {mkdir,writeFile} from 'node:fs/promises';

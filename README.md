@@ -2,17 +2,23 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.29（公開確認済み） / 2026-11-08**
+**v0.1.30 公開準備中（実装・全体試験完了、公開先は未確認） / 2026-11-08**
 
-v0.1.29の公開URLです。単体427件・ブラウザー全311件・公開用PWA5件・ビルドと負荷比較、公開70ファイルと実画面16項目を確認済みです。保存版25/26も各4項目に成功しました。詳しくはdocs/verification-v0129.mdを参照してください。以下の`v`は更新確認用の値で、過去版を選ぶ指定ではありません。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
+友人が最初の選択に迷わないよう、通常の入口をタイトル→初回の遊び方→コースカードと視点→開始前の地図→構える→3・2・1→飛行→結果の順へ整理しました。地図は3.6秒で線を描き、終わってもそのまま留まります。タップ／SKIPで閉じると持ち方を合わせる画面へ進み、地図やカウントダウンの時間はコース時間へ含めません。地図は毎回／コースごと初回／表示しないを選べ、一時停止から現在位置を重ねて見返せます。
 
-- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&music=proposals&v=0.1.29)
-- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&music=proposals&v=0.1.29)
-- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&music=proposals&v=0.1.29)
-- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&music=proposals&v=0.1.29)
-- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&music=proposals&v=0.1.29)
+通常は飛行機モードで始まり、画面で操縦する方法は設定で選びます。飛行中の「視点」は外から→追尾3D→操縦席の順で切り替えます。**タイトルとプレイは縦スクロールなし**。出力（THR）は操縦席を基準に3視点で同じ位置へそろえました。通常の傾き操作では角度の入力欄を出さず、操縦の効きや角度の調整は設定に置きます。画面操作を選んだ練習時だけ、プレイ中に3入力を表示します。履歴や詳しい記録は設定へ移しました。全画面はタイトルの「はじめる」で要求し、向き固定は構える段階で行います。成功から飛行まで最低6秒を取る値は仮の余裕で、Pixel 9aで注意文が消える時刻は未確認です。
 
-`mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
+単体60ファイル479件、ブラウザー45ファイル338件、最終ビルドのPWA7件に成功しました。新しい通常導線は初回説明・センサー／画面操作・時計・停止・視点・コピーまで確認し、従来の機能は明示した旧画面で全件確認しています。開始前とカウントダウン中の自動音・振動なし、飛行開始後の実AudioContextでの発音も確認しました。**公開ファイル・公開実画面・保存版の配信確認はこれからで、Pixel 9aは未確認です。** [実装と判断](docs/implementation-v0130.md)、[確認済みと未確認](docs/verification-v0130.md)、[設定と操作](docs/settings-guide.md)。
+
+公開準備用の[通常入口v30](https://twist.sikumilab.com/?v=0.1.30)、[追尾3D](https://twist.sikumilab.com/?camera=chase&v=0.1.30)、[操縦席](https://twist.sikumilab.com/?camera=cockpit&v=0.1.30)です。**公開前は現在配信中のv29が表示されます。** `v`は更新確認用で、版を選ぶ指定ではありません。
+
+検証用項目は`?dev=1`、探索は`?dev=1&mode=explore`から選べます。旧画面で比較する入口は`?dev=1&flow=legacy`です。通常入口は新しいタイトルであり、この旧画面の試験結果を新導線の試験の代わりにはしていません。
+
+**前版v0.1.29の公開完了記録 / 2026-11-08**
+
+v0.1.29は単体427件・ブラウザー全311件・公開用PWA5件・ビルドと負荷比較、公開70ファイルと実画面16項目を確認済みです。保存版25/26も各4項目に成功しました。詳しくは[当時の検証記録](docs/verification-v0129.md)を参照してください。確認済みのv29配信ファイルは保存版29として保持し、その専用URLの初公開確認はv30公開後に行います。
+
+v29の旧開始方式は、v30では`?dev=1&flow=legacy`を指定した比較用画面に残しています。この旧画面では`mode`の指定なしは探索、`view`の指定なしは見失い対策、飛行機の`steer`の指定なしは「ひねる（標準）」です。「遊び方」で飛行機・探索を切り替えるとステージの最初へ戻り、見え方は同じ位置・向きのまま比較できます。通常のv30の入口は上記の新導線です。旧画面の指定は保存版そのものを開く指定ではありません。
 
 ## v0.1.29の地面・AB直線・BGM試聴
 
@@ -28,7 +34,7 @@ v0.1.29の公開URLです。単体427件・ブラウザー全311件・公開用P
 
 報告された輪の急な移動も修正しました。上昇角の境界・目標切替・HUDの角を避ける配置・補間を見直し、重要な失速復帰は即時性を維持します。通常の上下調整では左右の旋回指示を保ち、片方の軸を補正しても他方の表示を戻さない形にしました。白い実進路の印や飛行の計算は変えません。
 
-実装・検証・公開状況とPixel 9aの未確認項目は[検証記録](docs/verification-v0129.md)、[地面とコース](docs/verification-v0129-world.md)、[輪](docs/verification-v0129-director.md)、[試聴](docs/verification-v0129-preview.md)へ記録します。[設定と操作](docs/settings-guide.md)。次は開始前地図と開始導線をまとめ、タイトルとプレイ画面を縦スクロールなしへ整理します。その完了後に高速空域を別の版で実装します。
+実装・検証・公開状況とPixel 9aの未確認項目は[検証記録](docs/verification-v0129.md)、[地面とコース](docs/verification-v0129-world.md)、[輪](docs/verification-v0129-director.md)、[試聴](docs/verification-v0129-preview.md)へ記録します。[設定と操作](docs/settings-guide.md)。開始前地図と開始導線はv30で実装・全体試験を終え、公開準備中です。その完了後に高速空域を別の版で実装します。
 
 ## v0.1.28の追加BGM3曲
 

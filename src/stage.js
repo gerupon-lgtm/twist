@@ -15,17 +15,12 @@ import { COURSE } from './course.js';
 import { FLIGHT_TURN, normalizeTurnGravity, flightYawForBank, applyHorizontalTurn } from './flight-turn.js';
 import { STAGE_HALF_EXTENT, stageBoundaryStatus } from './boundary.js';
 import { createStageBoundary } from './stage-boundary.js';
+import { DIRECTION_LANDMARKS } from './arena.js';
 
 const COLLECT_RADIUS = 3.2;
 const EXIT_RADIUS = 4;
 const SKY = 0xdcebf1;
 const MAX_BANK = THREE.MathUtils.degToRad(40);
-const DIRECTION_LANDMARKS = [
-  { id: 'north', label: '北の三角塔', color: '#2c81b7', shape: 'triangle', position: { x: 0, y: 16, z: -315 } },
-  { id: 'east', label: '東の四角塔', color: '#bf6559', shape: 'square', position: { x: 295, y: 16, z: 0 } },
-  { id: 'south', label: '南のひし形', color: '#8b6bb3', shape: 'diamond', position: { x: 0, y: 16, z: 315 } },
-  { id: 'west', label: '西のアーチ', color: '#478f73', shape: 'arch', position: { x: -295, y: 16, z: 0 } },
-];
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 
 /** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */

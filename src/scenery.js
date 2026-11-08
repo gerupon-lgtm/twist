@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {CENTRAL_TOWER} from './arena.js';
 
 /** Static instancing keeps a whole compass of silhouettes inexpensive to render. */
 export function createScenery({halfExtent=350,avoidPoints=[],coursePoints=[],abStraights=[]}={}) {
@@ -44,14 +45,14 @@ export function createScenery({halfExtent=350,avoidPoints=[],coursePoints=[],abS
   const islandGeometry=new THREE.ConeGeometry(1,1,5);islandGeometry.rotateZ(Math.PI);
   batch(islandGeometry,far,islands,'far-floating-islands');batch(new THREE.BoxGeometry(1,1,1),farLight,ruins,'far-island-ruins');
   batch(new THREE.BoxGeometry(1,1,1),farLight,arches,'far-island-arches');
-  const tower=[];
+  const tower=[],towerX=CENTRAL_TOWER.position.x,towerZ=CENTRAL_TOWER.position.z;
   for(const y of [12,38,64,90]) {
-    for(const x of [-2.2,2.2])tower.push({p:[-36+x,y,-18],s:[1.4,22,2.8]});
-    tower.push({p:[-36,y+10,-18],s:[7.5,2.5,5]});
+    for(const x of [-2.2,2.2])tower.push({p:[towerX+x,y,towerZ],s:[1.4,22,2.8]});
+    tower.push({p:[towerX,y+10,towerZ],s:[7.5,2.5,5]});
   }
   batch(new THREE.BoxGeometry(1,1,1),stone,tower,'central-tower');
-  passObject('central-tower',-36,28,-18,4);
-  const crown=new THREE.Mesh(new THREE.ConeGeometry(4.5,14,4),stone);crown.position.set(-36,109,-18);crown.rotation.y=Math.PI/4;group.add(crown);
+  passObject(CENTRAL_TOWER.id,towerX,CENTRAL_TOWER.position.y,towerZ,4);
+  const crown=new THREE.Mesh(new THREE.ConeGeometry(4.5,14,4),stone);crown.position.set(towerX,109,towerZ);crown.rotation.y=Math.PI/4;group.add(crown);
   const sunMaterial=new THREE.MeshBasicMaterial({color:0xffefac,fog:false});
   const sun=new THREE.Mesh(new THREE.SphereGeometry(25,12,8),sunMaterial);sun.position.set(-420,300,-740);group.add(sun);
   const halo=new THREE.Mesh(new THREE.SphereGeometry(42,12,8),new THREE.MeshBasicMaterial({color:0xfff2c8,transparent:true,opacity:.25,depthWrite:false,fog:false}));halo.position.copy(sun.position);group.add(halo);

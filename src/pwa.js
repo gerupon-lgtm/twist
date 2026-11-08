@@ -3,14 +3,17 @@ import { isIPhone, isAndroid, launchMethod, installationAdvice, orientationType,
 import { createOrientationToast } from './orientation-toast.js';
 
 const $ = id => document.getElementById(id);
-export function createPwaController({ getPhase, pause, showDialog }) {
+export function createPwaController({ getPhase, pause, showDialog, allPlatforms = false }) {
   const userAgent = navigator.userAgent;
   const iphone = isIPhone(userAgent), android = isAndroid(userAgent);
   const launch = launchMethod({ standalone: navigator.standalone === true,
     displayModes: ['standalone','fullscreen','minimal-ui'].filter(mode => matchMedia(`(display-mode: ${mode})`).matches) });
   const guard = createOrientationGuard();
   const notice = createOrientationToast({ root: $('orientation-notice'), userAgent });
-  let installPrompt = null, installed = launch === 'installed', generation = 0, locked = false, newerVersion = null, checking = false;
+  const fullscreenEnabled = android || allPlatforms;
+  let installPrompt = null, installed = launch === 'installed', generation = 0, locked = false, newerVersion = null, checking = false, orientationNoticeActive = false;
+  let fullscreenAttempt = { fullscreenRequested:false, fullscreenSucceeded:false, fullscreenRequestedAt:0, fullscreenSucceededAt:0, fullscreenSource:'other' };
+  const time = () => { const value = performance.now(); return Number.isFinite(value) ? Math.max(0,value) : 0; };
   const currentOrientation = () => orientationType({ type: screen.orientation?.type, legacyAngle: window.orientation, width: innerWidth, height: innerHeight });
   const fullscreen = () => Boolean(document.fullscreenElement || matchMedia('(display-mode: fullscreen)').matches);
   const canResume = () => !newerVersion && (!iphone || guard.canResume(currentOrientation()));
@@ -23,10 +26,10 @@ export function createPwaController({ getPhase, pause, showDialog }) {
     const advice = installationAdvice({ userAgent, launch: installed ? 'installed' : launch });
     $('installation-advice').textContent = advice;
     $('installation-advice').hidden = !advice || phase !== 'intro';
-    $('release-screen-button').hidden = !android || phase !== 'paused' || !(fullscreen() || locked);
+    $('release-screen-button').hidden = !fullscreenEnabled || phase !== 'paused' || !(fullscreen() || locked);
     if (!canResume()) { $('start-button').disabled = true; $('practice-button').disabled = true; }
     else $('practice-button').disabled = false;
-    if (phase !== 'intro') notice.hide();
+    if (phase !== 'intro' && !(allPlatforms && orientationNoticeActive && ['paused','ready','waiting'].includes(phase))) notice.hide();
   }
   function orientationChanged() {
     if (iphone) {
@@ -40,25 +43,58 @@ export function createPwaController({ getPhase, pause, showDialog }) {
     }
     notice.refresh(); render();
   }
-  async function enter() {
-    notice.hide();
-    if (!android) return;
-    const attempt = ++generation;
-    // Capture the exact orientation before requestFullscreen can change the viewport.
-    const type = screen.orientation?.type;
-    try { if (!fullscreen()) await document.documentElement.requestFullscreen?.(); } catch { /* Playing remains available. */ }
-    if (attempt !== generation) return;
+  async function requestFullscreenFor(attempt, source) {
+    if (!fullscreenEnabled || fullscreen() || typeof document.documentElement.requestFullscreen !== 'function') return fullscreen();
+    const record = { fullscreenRequested:true, fullscreenSucceeded:false, fullscreenRequestedAt:time(), fullscreenSucceededAt:0,
+      fullscreenSource:['title','legacy','resume'].includes(source) ? source : 'other' };
+    fullscreenAttempt = record;
+    try {
+      await document.documentElement.requestFullscreen();
+      // A resolved promise alone is not evidence that fullscreen was actually entered.
+      if (fullscreenAttempt === record && fullscreen()) {
+        record.fullscreenSucceeded = true; record.fullscreenSucceededAt = time();
+      }
+    } catch { /* Playing remains available. */ }
+    return attempt === generation && fullscreen();
+  }
+  async function lockOrientationFor(type, attempt) {
+    if (!android) return false;
     try {
       if (ORIENTATION_TYPES.includes(type) && screen.orientation?.lock) {
         await screen.orientation.lock(type);
-        if (attempt === generation) locked = true;
+        if (attempt === generation) { locked = true; return true; }
         else screen.orientation.unlock?.();
       }
     } catch { /* Browser/OS may reject a lock even when the method is present. */ }
-    render();
+    return false;
+  }
+  async function requestFullscreen({ source = 'other' } = {}) {
+    const attempt = ++generation;
+    const entered = await requestFullscreenFor(attempt,source);
+    if (attempt === generation) render();
+    return attempt === generation && entered;
+  }
+  async function lockCurrentOrientation() {
+    orientationNoticeActive = false; notice.hide();
+    const type = screen.orientation?.type, attempt = ++generation;
+    const result = await lockOrientationFor(type,attempt);
+    if (attempt === generation) render();
+    return attempt === generation && result;
+  }
+  async function enter({ source = 'legacy' } = {}) {
+    orientationNoticeActive = false; notice.hide();
+    if (!fullscreenEnabled) return;
+    const attempt = ++generation;
+    // The legacy start/recenter flow keeps the type held before fullscreen changes the viewport.
+    const type = screen.orientation?.type;
+    await requestFullscreenFor(attempt,source);
+    if (attempt !== generation) return;
+    await lockOrientationFor(type,attempt);
+    if (attempt === generation) render();
   }
   async function release() {
     generation++;
+    if (allPlatforms) { orientationNoticeActive = false; notice.hide(); }
     try { screen.orientation?.unlock?.(); } catch { /* Unsupported. */ }
     locked = false;
     try { if (document.fullscreenElement) await document.exitFullscreen?.(); } catch { /* Unsupported. */ }
@@ -78,7 +114,7 @@ export function createPwaController({ getPhase, pause, showDialog }) {
     try { await prompt.prompt(); await prompt.userChoice; } catch { /* The browser can decline the request. */ }
   });
   document.addEventListener('fullscreenchange',() => {
-    if (android && !fullscreen() && getPhase() === 'running') {
+    if (fullscreenEnabled && !fullscreen() && getPhase() === 'running') {
       void release(); pause('全画面を終了したため停止しました。持ち方を合わせて再開してください。');
     }
     render();
@@ -107,13 +143,14 @@ export function createPwaController({ getPhase, pause, showDialog }) {
   });
   document.addEventListener('visibilitychange',() => { if (!document.hidden) void checkVersion(); });
   return {
-    render, enter, release, orientationChanged, canResume,
-    cancelEntry() { generation++; },
+    render, enter, requestFullscreen, lockCurrentOrientation, release, orientationChanged, canResume,
+    showOrientationNotice() { orientationNoticeActive = allPlatforms; notice.show(); },
+    cancelEntry() { generation++; if (allPlatforms) { orientationNoticeActive = false; notice.hide(); } },
     begin() { if (!canResume()) return false; guard.begin(currentOrientation()); return true; },
     clearOrientation() { guard.clear(); },
-    report: () => ({launch, fullscreen:fullscreen()}),
+    report: () => ({launch, fullscreen:fullscreen(), ...fullscreenAttempt}),
     initialize() {
-      render(); notice.show();
+      render(); if (allPlatforms) notice.hide(); else notice.show();
       if (import.meta.env.PROD && 'serviceWorker' in navigator) {
         navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`,{scope:'./',updateViaCache:'none'}).catch(() => {});
       }

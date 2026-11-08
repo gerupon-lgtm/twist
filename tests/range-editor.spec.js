@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 test.use({hasTouch:true});
 const input=page=>page.locator('#setting-maxPitch');
 async function settings(page,camera='overlay') {

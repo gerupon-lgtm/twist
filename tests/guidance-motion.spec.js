@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 import {mkdir,writeFile} from 'node:fs/promises';
 
 async function cockpit(page){

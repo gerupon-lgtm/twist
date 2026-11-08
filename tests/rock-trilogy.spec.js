@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 
 const songs=[['steel','鋼翼の鼓動'],['horizon','黎明の航跡'],['storm','嵐を越えて']];
 const music=page=>page.locator('#feedback-diagnostics').getAttribute('data-music').then(JSON.parse);

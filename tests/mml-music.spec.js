@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 const songs=[['ignition','Ignition Sky'],['advance','Steel Advance'],['overdrive','Overdrive Horizon']];
 const music=page=>page.locator('#feedback-diagnostics').getAttribute('data-music').then(JSON.parse);
 const audio=page=>page.locator('#feedback-diagnostics').getAttribute('data-audio').then(JSON.parse);

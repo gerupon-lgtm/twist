@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 import {convertSpeed} from '../src/speed-units.js';
 const sizes=[{width:390,height:844},{width:360,height:640},{width:844,height:390}];
 const read=(page,key)=>page.locator('#app').getAttribute('data-'+key);

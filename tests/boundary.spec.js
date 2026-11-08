@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 
 // Draft integration cases for root to run after adding the snippet/main call.
 // These are DOM-layout fixtures, not evidence that the aircraft crossed an edge.

@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 const slider=(p,id,value)=>p.locator('#'+id).evaluate((el,v)=>{el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}));},value);
 const numeric=(p,k)=>p.locator('#app').getAttribute('data-'+k).then(Number);
 for(const steer of ['tilt','twist'])test(`${steer} small-angle steering is independent, editable, saved, reset and copied`,async({page})=>{

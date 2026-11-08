@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 
 for(const cameraMode of ['overlay','chase','cockpit'])test(`real AB presentation shares the renderer projection and preserves physics in ${cameraMode}`,async({page})=>{
   test.setTimeout(60000);

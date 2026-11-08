@@ -1,6 +1,6 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
 import {COURSE} from '../src/course.js';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 // This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
 test.beforeEach(async({page})=>{await page.addInitScript(value=>{if(!localStorage.getItem('twist.flight-settings.v1'))localStorage.setItem('twist.flight-settings.v1',JSON.stringify(value));},{"hudLanguage": "ja", "flightDirector": false, "edgeGuidance": false, "targetHeadingCue": false, "nextTargetNotice": false});});
 import {flyRoute} from './helpers/fly-route.js';

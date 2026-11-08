@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 
 const poll={timeout:8000,intervals:[25,50,100,200]};
 const music=page=>page.locator('#feedback-diagnostics').getAttribute('data-music').then(value=>JSON.parse(value||'{}'));

@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/legacy-ui.js';
 import { Euler, Quaternion, Vector3 } from 'three';
 
 const rad = degrees => degrees * Math.PI / 180;

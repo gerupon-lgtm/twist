@@ -12,7 +12,7 @@ function hide(){
  if(app){app.dataset.boundaryWarning='clear';delete app.dataset.boundaryReturnBearing;}
 }
 function obstacles(){
- const ids=['radar','flight-essential-speed','flight-essential-altitude','bottom-panel','practice-panel','cockpit-speed','cockpit-altitude','cockpit-vario','cockpit-heading',
+ const ids=['start-flow-view-button','radar','flight-essential-speed','flight-essential-altitude','bottom-panel','practice-panel','cockpit-speed','cockpit-altitude','cockpit-vario','cockpit-heading',
   'cockpit-target-height','cockpit-exit-notice','cockpit-power','target-edge-marker','cockpit-objective-label',
   'guidance-director','guidance-flight-path','guidance-target-point','guidance-edge-arrow','guidance-edge-label',
   'guidance-next-notice','guidance-heading','guidance-status','toast'];

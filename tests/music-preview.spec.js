@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 import {readFile} from 'node:fs/promises';
 const tracks=JSON.parse(await readFile('public/music/tracks.json','utf8'));
 const poll={timeout:10000,intervals:[25,50,100,200]};

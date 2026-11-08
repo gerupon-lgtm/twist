@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 const music=page=>page.locator('#feedback-diagnostics').getAttribute('data-music').then(JSON.parse);
 const slider=(page,id,value)=>page.locator('#'+id).evaluate((e,v)=>{e.value=String(v);e.dispatchEvent(new Event('input',{bubbles:true}));},value);
 test('fine flight, collection and stall issue distinct rhythms, and classic can be selected and saved',async({page})=>{

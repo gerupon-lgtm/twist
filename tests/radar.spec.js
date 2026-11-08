@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import { test,expect } from '@playwright/test';
+import { test,expect } from './helpers/legacy-ui.js';
 const data=(p,k)=>p.locator('#app').getAttribute('data-'+k).then(Number);
 const slider=(p,id,value)=>p.locator('#'+id).evaluate((el,v)=>{el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}));},value);
 async function launch(page,mode='flight',extra=''){

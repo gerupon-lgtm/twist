@@ -45,7 +45,7 @@ function clear(){
     delete app.dataset.guidanceDirection;delete app.dataset.guidanceAligned;delete app.dataset.guidanceReady;}
 }
 function obstacleRects(camera){
-  const ids=['radar','flight-essential-speed','flight-essential-altitude','bottom-panel','practice-panel','cockpit-speed','cockpit-altitude','cockpit-vario',
+  const ids=['start-flow-view-button','radar','flight-essential-speed','flight-essential-altitude','bottom-panel','practice-panel','cockpit-speed','cockpit-altitude','cockpit-vario',
     'cockpit-heading','cockpit-target-height','cockpit-exit-notice','cockpit-power','target-edge-marker','cockpit-objective-label'];
   if(camera!=='cockpit')ids.push('toast');
   return [...ids.map(id=>rect($(id))),rect(document.querySelector('.navigation')),...['.topbar .brand','.topbar .version','.topbar .feedback-metrics'].map(selector=>rect(document.querySelector(selector)))].filter(Boolean);

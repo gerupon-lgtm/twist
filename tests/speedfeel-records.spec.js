@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 import {COURSE_BESTS_KEY,formatCourseTime} from '../src/course-bests.js';
 import {RADAR_UPGRADE_KEY} from '../src/radar-upgrade.js';
 

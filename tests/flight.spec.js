@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/legacy-ui.js';
 import { COURSE } from '../src/course.js';
 import { FLIGHT_MODEL } from '../src/flight-physics.js';
 

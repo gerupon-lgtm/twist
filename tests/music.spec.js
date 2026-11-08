@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import { test,expect } from '@playwright/test';
+import { test,expect } from './helpers/legacy-ui.js';
 import { readFile } from 'node:fs/promises';
 const trackConfig=JSON.parse(await readFile('public/music/tracks.json','utf8'));
 const music=p=>p.locator('#feedback-diagnostics').getAttribute('data-music').then(s=>JSON.parse(s||'{}'));

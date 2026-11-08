@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 
 // Use wall time: a native AudioContext/AudioWorklet clock must advance alongside
 // the actual app. The only API replacement records Vibration API requests.

@@ -1,6 +1,6 @@
 import {APP_VERSION} from '../src/version.js';
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 import {Euler,Quaternion,Vector3} from 'three';
 import {readFile} from 'node:fs/promises';
 import {COURSE} from '../src/course.js';

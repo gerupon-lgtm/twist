@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 
 const sizes=[{width:390,height:844},{width:360,height:640},{width:844,height:390}];
 const japanese=/[\u3040-\u30ff\u3400-\u9fff]/;

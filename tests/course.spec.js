@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 for(const [speed,bank] of [[8,30],[10,30],[14,40]])test(`course clears at ${speed}m/s with ${bank} degree bank without a return loop`,async({page})=>{
  test.setTimeout(60000);await page.goto('/?mode=flight');
  const result=await page.evaluate(async({speed,bank})=>{

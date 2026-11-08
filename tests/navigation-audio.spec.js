@@ -1,5 +1,5 @@
 import {useLegacyCourse} from './helpers/legacy-course.js';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 
 // Real wall time is intentional: AudioWorklet.currentTime must advance with the
 // native AudioContext, so these cases must not use page.clock or a fake worklet.

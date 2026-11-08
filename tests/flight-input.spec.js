@@ -1,7 +1,7 @@
 import {APP_VERSION} from '../src/version.js';
 import {useLegacyCourse} from './helpers/legacy-course.js';
 import {COURSE} from '../src/course.js';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/legacy-ui.js';
 const data=(page,key)=>page.locator('#app').getAttribute(`data-${key}`).then(Number);
 const slider=(page,id,value)=>page.locator(`#${id}`).evaluate((el,value)=>{el.value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}));},value);
 async function launch(page,query='') {
@@ -80,7 +80,7 @@ test('tuning persists all flight fields, affects pitch and bank, copies and rese
   for(const [key,value] of Object.entries(values)) await slider(page,`setting-${key}`,value);
   await page.locator('#settings-copy').click();
   const copied=await page.evaluate(()=>JSON.parse(window.copied));
-  expect(copied).toEqual({version:'0.1.29',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',launch:'browser',fullscreen:false,settings:{...values,groundPatternStrength:.8,streakAmount:0,speedFov:0,highSpeedShake:false,speedUnit:'m/s',autoAfterburner:false,autoAfterburnerAngle:35,ladderRange:10,cockpitFov:0,targetHeightGuide:true,turnGravity:3,flightDirector:true,targetHeadingCue:true,edgeGuidance:true,nextTargetNotice:true,audioGuidance:true,hudLanguage:'en'},inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov','autoAfterburnerAngle'],feedback:expect.any(Object),input:expect.any(Object),changedSettings:expect.any(Array),segments:expect.any(Array),approaches:expect.any(Array),abStraights:expect.any(Array),passbys:expect.any(Object),courseTime:expect.any(Object),exitDiscovery:expect.any(Object),targetViews:expect.any(Array),course:expect.any(Object),stageSize:expect.any(Object),afterburner:expect.any(Object)});
+  expect(copied).toEqual({version:'0.1.30',pitch:'angle',steer:'tilt',display:'bank',camera:'overlay',mode:'flight',view:'assisted',launch:'browser',fullscreen:false,settings:{...values,groundPatternStrength:.8,streakAmount:0,speedFov:0,highSpeedShake:false,speedUnit:'m/s',autoAfterburner:false,autoAfterburnerAngle:35,ladderRange:10,cockpitFov:0,targetHeightGuide:true,turnGravity:3,flightDirector:true,targetHeadingCue:true,edgeGuidance:true,nextTargetNotice:true,audioGuidance:true,hudLanguage:'en'},inactiveSettings:['displayTimeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov','autoAfterburnerAngle'],feedback:expect.any(Object),input:expect.any(Object),changedSettings:expect.any(Array),segments:expect.any(Array),approaches:expect.any(Array),abStraights:expect.any(Array),passbys:expect.any(Object),courseTime:expect.any(Object),exitDiscovery:expect.any(Object),targetViews:expect.any(Array),course:expect.any(Object),stageSize:expect.any(Object),afterburner:expect.any(Object)});
   await page.reload(); await page.clock.runFor(100); await page.locator('#practice-button').click(); await page.clock.runFor(100);
   await slider(page,'practice-pitch',10); await slider(page,'practice-steer',10); await page.clock.runFor(3200);
   expect(await data(page,'flight-pitch')).toBeCloseTo(25*Math.PI/180,2);

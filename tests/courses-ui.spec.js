@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/legacy-ui.js';
 import {COURSES,getCourse} from '../src/course.js';
 import {COURSE_STORAGE_KEY} from '../src/course-choice.js';
 import {APP_VERSION} from '../src/version.js';
