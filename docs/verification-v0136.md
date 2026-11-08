@@ -1,6 +1,16 @@
 # v0.1.36 検証
 
-2026-11-09。ローカル検証完了、公開準備中。公開中はv0.1.35。最新の単体772件、公開用PWA13件、公開用ファイルでの手首8条件・導入5ケース/7検査・性能12計測は成功。同じ本体で成功した336件と、説明書の検査修正後の99件を照合し、全59ファイル・435件を確認した。Pixel 9aは未確認。[実装](implementation-v0136.md)。
+2026-11-09。v0.1.36の公開・配信確認完了。単体772件、公開用PWA13件、手首8条件・導入5ケース/7検査・性能12計測は成功。同じ本体で成功した336件と、説明書の検査修正後の99件を照合し、全59ファイル・435件を確認した。Pixel 9aは未確認。[公開版](https://twist.sikumilab.com/?v=0.1.36)、[手首で試す](https://twist.sikumilab.com/?v=0.1.36&steer=wrist)、[実装](implementation-v0136.md)。
+
+## 公開後の確認
+
+アプリのcommitは `b9442078e386dda0e49a7749742dc0e5a5cb517e`。[Actions](https://github.com/gerupon-lgtm/twist/actions/runs/42511711804) は全12ステップ成功。`.cache/v0136-actions-final.json`。
+
+公開252ファイルの長さ・SHA・種類と、実画面/PWA/旧URLからの転送など21項目が成功した。runtime/console/HTTP/request/navigation-abort各0。`.cache/v0136-public-verification.json`。
+
+公開先での導入5ケース/7検査と、手首8条件もすべて成功した。`.cache/v0136-public-intro-clock-public/report.json` / `.cache/v0136-public-wrist-2026-11-08T18-52-38-865Z-24360/report.json`。タイトル、手首設定、実飛行画面の画像も確認した。センサーの条件は疑似値による実アプリの確認で、物理端末での操作感とは分ける。
+
+保存版25/26/29/31/32/33/34/35は、それぞれ全ファイルの公開一致と、実画面・入れ子の実サービスワーカー・操縦・再読込の4項目が成功した。`.cache/archives-v0136-verification.json`。新しい保存版35の32ファイルは、元の公開35のバイト列とGitへ送信した内容の両方へ照合した。
 
 ## 経過
 
