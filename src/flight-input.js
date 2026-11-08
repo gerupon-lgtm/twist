@@ -1,5 +1,6 @@
 import { CONTROL_LIMITS, flightRates } from './controls.js';
 import { normalizeFlightSettings } from './flight-settings.js';
+import {wristSteeringDemand} from './wrist-input.js';
 
 const radians = degrees => degrees * Math.PI / 180;
 
@@ -21,6 +22,8 @@ export function followFlightPitch(current, target, dt, timeConstant = .3) {
 export function flightCommands(angles, { pitchMode = 'angle', steering = 'tilt', settings, currentPitch = 0, dt = 0 } = {}) {
   const config = normalizeFlightSettings(settings);
   const rates = flightRates(angles, 1, steering, config);
+  // The legacy rate implementation remains untouched; only the new mode overrides bank.
+  if (steering === 'wrist') rates.bankAngle = wristSteeringDemand(angles?.wrist, config) * radians(config.maxBank);
   if (pitchMode === 'rate') return rates;
   const pitchTarget = flightPitchTarget(angles?.pitch, config);
   return { ...rates, pitchTarget, pitchRate: followFlightPitch(currentPitch, pitchTarget, dt, config.timeConstant) };

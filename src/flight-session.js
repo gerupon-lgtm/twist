@@ -1,6 +1,7 @@
 import { normalizeFlightSettings } from './flight-settings.js';
 import { FLIGHT_SETTING_FIELDS } from './flight-settings.js';
 import { changedSettings } from './setting-differences.js';
+import {inactiveSteeringSettings} from './wrist-input.js';
 
 /** Counts active play time supplied by the caller; menus and sensor waits never advance it. */
 export function createFlightSession() {
@@ -33,13 +34,13 @@ export function flightReport({ version, pitch, steer, display = 'bank', camera =
   const inactiveSettings = [...(pitch === 'rate' ? [...(mode==='flight'&&normalized.flightDirector?[]:['maxPitch']), 'timeConstant'] : []),
     ...(display !== 'fixed' ? ['displayTimeConstant'] : []), ...(view !== 'assisted' ? ['radarRange'] : []),
     ...(camera !== 'chase' || mode !== 'flight' ? ['chaseTimeConstant'] : [])];
-  inactiveSettings.push(...(steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone']));
+  inactiveSettings.push(...inactiveSteeringSettings(steer));
   if(mode!=='flight'||camera!=='cockpit')inactiveSettings.push('ladderRange','cockpitFov');
   if(view!=='assisted')inactiveSettings.push('targetHeightGuide','streakAmount','groundPatternStrength');
   if(mode==='flight'&&!normalized.autoAfterburner)inactiveSettings.push('autoAfterburnerAngle');
   if(mode!=='flight')inactiveSettings.push('speedFov','highSpeedShake','autoAfterburner','autoAfterburnerAngle');
   if(mode!=='flight')inactiveSettings.push('flightDirector','targetHeadingCue','edgeGuidance','nextTargetNotice','audioGuidance');
-  if (mode === 'explore') for (const key of ['deadzone','maxTilt','maxPitch','timeConstant','maxBank','turnGravity','displayTimeConstant','maxSteerTilt','maxSteerTwist','steerTiltDeadzone','steerTwistDeadzone','steerCurve']) if (!inactiveSettings.includes(key)) inactiveSettings.push(key);
+  if (mode === 'explore') for (const key of ['deadzone','maxTilt','maxPitch','timeConstant','maxBank','turnGravity','displayTimeConstant','maxSteerTilt','maxSteerTwist','maxSteerWrist','steerTiltDeadzone','steerTwistDeadzone','steerWristDeadzone','steerCurve']) if (!inactiveSettings.includes(key)) inactiveSettings.push(key);
   if(supersonic)for(const key of ['maxPitch','timeConstant','maxBank','turnGravity','radarRange','groundPatternStrength'])if(!inactiveSettings.includes(key))inactiveSettings.push(key);
   return { version, mode, view, pitch, steer, launch: launch === 'installed' ? 'installed' : 'browser', fullscreen: Boolean(fullscreen), camera: mode === 'flight' && ['chase','cockpit'].includes(camera) ? camera : 'overlay', display: display === 'fixed' ? 'fixed' : 'bank',
     ...(['clear', 'grounded'].includes(result) ? { result } : {}),

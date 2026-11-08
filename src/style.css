@@ -168,3 +168,22 @@
 .app .intro-card .route-options>.mode-picker{grid-column:1;grid-row:1;margin:0}
 .app .intro-card .route-options>.course-picker{grid-column:2;grid-row:1}
 @media(max-height:500px) and (min-width:600px){.app[data-play-mode="flight"] .intro-card>.route-options{grid-column:2;grid-row:2}}
+
+/* Third choice only; the legacy two-mode calculations are unchanged. */
+#flight-steering-picker{grid-template-columns:auto repeat(3,minmax(0,1fr))}
+#flight-steering-picker button{min-height:44px;white-space:normal}
+@media(max-height:500px) and (min-width:600px){
+ .app[data-start-flow=legacy][data-play-mode=flight] .veil{padding:12px 14px}
+ .app[data-start-flow=legacy][data-play-mode=flight] .intro-card :is(#start-button,#practice-button){grid-column:2;grid-row:7;width:calc((100% - 8px)/2);min-height:44px;margin-top:0;align-self:stretch}
+ .app[data-start-flow=legacy][data-play-mode=flight] .intro-card #start-button{justify-self:start}
+ .app[data-start-flow=legacy][data-play-mode=flight] .intro-card #practice-button{justify-self:end}
+}
+/* Keep both complete legacy start actions reachable without changing modern flow. */
+@media(max-width:599px){
+ .app[data-start-flow=legacy][data-play-mode=flight] .intro-card{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:8px}
+ .app[data-start-flow=legacy][data-play-mode=flight] .intro-card>*{grid-column:1/-1;grid-row:auto}
+ .app[data-start-flow=legacy][data-play-mode=flight] .intro-card .dialog-note{margin:0 0 6px}
+ .app[data-start-flow=legacy][data-play-mode=flight] .intro-card :is(#start-button,#practice-button){min-height:54px;margin-top:0;padding:8px 6px;align-self:stretch}
+ .app[data-start-flow=legacy][data-play-mode=flight] .intro-card #start-button{grid-column:1}
+ .app[data-start-flow=legacy][data-play-mode=flight] .intro-card #practice-button{grid-column:2}
+}

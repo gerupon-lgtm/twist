@@ -56,7 +56,7 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
   }
   function updateProgress(){
     if(!active)return;
-    const seconds=elapsed(),value=progress();routeLine?.setAttribute('stroke-dashoffset',String(1-value));
+    const seconds=elapsed(),value=staticMap()?1:briefingProgress(seconds);routeLine?.setAttribute('stroke-dashoffset',String(1-value));
     const tipVisible=Boolean(routeTip&&routeTrace?.length>0&&active.origin==='start'&&!active.reducedMotion&&value>0&&value<1);
     if(routeTip){
       routeTip.setAttribute('visibility',tipVisible?'visible':'hidden');
@@ -71,10 +71,11 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
     closeButton.textContent=value>=1?'CONTINUE':'SKIP';
     if(!active.signalOpened&&active.signalPoints){active.signalOpened=true;notify('open',{visibleSeconds:seconds,progress:value});}
     notify('progress',{visibleSeconds:seconds,progress:value});
+    return value;
   }
   function animate(){
-    frame=null;if(!active||disposed)return;updateProgress();
-    if(progress()<1&&!document.hidden)frame=requestAnimationFrame(animate);
+    frame=null;if(!active||disposed)return;const value=updateProgress();
+    if(value<1&&!document.hidden)frame=requestAnimationFrame(animate);
   }
   function render(){
     if(!active||disposed)return;
@@ -167,7 +168,7 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
   function visibility(){
     if(!active)return;
     if(document.hidden&&active.visibleAt!==null){active.visibleSeconds=elapsed();active.visibleAt=null;cancelAnimationFrame(frame);frame=null;notify('visibility',{visible:false});}
-    else if(!document.hidden&&active.visibleAt===null){active.visibleAt=now();notify('visibility',{visible:true});if(progress()<1&&frame===null)frame=requestAnimationFrame(animate);}
+    else if(!document.hidden&&active.visibleAt===null){active.visibleAt=now();notify('visibility',{visible:true});const value=updateProgress();if(value<1&&frame===null)frame=requestAnimationFrame(animate);}
   }
   const observer=typeof ResizeObserver==='function'?new ResizeObserver(render):null;
   observer?.observe(area);window.addEventListener('resize',render);document.addEventListener('visibilitychange',visibility);document.addEventListener('keydown',keydown,true);element.addEventListener('click',click);

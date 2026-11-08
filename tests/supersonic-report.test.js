@@ -73,7 +73,7 @@ test('normal report retains its established fields and values when Sonic reporti
   assert.deepEqual(normal, {
     version: '0.1.31', mode: 'flight', view: 'assisted', pitch: 'angle', steer: 'tilt', launch: 'browser', fullscreen: false,
     camera: 'overlay', display: 'bank', settings, changedSettings: ['maxBank'],
-    inactiveSettings: ['displayTimeConstant', 'chaseTimeConstant', 'maxSteerTwist', 'steerTwistDeadzone', 'ladderRange', 'cockpitFov', 'autoAfterburnerAngle'],
+    inactiveSettings: ['displayTimeConstant', 'chaseTimeConstant', 'maxSteerTwist', 'steerTwistDeadzone', 'maxSteerWrist', 'steerWristDeadzone', 'ladderRange', 'cockpitFov', 'autoAfterburnerAngle'],
     stats, lastLeg, course, segments, courseTime,
   });
   assert.equal(Object.hasOwn(normal, 'supersonic'), false);
@@ -90,17 +90,17 @@ test('Sonic marks only its replaced normal settings inactive and does not duplic
   const cases = [
     {
       modes: { camera: 'overlay', display: 'bank', view: 'assisted', pitch: 'angle', steer: 'tilt' },
-      normal: ['displayTimeConstant', 'chaseTimeConstant', 'maxSteerTwist', 'steerTwistDeadzone', 'ladderRange', 'cockpitFov', 'autoAfterburnerAngle'],
+      normal: ['displayTimeConstant', 'chaseTimeConstant', 'maxSteerTwist', 'steerTwistDeadzone', 'maxSteerWrist', 'steerWristDeadzone', 'ladderRange', 'cockpitFov', 'autoAfterburnerAngle'],
       added: ['maxPitch', 'timeConstant', 'maxBank', 'turnGravity', 'radarRange', 'groundPatternStrength'],
     },
     {
       modes: { camera: 'cockpit', display: 'bank', view: 'assisted', pitch: 'angle', steer: 'twist' },
-      normal: ['displayTimeConstant', 'chaseTimeConstant', 'maxSteerTilt', 'steerTiltDeadzone', 'autoAfterburnerAngle'],
+      normal: ['displayTimeConstant', 'chaseTimeConstant', 'maxSteerTilt', 'steerTiltDeadzone', 'maxSteerWrist', 'steerWristDeadzone', 'autoAfterburnerAngle'],
       added: ['maxPitch', 'timeConstant', 'maxBank', 'turnGravity', 'radarRange', 'groundPatternStrength'],
     },
     {
       modes: { camera: 'chase', display: 'fixed', view: 'classic', pitch: 'rate', steer: 'twist' },
-      normal: ['timeConstant', 'radarRange', 'maxSteerTilt', 'steerTiltDeadzone', 'ladderRange', 'cockpitFov', 'targetHeightGuide', 'streakAmount', 'groundPatternStrength', 'autoAfterburnerAngle'],
+      normal: ['timeConstant', 'radarRange', 'maxSteerTilt', 'steerTiltDeadzone', 'maxSteerWrist', 'steerWristDeadzone', 'ladderRange', 'cockpitFov', 'targetHeightGuide', 'streakAmount', 'groundPatternStrength', 'autoAfterburnerAngle'],
       added: ['maxPitch', 'maxBank', 'turnGravity'],
     },
   ];

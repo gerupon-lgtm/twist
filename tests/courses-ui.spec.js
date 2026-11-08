@@ -62,6 +62,19 @@ for(const size of sizes)for(const id of courseIds)test(`${id} course selection, 
     const other=await page.locator(selector).boundingBox();expect(overlap(wholePicker,other),'course choice / '+selector).toBe(false);
   }
   await expect(page.locator('#start-button')).toBeInViewport();await expect(page.locator('#practice-button')).toBeInViewport();
+  const actions=[];
+  for(const selector of ['#start-button','#practice-button']){
+    const box=await page.locator(selector).boundingBox();expect(box,selector).not.toBeNull();
+    expect(box.width,selector).toBeGreaterThan(0);expect(box.height,selector).toBeGreaterThan(0);
+    expect(box.x,selector).toBeGreaterThanOrEqual(0);expect(box.y,selector).toBeGreaterThanOrEqual(0);
+    expect(box.x+box.width,selector).toBeLessThanOrEqual(size.width);expect(box.y+box.height,selector).toBeLessThanOrEqual(size.height);
+    if(size.width>=600&&size.height<=500)expect(box.height,selector).toBeGreaterThanOrEqual(44);
+    actions.push(box);
+  }
+  expect(overlap(actions[0],actions[1]),'two complete start actions do not overlap').toBe(false);
+  for(const selector of ['#steering-tilt','#steering-twist','#steering-wrist']){
+    const box=await page.locator(selector).boundingBox();expect(box.height,selector).toBeGreaterThanOrEqual(44);
+  }
   if(id==='easy')await page.screenshot({path:`test-results/v0126-intro-${size.width}x${size.height}.png`});
 
   await start(page);await expect(page.locator('#course-select')).toBeDisabled();

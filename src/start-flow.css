@@ -249,3 +249,12 @@
 @media(prefers-reduced-motion:reduce){
  .app[data-start-flow=on] .flow-course-card{transition:none}
 }
+
+/* v36 candidate: three explicit steering choices inside the scrollable settings. */
+.app[data-start-flow=on] #flight-steering-picker{grid-template-columns:repeat(3,minmax(0,1fr))}
+.app[data-start-flow=on] #flight-steering-picker>span{grid-column:1/-1}
+.app[data-start-flow=on] #flight-steering-picker button{min-height:44px;white-space:normal}
+#wrist-sensitivity-presets{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:8px 0}
+#wrist-sensitivity-presets[hidden]{display:none}
+#wrist-sensitivity-presets>span{width:100%;font-size:12px}
+#wrist-sensitivity-presets button{min-height:44px;padding:6px 12px;border:1px solid #b9cdd1;border-radius:7px;background:#f7fbf9;color:#25485a;font:inherit}

@@ -38,6 +38,8 @@ import { layoutCockpitHud, updateCockpitHud } from './cockpit-hud.js';
 import { updateTargetHeightPanel } from './target-height-panel.js';
 import { createRangeEditor } from './range-editor.js';
 import { preserveTiltInput } from './controls.js';
+import {createWristReference,readWristAngles} from './wrist-controls.js';
+import {readSteeringChoice,saveSteeringChoice,createWristRecord,preserveWristPose} from './wrist-input.js';
 import { createRouteTiming } from './route-timing.js';
 import {createApproachRecords} from './approach-records.js';
 import {createStraightRecords} from './straight-records.js';
@@ -76,7 +78,9 @@ let playMode = flowEnabled ? flowDev&&flowParameters.get('mode')==='explore'?'ex
 if(playMode==='explore'&&isSupersonicCourse(selectedCourse))selectedCourse=getCourse('easy');
 let visibility = normalizeVisibility(new URLSearchParams(location.search).get('view'));
 // URL names stay compatible: tilt = ひねる (raise/lower phone sides), twist = 回す (in-plane turn).
-let flightSteering = new URLSearchParams(location.search).get('steer') === 'twist' ? 'twist' : 'tilt';
+const steeringChoice=readSteeringChoice(courseStorage,flowParameters.get('steer'));
+let flightSteering = steeringChoice.mode;
+let wristReference=null;const wristRecord=createWristRecord();
 let pitchMode = new URLSearchParams(location.search).get('pitch') === 'rate' ? 'rate' : 'angle';
 let flightDisplay = new URLSearchParams(location.search).get('display') === 'fixed' ? 'fixed' : 'bank';
 let cameraMode = normalizeCameraMode(flowParameters.has('camera')?flowParameters.get('camera'):flowEnabled?startPreferences.get().camera:'overlay');
@@ -116,7 +120,7 @@ function sonicReport(){
     activityClockMeaning:{activeSeconds:'observed-running-frame-time-excluding-terminal-remainder',interruptedSeconds:'unprocessed-active-time-not-menu-or-pause-duration'}};
 }
 function stageDimensions(){return sonicMode()?{halfExtent:20000,width:40000,depth:40000,minHeight:0,maxHeight:6000}:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2};}
-const flightPanel = createFlightPanel(() => ({ pitch: effectivePitchMode(), steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?'screen':'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length}, stageSize:stageDimensions(), ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...(sonicMode()?{supersonic:sonicReport()}:{}),...pwa.report() }));
+const flightPanel = createFlightPanel(() => ({ pitch: effectivePitchMode(), steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?(flightSteering==='wrist'?'estimated-forearm-world':'screen'):'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason,...(playMode==='flight'&&flightSteering==='wrist'?{wrist:wristRecord.snapshot()}: {})}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length}, stageSize:stageDimensions(), ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...(sonicMode()?{supersonic:sonicReport()}:{}),...pwa.report() }));
 sonicPanel=createSupersonicPanel({storage:courseStorage,settingsHost:$('flight-settings-fields'),onChange:()=>{lastHudAt=0;if(stage)updateHud(performance.now(),stage.getStatus());}});
 function makeStage(){
   return sonicMode()?createSupersonicStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,supersonicSettings:sonicPanel.getSettings()})
@@ -124,7 +128,7 @@ function makeStage(){
 }
 const radarNotice=$('radar-upgrade-notice'),radarAdjustments=$('flight-adjustments');let radarOfferSeen=false;
 $('setting-radarRange').closest('label').after(radarNotice);
-function resetRouteRecords(){routeTiming.reset(selectedCourse.lights.length);approaches.reset(selectedCourse.lights.length);straights.reset(selectedCourse.abStraights);passbys.reset();courseTime=null;passScenery=null;passTargetId=null;passCandidates=[];}
+function resetRouteRecords(){wristRecord.reset();routeTiming.reset(selectedCourse.lights.length);approaches.reset(selectedCourse.lights.length);straights.reset(selectedCourse.abStraights);passbys.reset();courseTime=null;passScenery=null;passTargetId=null;passCandidates=[];}
 function resetRoute(){
   if(sonicMode()){stage.reset({supersonicSettings:sonicPanel.getSettings()});sonicActivity.begin(stage.getStatus().supersonic);}else stage.reset();
   afterburnerSession.beginLeg();resetRouteRecords();exitNoticeUntil=0;
@@ -201,7 +205,7 @@ function setPhase(next) {
   for (const value of ['overlay','chase','cockpit']) $(`camera-${value}`).disabled = ['waiting','ready'].includes(next);
   for (const view of ['assisted', 'classic']) $(`view-${view}`).disabled = ['waiting', 'ready'].includes(next);
   for (const pitch of ['angle', 'rate']) $(`pitch-${pitch}`).disabled = ['waiting', 'ready', 'running'].includes(next);
-  for (const steering of ['twist', 'tilt']) $(`steering-${steering}`).disabled = ['waiting', 'ready', 'running'].includes(next);
+  for (const steering of ['twist', 'tilt', 'wrist']) $(`steering-${steering}`).disabled = ['waiting', 'ready', 'running'].includes(next);
   $('course-select').disabled=['waiting','ready','running'].includes(next);
   pwa.render();
   renderRadarUpgrade();
@@ -299,14 +303,14 @@ function applyModeUI() {
   applyCourseUI();
   const flight = playMode === 'flight';
   sonicPanel?.setActive(sonicMode());app.dataset.profile=sonicMode()?'supersonic':'normal';
-  const twistSteering = flightSteering === 'twist';
+  const twistSteering = flightSteering === 'twist',wristSteering=flightSteering === 'wrist';
   const basics = $('basic-controls'), guide = $('control-guide');
   if (flight) basics.append(guide);
   else basics.before(guide);
   basics.hidden = !flight || guide.hidden;
   for (const axis of ['pitch', 'steer']) {
-    $(`practice-${axis}`).min = flight ? '-30' : '-25';
-    $(`practice-${axis}`).max = flight ? '30' : '25';
+    $(`practice-${axis}`).min = flight ? (wristSteering&&axis==='steer'?'-40':'-30') : '-25';
+    $(`practice-${axis}`).max = flight ? (wristSteering&&axis==='steer'?'40':'30') : '25';
   }
   if (phase === 'intro') $('dialog-description').textContent = modeIntroduction();
   app.dataset.playMode = playMode;
@@ -326,13 +330,14 @@ function applyModeUI() {
   $('steer-control-meter').hidden = flight && twistSteering;
   $('twist-control-meter').hidden = flight && !twistSteering;
   $('pitch-label').textContent = flight ? '画面上辺の傾き' : '先端側の傾き';
-  $('steer-label').textContent = flight ? '左右のひねり' : '自機の左右';
+  $('steer-label').textContent = flight ? (wristSteering?'手首の回転':'左右のひねり') : '自機の左右';
   $('twist-label').textContent = '左右に回す角度';
   $('flight-steering-picker').hidden = !flight;
   $('motion-explanation').hidden = !flight;
   $('steering-twist').setAttribute('aria-pressed', String(twistSteering));
-  $('steering-tilt').setAttribute('aria-pressed', String(!twistSteering));
-  $('steering-note').textContent = twistSteering
+  $('steering-tilt').setAttribute('aria-pressed', String(flightSteering === 'tilt'));
+  $('steering-wrist').setAttribute('aria-pressed', String(wristSteering));
+  $('steering-note').textContent = wristSteering ? '楽な持ち方で手首を回します。前腕の水平な向きはスマホから推定します。' : twistSteering
     ? 'スマホの面を保って回す。時計回りで右旋回。'
     : '右端・左端を上下にひねる。下げた側へ旋回。';
   $('practice-panel').open = !flight;
@@ -340,7 +345,7 @@ function applyModeUI() {
   $('mode-explore').setAttribute('aria-pressed', String(!flight));
   $('mode-flight').setAttribute('aria-pressed', String(flight));
   $('pitch-caption').textContent = flight ? (effectivePitchMode() === 'angle' ? '画面上辺で機首角度・中立で水平' : '画面上辺を起こすと機首上げ') : '先端側で加速・逆で制動';
-  $('steer-caption').textContent = flight ? '下げた側へ旋回' : '下げた側へ曲がる';
+  $('steer-caption').textContent = flight ? (wristSteering?'手首を回した側へ旋回':'下げた側へ旋回') : '下げた側へ曲がる';
   $('twist-caption').textContent = flight ? '右回しで右・左回しで左旋回' : '右回しで上・左回しで下';
   $('stop-hint').textContent = flight ? '停止は一時停止ボタン' : `加減速は${CONTROL_LIMITS.throttleMaximum}°で最大`;
   $('stop-hint').hidden = flight;
@@ -349,11 +354,11 @@ function applyModeUI() {
   $('ground-warning-text').hidden = !flight;
   $('guide-pitch-title').textContent = flight ? '画面の上辺を起こす・倒す' : '自機の先端側へ倒す';
   $('guide-pitch-text').textContent = flight ? (effectivePitchMode() === 'angle' ? '起こすと上、倒すと下。中立で水平へ' : '起こすと機首上げ、前へ倒すと機首下げ') : '先端側で加速、逆側でブレーキ';
-  $('guide-steer-title').textContent = flight ? (twistSteering ? '面を保って左右に回す' : '左右の端を上下にひねる') : '自機の左右へ倒す';
-  $('guide-steer-text').textContent = flight ? (twistSteering ? '回した側へ旋回。戻すと翼が水平へ' : '下げた側へ旋回。戻すと翼が水平へ') : '下げた側へ曲がり続ける';
-  $('guide-steer-glyph').textContent = flight && twistSteering ? '↻' : '↔';
-  $('guide-steer-glyph').classList.toggle('twist-glyph', flight && twistSteering);
-  $('guide-steer-glyph').classList.toggle('steer-glyph', !flight || !twistSteering);
+  $('guide-steer-title').textContent = flight ? (wristSteering ? '楽な持ち方で手首を回す' : twistSteering ? '面を保って左右に回す' : '左右の端を上下にひねる') : '自機の左右へ倒す';
+  $('guide-steer-text').textContent = flight ? (wristSteering ? '手首を回した側へ旋回。戻すと翼が水平へ' : twistSteering ? '回した側へ旋回。戻すと翼が水平へ' : '下げた側へ旋回。戻すと翼が水平へ') : '下げた側へ曲がり続ける';
+  $('guide-steer-glyph').textContent = flight && (twistSteering||wristSteering) ? '↻' : '↔';
+  $('guide-steer-glyph').classList.toggle('twist-glyph', flight && (twistSteering||wristSteering));
+  $('guide-steer-glyph').classList.toggle('steer-glyph', !flight || !(twistSteering||wristSteering));
   $('guide-twist-title').textContent = flight ? '画面下のスロットル' : 'スマホを左右に回して保つ';
   $('guide-twist-text').textContent = sonicMode()?'110%でAB点火・100%へ戻すと解除。燃料は設定で無制限／ゲージを選べます。':flight ? '光・低空でAB補充／110%点火・100%解除' : '右回しで上、左回しで下へ曲がる';
   $('guide-third-glyph').textContent = flight ? '⇄' : '↻';
@@ -366,7 +371,9 @@ function applyModeUI() {
 }
 
 function selectSteering(next) {
-  if (!stage || next === flightSteering || !['twist', 'tilt'].includes(next) || ['waiting', 'ready', 'running'].includes(phase)) return;
+  if (!stage || !['twist', 'tilt', 'wrist'].includes(next) || ['waiting', 'ready', 'running'].includes(phase)) return;
+  saveSteeringChoice(courseStorage,next);
+  if(next===flightSteering)return;
   flightSteering = next;
   applyModeUI();
   flightPanel.setPhase(panelPhase(),playMode);
@@ -379,6 +386,7 @@ function selectSteering(next) {
 }
 $('steering-twist').addEventListener('click', () => selectSteering('twist'));
 $('steering-tilt').addEventListener('click', () => selectSteering('tilt'));
+$('steering-wrist').addEventListener('click', () => selectSteering('wrist'));
 
 function selectPitch(next) {
   if(sonicMode())return;
@@ -558,7 +566,13 @@ function refreshOrientations() {
 
 function readPose(displayPose, inputPose, neutralReference, physicalReference) {
   craftQuaternion.copy(compensationQuaternion(physicalReference, displayPose));
-  if (playMode === 'flight') return deviceTiltAngles(neutralReference, inputPose,inputMode==='sensor'?screenAngle():0);
+  if (playMode === 'flight') {
+    const legacy=deviceTiltAngles(neutralReference,inputPose,inputMode==='sensor'?screenAngle():0);
+    if(flightSteering!=='wrist')return legacy;
+    const reading=readWristAngles(wristReference,inputPose);
+    // Fixed-display compensation remains the existing local screen twist.
+    return {...legacy,...reading,pitch:reading.wristPitch,twist:relativeAngles(neutralReference,inputPose).twist};
+  }
   const neutralCompensation = compensationQuaternion(neutralReference, displayPose);
   return {
     ...projectedTiltAngles(craftQuaternion, neutralCompensation),
@@ -651,10 +665,12 @@ function finishCalibration() {
   refreshOrientations();
   reference = (playMode === 'flight' ? latestInputQuaternion : latestQuaternion).clone();
   if (!craftReference) craftReference = latestQuaternion.clone();
+  wristReference=createWristReference({rawQuaternion:latestInputQuaternion,screenAngle:referenceScreenAngle});
+  if(flightSteering==='wrist')wristRecord.calibrate(wristReference,'sensor');
   angles = { pitch: 0, steer: 0, twist: 0 };
   if(flowEnabled){flowCoordinator.poseReady('sensor','held-pose-start');return;}
   run('sensor','held-pose-start');
-  showToast(playMode === 'flight' ? `画面の上辺を起こすと機首上げ。${flightSteering === 'twist' ? '面を保って左右に回して' : '左右の端を上下にひねって'}旋回します。` : '自機の先端側を下げると加速、逆側を下げるとブレーキ。持ち直しても自機の向きは保ちます。', 4300);
+  showToast(playMode === 'flight' ? `画面の上辺を起こすと機首上げ。${flightSteering === 'wrist' ? '楽な持ち方で手首を回して' : flightSteering === 'twist' ? '面を保って左右に回して' : '左右の端を上下にひねって'}旋回します。` : '自機の先端側を下げると加速、逆側を下げるとブレーキ。持ち直しても自機の向きは保ちます。', 4300);
 }
 
 function showToast(text, duration = 2600) {
@@ -671,6 +687,8 @@ function startPractice(reason='resume-screen') {
   halt();
   reference = null;
   craftReference = null;
+  wristReference=createWristReference({rawQuaternion:neutralQuaternion,screenAngle:0});
+  if(flightSteering==='wrist')wristRecord.calibrate(wristReference,'virtual-practice');
   if(flowEnabled){flowCoordinator.poseReady('practice',reason);return;}
   run('practice',reason);
   showToast('画面操作の練習です。スマホの傾きは使っていません。');
@@ -722,7 +740,7 @@ $('recenter-button').addEventListener('click', () => {
 $('help-button').addEventListener('click', () => {
   if(flowEnabled){pause();void flowCoordinator.action('help');return;}
   if (phase !== 'running') return;
-  pause(playMode === 'flight' ? `画面の上辺を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、${effectivePitchMode() === 'angle' ? '機首も水平へ戻ります。' : '機首は今の角度を保ちます。'}画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
+  pause(playMode === 'flight' ? `画面の上辺を起こすと機首上げ、前へ倒すと機首下げ。${flightSteering === 'wrist' ? '手首を右へ回すと右旋回、左へ回すと左旋回。前腕の方向は持ち方からの推定です。' : flightSteering === 'twist' ? '面を保って時計回りに回すと右旋回、反時計回りで左旋回。' : '左右の端を上下にひねり、右端を下げると右旋回、左端を下げると左旋回。'}中立で翼は水平へ戻り、${effectivePitchMode() === 'angle' ? '機首も水平へ戻ります。' : '機首は今の角度を保ちます。'}画面のスロットルで出力を調整。出力0%でも滑空します。停止は一時停止を使います。` : '自機の先端側を下げると加速、逆側でブレーキ。自機の右側・左側を下げて旋回します。中立で速さを保ち、スマホを右へ回すと上、左へ回すと下へ曲がります。半回転付近では上下操作は中立に戻ります。');
   $('control-guide').hidden = false;
   $('basic-controls').hidden = playMode !== 'flight';
   $('basic-controls').open = true;
@@ -797,7 +815,8 @@ function resize() { stage?.resize(window.innerWidth, window.innerHeight, Math.mi
 window.addEventListener('resize', () => { resize(); pwa.orientationChanged(); });
 
 function meter(axis, limit) {
-  const angle = Number.isFinite(angles[axis]) ? angles[axis] : 0;
+  const input=axis==='steer'&&playMode==='flight'&&flightSteering==='wrist'?angles.wrist:angles[axis];
+  const angle = Number.isFinite(input) ? input : 0;
   const value = axis === 'twist' ? MathUtils.radToDeg(Math.asin(Math.sin(MathUtils.degToRad(angle)))) : angle;
   $(`${axis}-value`).textContent = `${Math.round(value)}°`;
   const el = $(`${axis}-meter`);
@@ -908,7 +927,7 @@ function updateHud(now, state) {
   document.querySelector('.navigation').setAttribute('aria-label',language==='ja'?'次の目的地':'NEXT TGT');
   document.querySelector('.collection').setAttribute('aria-label',language==='ja'?'集めた光':'TGT COLLECTED');
   for (const axis of controls) meter(axis, playMode === 'flight'
-    ? axis === 'pitch' ? settings.maxTilt : axis === 'steer' ? settings.maxSteerTilt : settings.maxSteerTwist
+    ? axis === 'pitch' ? settings.maxTilt : axis === 'steer' ? (flightSteering==='wrist'?settings.maxSteerWrist:settings.maxSteerTilt) : settings.maxSteerTwist
     : axis === 'pitch' ? CONTROL_LIMITS.throttleMaximum : axis === 'twist' ? CONTROL_LIMITS.twistMaximum : CONTROL_LIMITS.tiltMaximum);
   $('speed-value').textContent = convertSpeed(state.speed,flightPanel.getSettings().speedUnit).toFixed(1);
   $('speed-unit').textContent=normalizeSpeedUnit(flightPanel.getSettings().speedUnit);
@@ -949,6 +968,7 @@ function updateHud(now, state) {
   app.dataset.speedEffects=JSON.stringify(state.speedEffects??{});
   app.dataset.recoveryAssist = String(state.recoveryAssist || 0);
   app.dataset.angleOfAttack = String(state.angleOfAttack);
+  app.dataset.wrist=JSON.stringify({angle:Number.isFinite(angles.wrist)?angles.wrist:0,pitch:Number.isFinite(angles.wristPitch)?angles.wristPitch:0,held:Boolean(angles.held),calibration:wristReference});
   app.dataset.session = JSON.stringify(flightSession.snapshot());
   app.dataset.pitchTarget = String(rates.pitchTarget || 0);
   app.dataset.grounded = String(Boolean(state.grounded));
@@ -1015,7 +1035,7 @@ function frame(now) {
         // An unchanged held pose may produce no new events. Keep its last valid value while visible.
         if (reference && craftReference && latestOrientationSample) {
           refreshOrientations();
-          angles = preserveTiltInput(angles,readPose(latestQuaternion, latestInputQuaternion, reference, craftReference));inputHeld=angles.held;
+          angles = (playMode==='flight'&&flightSteering==='wrist'?preserveWristPose:preserveTiltInput)(angles,readPose(latestQuaternion, latestInputQuaternion, reference, craftReference));inputHeld=angles.held;
         }
       } else {
         if (keyboardActive) {
@@ -1031,9 +1051,10 @@ function frame(now) {
           pointPracticeTilt(pitch, steer, wrappedTurn);
         }
         const pose = composeDevicePose(practiceAngles);
-        angles = preserveTiltInput(angles,readPose(pose, pose, neutralQuaternion, neutralQuaternion));inputHeld=angles.held;
+        angles = (playMode==='flight'&&flightSteering==='wrist'?preserveWristPose:preserveTiltInput)(angles,readPose(pose, pose, neutralQuaternion, neutralQuaternion));inputHeld=angles.held;
       }
     }
+    if(phase==='running'&&playMode==='flight'&&flightSteering==='wrist')wristRecord.add(angles);
     const sonicInput=sonicMode()?supersonicIntent(angles,{steering:flightSteering,normalSettings:flightPanel.getSettings(),effectiveSettings:stage.getStatus().supersonic.effectiveSettings,throttle:Math.min(1,throttle),manualAfterburner}):null;
     rates = phase === 'running' ? (sonicInput?{pitchRate:0,yawRate:0,bankAngle:sonicInput.bankDemand*Math.atan(Math.sqrt(stage.getStatus().supersonic.effectiveSettings.maxG**2-1)),pitchTarget:sonicInput.pitchDemandRadians,acceleration:0,brake:0}
       :playMode === 'flight' ? flightCommands(angles, { pitchMode, steering: flightSteering, settings: flightPanel.getSettings(), currentPitch: stage.getStatus().controlPitch, dt }) : controlRates(angles)) : { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };

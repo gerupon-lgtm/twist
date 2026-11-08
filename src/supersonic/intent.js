@@ -1,4 +1,5 @@
 import { normalizeFlightSettings } from '../flight-settings.js';
+import {wristSteeringDemand} from '../wrist-input.js';
 import { normalizeSupersonicSettings } from './settings.js';
 
 const rad = degrees => degrees * Math.PI / 180;
@@ -10,7 +11,7 @@ export function supersonicIntent(angles, options = {}) {
   const normal = normalizeFlightSettings(options.normalSettings ?? options.settings);
   const effective = normalizeSupersonicSettings(options.effectiveSettings ?? options.supersonicSettings);
   const twist = Number.isFinite(angles?.twist) ? Math.asin(Math.sin(rad(angles.twist))) * 180 / Math.PI : 0;
-  const turn = options.steering === 'twist'
+  const turn = options.steering === 'wrist' ? wristSteeringDemand(angles?.wrist, {...normal,steerCurve:1}) : options.steering === 'twist'
     ? demand(twist, normal.steerTwistDeadzone, normal.maxSteerTwist)
     : demand(angles?.steer, normal.steerTiltDeadzone, normal.maxSteerTilt);
   return {

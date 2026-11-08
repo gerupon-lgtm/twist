@@ -38,8 +38,8 @@ async function start(page){
   return errors;
 }
 async function evidence(page,kind,value){
-  await writeFile(`.cache/v0135-limits-${kind}.json`,JSON.stringify(value,null,2));
-  await page.screenshot({path:`.cache/v0135-limits-${kind}.png`});
+  await writeFile(`.cache/v0136-limits-${kind}.json`,JSON.stringify(value,null,2));
+  await page.screenshot({path:`.cache/v0136-limits-${kind}.png`});
 }
 
 test('actual AB climb crosses the advisory 6000m ceiling without stopping and pilot input returns below it',async({page})=>{

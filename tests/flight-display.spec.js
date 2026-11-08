@@ -171,7 +171,7 @@ test('fixed copies result/display and marks unused rate settings; smoothing save
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.copied=text;}},configurable:true}));
  await launch(page,'&display=fixed&pitch=rate');await page.locator('#pause-button').click();await page.locator('#flight-adjustments>summary').click();
  await slider(page,'setting-displayTimeConstant',0);await page.locator('#settings-copy').click();let report=await page.evaluate(()=>JSON.parse(window.copied));
- expect(report.display).toBe('fixed');expect(report.result).toBeUndefined();expect(report.inactiveSettings).toEqual(['timeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','ladderRange','cockpitFov','autoAfterburnerAngle']);
+ expect(report.display).toBe('fixed');expect(report.result).toBeUndefined();expect(report.inactiveSettings).toEqual(['timeConstant','chaseTimeConstant','maxSteerTwist','steerTwistDeadzone','maxSteerWrist','steerWristDeadzone','ladderRange','cockpitFov','autoAfterburnerAngle']);
  await page.reload();await page.clock.runFor(100);await page.locator('#practice-button').click();await page.clock.runFor(100);
  await slider(page,'practice-twist',30);await page.clock.runFor(100);expect(await data(page,'display-roll')).toBeCloseTo(rad(30),6);
  await slider(page,'throttle-input',0);await slider(page,'practice-pitch',-25);

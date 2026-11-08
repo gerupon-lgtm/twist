@@ -8,6 +8,8 @@ export const FLIGHT_SETTING_FIELDS = Object.freeze({
   maxSteerTilt: { label: '旋回が最大になるひねり', min: 5, max: 30, step: 1, initial: 15, unit: '°' },
   steerTwistDeadzone: { label: '旋回の中立範囲（回す）', min: 0, max: 8, step: 1, initial: 5, unit: '°' },
   maxSteerTwist: { label: '旋回が最大になる回し', min: 8, max: 40, step: 1, initial: 20, unit: '°' },
+  steerWristDeadzone: { label: '旋回の中立範囲（手首）', min: 0, max: 8, step: 1, initial: 3, unit: '°' },
+  maxSteerWrist: { label: '旋回が最大になる手首の角度', min: 5, max: 40, step: 1, initial: 25, unit: '°' },
   steerCurve: { label: '旋回の効き方のカーブ', min: 1, max: 2, step: .1, initial: 1, unit: '' },
   maxBank: { label: '翼の最大角度', min: 5, max: 40, step: 1, initial: 40, unit: '°' },
   turnGravity: { label: '旋回の強さ', min: 3, max: 15, step: .1, initial: 9.8, unit: '' },
@@ -43,6 +45,7 @@ export function normalizeFlightSettings(value) {
   }));
   result.steerTiltDeadzone = Math.min(result.steerTiltDeadzone, result.maxSteerTilt - 1);
   result.steerTwistDeadzone = Math.min(result.steerTwistDeadzone, result.maxSteerTwist - 1);
+  result.steerWristDeadzone = Math.min(result.steerWristDeadzone, result.maxSteerWrist - 1);
   return result;
 }
 export function resetFlightSetting(value,key) {

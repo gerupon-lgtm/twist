@@ -14,6 +14,59 @@ async function fixture(page){
   window.briefingPanel=createBriefingPanel({onClose:record=>window.briefingClosed.push(record)});
  });
 }
+/** A real panel callback may finish its SVG write just before the draw deadline.
+ * Keep that small monotonic clock advance deterministic instead of waiting for
+ * a native frame to happen to land within 0.2 ms of the 3.6 second boundary. */
+async function boundaryClockFixture(page){
+ await page.addInitScript(()=>{
+  const clock={time:0,armed:false,crossings:0,inFrame:false,nextFrame:0,frames:new Map()};
+  window.briefingBoundaryClock=clock;
+  Object.defineProperty(performance,'now',{configurable:true,value:()=>clock.time});
+  window.requestAnimationFrame=callback=>{const id=++clock.nextFrame;clock.frames.set(id,callback);return id;};
+  window.cancelAnimationFrame=id=>clock.frames.delete(id);
+  // Resize is covered by the layout cases; it must not supply a second render
+  // that would conceal a lost final animation frame in this isolated clock case.
+  window.ResizeObserver=class{observe(){}disconnect(){}};
+  const setAttribute=SVGElement.prototype.setAttribute;
+  SVGElement.prototype.setAttribute=function(name,value){
+   const result=setAttribute.call(this,name,value);
+   if(clock.armed&&clock.inFrame&&name==='stroke-dashoffset'&&this.classList.contains('briefing-route')&&Number(value)>0&&Number(value)<.001){
+    clock.armed=false;clock.crossings++;clock.time=3600.1;
+   }
+   return result;
+  };
+  window.stepBriefingBoundaryFrame=()=>{
+   const entry=clock.frames.entries().next().value;if(!entry)return false;
+   const [id,callback]=entry;clock.frames.delete(id);clock.inFrame=true;
+   try{callback(clock.time);}finally{clock.inFrame=false;}
+   return true;
+  };
+  window.briefingFixtureHidden=false;
+  Object.defineProperty(document,'hidden',{configurable:true,get:()=>window.briefingFixtureHidden});
+ });
+ await fixture(page);
+ await page.evaluate(()=>{
+  window.briefingPanel.open({course:window.briefingCourses.easy,origin:'start'});
+  Object.assign(window.briefingBoundaryClock,{time:3599.9,armed:true});
+  if(!window.stepBriefingBoundaryFrame())throw new Error('The real briefing animation callback was not queued');
+ });
+ expect(await page.evaluate(()=>window.briefingBoundaryClock.crossings)).toBe(1);
+}
+async function expectCompletedBoundaryMap(page){
+ await expect(page.locator('#briefing-panel')).toHaveAttribute('data-progress','1');
+ await expect(page.locator('#briefing-panel')).toHaveAttribute('data-draw-complete','true');
+ await expect(page.locator('#briefing-map .briefing-route')).toHaveAttribute('stroke-dashoffset','0');
+ await expect(page.locator('#briefing-map .briefing-trace-tip')).toHaveAttribute('visibility','hidden');
+ await expect(page.locator('#briefing-skip')).toHaveText('CONTINUE');
+ // The fixture owns rAF, so activate the real button handler without waiting
+ // for Playwright's separate animation-frame actionability poll.
+ await page.locator('#briefing-skip').evaluate(button=>button.click());
+ expect(await page.evaluate(()=>window.briefingClosed)).toHaveLength(1);
+ expect(await page.evaluate(()=>window.briefingClosed[0])).toMatchObject({origin:'start',skipped:false,closeMethod:'continue'});
+ expect(await page.evaluate(()=>window.briefingPanel.close())).toBeNull();
+ expect(await page.evaluate(()=>window.briefingClosed)).toHaveLength(1);
+ await page.evaluate(()=>window.briefingPanel.dispose());
+}
 async function bounds(page){
  return page.evaluate(()=>{
   const map=document.getElementById('briefing-map').getBoundingClientRect(),overview=document.getElementById('briefing-overview').getBoundingClientRect(),panel=document.getElementById('briefing-panel').getBoundingClientRect();
@@ -41,7 +94,7 @@ for(const size of [{width:390,height:844},{width:360,height:640},{width:844,heig
  await expect(page.locator('#briefing-panel')).toBeVisible();await expect(page.locator('.briefing-points [data-briefing-point^="tgt-"]')).toHaveCount(8);await expect(page.locator('#briefing-map [data-map-point^="tgt-"]')).toHaveCount(8);
  await expect(page.locator('#briefing-map .briefing-route')).toHaveCount(1);await expect(page.locator('#briefing-overview .briefing-boundary')).toHaveCount(1);await expect(page.locator('#briefing-overview [data-landmark]')).toHaveCount(5);
  await expect(page.locator('.briefing-map-reference .briefing-north text')).toHaveText('N');await expect(page.locator('.briefing-map-reference .briefing-scale')).toHaveCount(1);await expect(page.locator('#briefing-overview-scale .briefing-context-scale-label')).toHaveCount(1);
- fits(await bounds(page));await page.screenshot({path:`.cache/v0135-briefing-${size.width}x${size.height}.png`});
+ fits(await bounds(page));await page.screenshot({path:`.cache/v0136-briefing-${size.width}x${size.height}.png`});
  await page.evaluate(()=>{window.briefingPanel.close();window.briefingPanel.open({course:window.briefingCourses.hard,origin:'pause',state:{position:{x:2200,y:31,z:-1700},heading:Math.PI/2,collected:4}});});
  const paused=await bounds(page);fits(paused);expect(paused.collected).toBe(4);expect(Number(paused.currentHeading)).toBeCloseTo(Math.PI/2,9);
  expect(await page.evaluate(()=>window.briefingPanel.snapshot())).toMatchObject({origin:'pause',progress:1,drawSeconds:0});await expect(page.locator('#briefing-skip')).toHaveText('CONTINUE');await expect(page.locator('#briefing-map .briefing-route')).toHaveAttribute('stroke-dashoffset','0');
@@ -54,11 +107,34 @@ test('map draws silently, stays after3.6seconds, and closes immediately by tap o
  await page.clock.install();await fixture(page);await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
  await page.evaluate(()=>window.briefingPanel.open({course:window.briefingCourses.easy,origin:'start'}));
  await page.clock.runFor(1800);expect((await page.evaluate(()=>window.briefingPanel.snapshot())).progress).toBeCloseTo(.5,1);
- await page.clock.runFor(2000);await expect(page.locator('#briefing-skip')).toHaveText('CONTINUE');await expect(page.locator('#briefing-map .briefing-route')).toHaveAttribute('stroke-dashoffset','0');await page.screenshot({path:'.cache/v0135-briefing-ready.png'});await page.clock.runFor(4000);await expect(page.locator('#briefing-panel')).toBeVisible();
+ await page.clock.runFor(2000);await expect(page.locator('#briefing-skip')).toHaveText('CONTINUE');await expect(page.locator('#briefing-map .briefing-route')).toHaveAttribute('stroke-dashoffset','0');await page.screenshot({path:'.cache/v0136-briefing-ready.png'});await page.clock.runFor(4000);await expect(page.locator('#briefing-panel')).toBeVisible();
  await page.locator('#briefing-skip').click();let record=await page.evaluate(()=>window.briefingClosed.at(-1));expect(record).toMatchObject({origin:'start',skipped:false,closeMethod:'continue'});expect(record.seconds).toBeGreaterThan(7);
  await page.evaluate(()=>window.briefingPanel.open({course:window.briefingCourses.normal,origin:'start'}));await page.locator('#briefing-skip').click();record=await page.evaluate(()=>window.briefingClosed.at(-1));expect(record).toMatchObject({skipped:true,closeMethod:'skip'});
  await page.evaluate(()=>window.briefingPanel.open({course:window.briefingCourses.hard,origin:'pause'}));expect(await page.evaluate(()=>window.briefingPanel.snapshot())).toMatchObject({progress:1,drawSeconds:0});await expect(page.locator('#briefing-skip')).toHaveText('CONTINUE');await page.locator('.briefing-course-name').click();record=await page.evaluate(()=>window.briefingClosed.at(-1));expect(record).toMatchObject({origin:'pause',skipped:false,closeMethod:'tap'});
  expect(await page.evaluate(()=>[window.briefingSoundCalls,window.briefingVibrationCalls])).toEqual([0,0]);await page.evaluate(()=>window.briefingPanel.dispose());
+});
+
+test('briefing completes when its SVG write crosses the final animation deadline',async({page})=>{
+ await boundaryClockFixture(page);
+ await page.evaluate(()=>{for(let i=0;i<3;i++)if(!window.stepBriefingBoundaryFrame())break;});
+ await expectCompletedBoundaryMap(page);
+});
+
+test('briefing resumes a completed boundary frame without counting hidden time',async({page})=>{
+ await boundaryClockFixture(page);
+ const record=await page.evaluate(()=>{
+  window.briefingFixtureHidden=true;document.dispatchEvent(new Event('visibilitychange'));
+  const before=window.briefingPanel.snapshot();window.briefingBoundaryClock.time+=5000;
+  const hidden=window.briefingPanel.snapshot();
+  window.briefingFixtureHidden=false;document.dispatchEvent(new Event('visibilitychange'));
+  return {before,hidden,resumed:window.briefingPanel.snapshot(),queuedFrames:window.briefingBoundaryClock.frames.size};
+ });
+ expect(record.before.seconds).toBeCloseTo(3.6001,8);
+ expect(record.hidden.seconds).toBeCloseTo(record.before.seconds,8);
+ expect(record.resumed.seconds).toBeCloseTo(record.before.seconds,8);
+ expect(record.resumed.progress).toBe(1);
+ expect(record.queuedFrames).toBe(0);
+ await expectCompletedBoundaryMap(page);
 });
 
 test('future40km map uses the same panel and a real km scale, while preview SVG is safe and bounded',async({page})=>{

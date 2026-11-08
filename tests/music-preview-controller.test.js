@@ -59,6 +59,33 @@ function environment({query='brave',musicSet='proposals',unlockGate=null,closeGa
   return {controller,map,writes,plays,audios,players,raw,storageData,vibrations,document,window:values.window,cleanup(){controller.stop();for(const [key,descriptor]of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}}};
 }
 
+test('exploration with remembered wrist keeps the real pitch and body-steering jitter without a wrist reading',async()=>{
+  const f=environment({query:null,feedbackSettings:{bgm:false,sfx:false,vibration:false}});try{
+    await settle();f.audios[0].update=()=>{};
+    const state={mode:'explore',speed:10,throttle:.5,groundClearance:100,verticalSpeed:0,angleOfAttack:0,afterburner:{active:false}};
+    for(const staleWrist of [undefined,90]){
+      f.controller.reset();f.controller.start();
+      for(const [now,pitch,steer]of [[0,2,-5],[500,5,9],[1000,8,10]])f.controller.update(state,{pitch,steer,twist:120,...(staleWrist===undefined?{}:{wrist:staleWrist})},'sensor','wrist',now);
+      const jitter=f.controller.report().sensorJitter;
+      assert.equal(jitter.windows,1);assert.ok(Math.abs(jitter.window.pitch-6)<1e-9);assert.ok(Math.abs(jitter.window.steer-15)<1e-9);
+      assert.ok(Math.abs(jitter.maxPitchRange-6)<1e-9);assert.ok(Math.abs(jitter.maxSteerRange-15)<1e-9);
+    }
+  }finally{f.cleanup();}
+});
+
+test('normal and Sonic flights record the selected wrist angle rather than legacy decoy axes',async()=>{
+  const f=environment({query:null,feedbackSettings:{bgm:false,sfx:false,vibration:false}});try{
+    await settle();f.audios[0].update=()=>{};
+    for(const sonic of [false,true]){
+      f.controller.reset();f.controller.start();
+      const state={mode:'flight',speed:sonic?200:10,throttle:.5,groundClearance:100,verticalSpeed:0,angleOfAttack:0,afterburner:{active:false},...(sonic?{supersonic:{attemptId:1,mach:200/340,events:[]}}:{})};
+      for(const [now,pitch,wrist,steer,twist]of [[0,2,-10,-120,110],[500,5,0,120,-110],[1000,8,15,0,0]])f.controller.update(state,{pitch,wrist,steer,twist},'sensor','wrist',now);
+      const jitter=f.controller.report().sensorJitter;
+      assert.equal(jitter.windows,1);assert.ok(Math.abs(jitter.window.pitch-6)<1e-9);assert.ok(Math.abs(jitter.window.steer-25)<1e-9);assert.ok(Math.abs(jitter.maxSteerRange-25)<1e-9);
+    }
+  }finally{f.cleanup();}
+});
+
 test('sixteen exact preview options and a preview-only URL leave the saved game request and audio untouched',async()=>{
   const f=environment();try{
     await settle();const select=f.map.get('music-preview-track');assert.ok(select,'Separate individual preview selector is missing');

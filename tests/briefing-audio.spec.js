@@ -42,7 +42,7 @@ const introHistory=page=>page.evaluate(()=>briefingNative.received.findLast(row=
 async function evidence(page,name,errors){await mkdir('.cache',{recursive:true});
   const value=await page.evaluate(()=>({posts:briefingNative.posts,received:briefingNative.received,vibrations:briefingNative.vibrations,
     contexts:briefingNative.contexts.map(context=>({state:context.state,time:context.currentTime,rate:context.sampleRate})),map:{progress:document.getElementById('briefing-panel')?.dataset.progress,complete:document.getElementById('briefing-panel')?.dataset.drawComplete}}));
-  await writeFile(`.cache/v0135-briefing-native-${name}.json`,JSON.stringify({...value,state:await read(page),errors},null,2));expect(errors).toEqual([]);
+  await writeFile(`.cache/v0136-briefing-native-${name}.json`,JSON.stringify({...value,state:await read(page),errors},null,2));expect(errors).toEqual([]);
 }
 function milestones(id){const course=getCourse(id),points=[course.start,...course.lights,course.exit];let total=0;const lengths=[0];
   for(let i=1;i<points.length;i++){total+=Math.hypot(points[i].x-points[i-1].x,points[i].z-points[i-1].z);lengths.push(total);}

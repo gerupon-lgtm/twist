@@ -31,6 +31,6 @@ function icon(size,maskable=false) {
 }
 await mkdir('public/icons',{recursive:true});
 for(const [name,size,maskable] of [['icon-192.png',192],['icon-512.png',512],['maskable-512.png',512,true],['apple-touch-icon.png',180]]) await writeFile(`public/icons/${name}`,icon(size,maskable));
-const manifest={id:'./',name:'twist',short_name:'twist',lang:'ja',start_url:`./?mode=flight&view=assisted&pitch=angle&steer=tilt&v=${APP_VERSION}`,scope:'./',display:'fullscreen',orientation:'any',theme_color:'#dcebf1',background_color:'#dcebf1',icons:[{src:`./icons/icon-192.png?v=${APP_VERSION}`,sizes:'192x192',type:'image/png',purpose:'any'},{src:`./icons/icon-512.png?v=${APP_VERSION}`,sizes:'512x512',type:'image/png',purpose:'any'},{src:`./icons/maskable-512.png?v=${APP_VERSION}`,sizes:'512x512',type:'image/png',purpose:'maskable'}]};
+const manifest={id:'./',name:'twist',short_name:'twist',lang:'ja',start_url:`./?mode=flight&view=assisted&pitch=angle&v=${APP_VERSION}`,scope:'./',display:'fullscreen',orientation:'any',theme_color:'#dcebf1',background_color:'#dcebf1',icons:[{src:`./icons/icon-192.png?v=${APP_VERSION}`,sizes:'192x192',type:'image/png',purpose:'any'},{src:`./icons/icon-512.png?v=${APP_VERSION}`,sizes:'512x512',type:'image/png',purpose:'any'},{src:`./icons/maskable-512.png?v=${APP_VERSION}`,sizes:'512x512',type:'image/png',purpose:'maskable'}]};
 await writeFile('public/manifest.webmanifest',`${JSON.stringify(manifest,null,2)}\n`);
 await writeFile('public/version.json',`${JSON.stringify({version:APP_VERSION})}\n`);

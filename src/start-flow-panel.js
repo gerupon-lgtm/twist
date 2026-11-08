@@ -74,10 +74,10 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
   const basic=document.createElement('details'),advanced=document.createElement('details'),verification=document.createElement('details');
   for(const [element,label]of [[basic,'① 基本の操縦'],[advanced,'② 詳しい設定'],[verification,'④ 検証用の表示・操作']]){element.className='flow-settings-group';const summary=document.createElement('summary');summary.textContent=label;element.append(summary);}
   basic.open=true;
-  const basicKeys=new Set(['deadzone','maxTilt','maxPitch','timeConstant','maxSteerTilt','steerTiltDeadzone','maxSteerTwist','steerTwistDeadzone','steerCurve','maxBank','turnGravity']);
+  const basicKeys=new Set(['deadzone','maxTilt','maxPitch','timeConstant','maxSteerTilt','steerTiltDeadzone','maxSteerTwist','steerTwistDeadzone','maxSteerWrist','steerWristDeadzone','steerCurve','maxBank','turnGravity']);
   for(const row of [...fields.querySelectorAll(':scope > label')]) (basicKeys.has(row.dataset.settingKey)?basic:advanced).append(row);
   fields.append(basic,advanced);
-  move('flight-steering-picker',basic);move('flight-display-picker',advanced);
+  move('flight-steering-picker',basic);move('wrist-sensitivity-presets',basic);move('flight-display-picker',advanced);
   move('flight-pitch-picker',verification);const oldView=$('view-assisted')?.closest('.view-picker');if(oldView)verification.append(oldView);
   move('motion-explanation',verification);
   const devModes=$('mode-explore')?.closest('.mode-picker');if(devModes){devModes.dataset.flowDevOnly='true';verification.append(devModes);}
@@ -105,6 +105,8 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
   function refreshPlayControls(){
     app.dataset.flowInputMethod=settings.inputMethod;
     app.dataset.flowSteering=settings.steering??'tilt';
+    const steerCaption=$('practice-steer')?.closest('label')?.querySelector('.flow-practice-label');
+    if(steerCaption)steerCaption.textContent=settings.mode==='flight'&&settings.steering==='wrist'?'手首の回転（仮想）':'右辺の傾き';
     app.dataset.flowCamera=settings.camera;
     for(const input of ['practice-pitch','practice-steer','practice-twist'].map($))if(input){const value=input.closest('label')?.querySelector('.flow-practice-value');if(value)value.textContent=`${Number(input.value)}°`;}
   }
@@ -166,7 +168,7 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     const screen=root.querySelector(`[data-flow-screen="${next}"]`);if(screen?.getAttribute('aria-labelledby'))root.setAttribute('aria-labelledby',screen.getAttribute('aria-labelledby'));
     if(next==='title'){text('start-flow-version',data.version?`v${String(data.version).replace(/^v/,'')}`:document.querySelector('.version b')?.textContent??'');$('start-flow-start').disabled=Boolean(data.loading||data.disabled);text('start-flow-start',data.loading?'準備しています…':'はじめる');}
     if(next==='tutorial'){
-      const index=Math.max(0,Math.min(2,data.slide??data.index??0)),slide=index===1&&settings.steering==='twist'?{title:'水平のまま回して、旋回',text:'時計回りに回すと右へ、反時計回りなら左へ。中立へ戻すと、翼も水平へ戻ります。',kind:'bank'}:slides[index];root.dataset.slide=String(index);text('start-flow-tutorial-count',`${index+1} / 3`);text('start-flow-tutorial-title',slide.title);text('start-flow-tutorial-text',slide.text);$('start-flow-tutorial-picture').innerHTML=phoneDiagram(slide.kind);$('start-flow-tutorial-back').disabled=index===0;text('start-flow-tutorial-next',index===2?'コースを選ぶ':'次へ');
+      const index=Math.max(0,Math.min(2,data.slide??data.index??0)),slide=index===1&&settings.steering==='wrist'?{title:'手首を回して、旋回',text:'楽な持ち方を中立に合わせます。手首を右へ回すと右旋回、戻すと翼が水平へ。前腕の方向はスマホの持ち方から推定します。',kind:'bank'}:index===1&&settings.steering==='twist'?{title:'水平のまま回して、旋回',text:'時計回りに回すと右へ、反時計回りなら左へ。中立へ戻すと、翼も水平へ戻ります。',kind:'bank'}:slides[index];root.dataset.slide=String(index);text('start-flow-tutorial-count',`${index+1} / 3`);text('start-flow-tutorial-title',slide.title);text('start-flow-tutorial-text',slide.text);$('start-flow-tutorial-picture').innerHTML=phoneDiagram(slide.kind);$('start-flow-tutorial-back').disabled=index===0;text('start-flow-tutorial-next',index===2?'コースを選ぶ':'次へ');
     }
     if(next==='pose'){
       text('start-flow-pose-title',data.title??'楽な持ち方で構える');text('start-flow-pose-description',data.description??(settings.inputMethod==='practice'?'画面の入力で操縦します。準備ができたら始めましょう。':'スマホを見やすい角度で持ち、ボタンを押してください。'));

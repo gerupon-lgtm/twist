@@ -7,6 +7,7 @@ import { createRangeEditor } from './range-editor.js';
 import { FLIGHT_HELP,SETTINGS_TROUBLES } from './settings-help.js';
 import { initialSettingText } from './setting-differences.js';
 import {formatCourseTime} from './course-bests.js';
+import {inactiveSteeringSettings,steeringMaximumKey,WRIST_SENSITIVITY_PRESETS} from './wrist-input.js';
 
 const $ = id => document.getElementById(id);
 const describeSettings = report => Object.entries(FLIGHT_SETTING_FIELDS)
@@ -17,6 +18,7 @@ export function createFlightPanel(getModes) {
   try { storage = window.localStorage; } catch { /* Defaults also work without storage access. */ }
   let settings = loadFlightSettings(storage);
   let result = null;
+  const wristDetails=document.createElement('p');wristDetails.id='result-wrist';wristDetails.hidden=true;$('result-modes').after(wristDetails);
   const sonicSummary=document.createElement('div');sonicSummary.id='result-supersonic-summary';sonicSummary.hidden=true;
   const sonicSummaryLabel=document.createElement('dt'),sonicSummaryValue=document.createElement('dd');sonicSummaryLabel.textContent='高速空域の記録';sonicSummary.append(sonicSummaryLabel,sonicSummaryValue);
   $('flight-result').querySelector('.result-readings').append(sonicSummary);
@@ -60,6 +62,18 @@ export function createFlightPanel(getModes) {
       const reset=document.createElement('button');reset.type='button';reset.className='setting-checkbox-reset';reset.textContent='この項目だけ初期値へ';reset.dataset.checkboxReset=key;reset.addEventListener('click',()=>{settings=resetFlightSetting(settings,key);persist();});label.append(reset);
     }
   }
+  // This repository had no existing sensitivity preset. Apply only on an explicit
+  // click and only to the new wrist maximum; old numeric values are never touched.
+  const wristPresets=document.createElement('div');wristPresets.id='wrist-sensitivity-presets';wristPresets.dataset.settingKey='maxSteerWrist';
+  const presetLabel=document.createElement('span');presetLabel.textContent='手首の操作感度';wristPresets.append(presetLabel);
+  for(const [id,label] of [['calm','おだやか'],['normal','ふつう'],['agile','機敏']]){
+    const button=document.createElement('button');button.type='button';button.dataset.wristPreset=id;button.textContent=label;
+    button.addEventListener('click',()=>{if(getModes().mode!=='flight'||getModes().steer!=='wrist')return;
+      const next=normalizeFlightSettings({...settings,maxSteerWrist:WRIST_SENSITIVITY_PRESETS[id]});
+      if(next.maxSteerWrist===settings.maxSteerWrist)return;
+      rangeEditors.maxSteerWrist.remember();settings=next;persist();});wristPresets.append(button);
+  }
+  $('flight-settings-fields').append(wristPresets);
   function refreshLayout() {
     const modes=getModes(),maximum=computeFieldOfView(innerWidth,innerHeight,modes.view).vertical;
     const input=$('setting-cockpitFov');input.max=String(Math.floor(maximum*10)/10);
@@ -93,7 +107,7 @@ export function createFlightPanel(getModes) {
     const modes=getModes(),list=$('settings-troubles-list');list.replaceChildren();
     for(const item of SETTINGS_TROUBLES){
       if((item.flight||item.angle||item.fixed||item.cockpit)&&modes.mode!=='flight'||item.angle&&modes.pitch!=='angle'||item.fixed&&modes.display!=='fixed'||item.cockpit&&modes.camera!=='cockpit'||item.assisted&&modes.view!=='assisted')continue;
-      const key=item.key==='steerMaximum'?(modes.steer==='twist'?'maxSteerTwist':'maxSteerTilt'):item.key;
+      const key=item.key==='steerMaximum'?steeringMaximumKey(modes.steer):item.key;
       const button=document.createElement('button');button.type='button';button.textContent=item.label;button.dataset.jumpSetting=key;
       button.addEventListener('click',()=>{
         const input=$(`setting-${key}`),row=input.closest('label');
@@ -141,6 +155,9 @@ export function createFlightPanel(getModes) {
       $('flight-result').hidden = !report;
       $('result-copy-text').hidden = true; $('result-copy-status').textContent = '';
       if (!report) return;
+      const wrist=report.input?.wrist;wristDetails.hidden=!wrist;
+      if(wrist){const inclination=wrist.calibration?.holdInclinationDegrees;
+        wristDetails.textContent=`手首基準 ${Number.isFinite(inclination)?inclination.toFixed(1)+'°':'未確認'} / 振れ幅 ${wrist.angleRangeDegrees.toFixed(1)}° / ${wrist.source==='sensor'?'センサーからの推定':'画面操作の仮想姿勢'}`;}
       const sonic=report.supersonic;sonicSummary.hidden=!sonic;sonicDetails.hidden=!sonic;
       if(sonic){
         const number=(value,digits=1,unit='')=>Number.isFinite(value)?value.toFixed(digits)+unit:'未到達';
@@ -200,8 +217,9 @@ export function createFlightPanel(getModes) {
     },
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = phase !== 'paused';
-      const inactiveSteering = getModes().steer === 'twist' ? ['maxSteerTilt','steerTiltDeadzone'] : ['maxSteerTwist','steerTwistDeadzone'];
+      const inactiveSteering = inactiveSteeringSettings(getModes().steer);
       const sonic=getModes().course?.id==='supersonic';
+      wristPresets.hidden=mode!=='flight'||getModes().steer!=='wrist';
       for (const label of $('flight-settings-fields').querySelectorAll('label[data-setting-key]')) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','speedUnit','streakAmount','groundPatternStrength'].includes(label.dataset.settingKey))
         || inactiveSteering.includes(label.dataset.settingKey)||(sonic&&['maxPitch','timeConstant','maxBank','turnGravity','radarRange','groundPatternStrength'].includes(label.dataset.settingKey));
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';

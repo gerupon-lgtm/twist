@@ -180,7 +180,7 @@ export function createFeedbackController(){
     update(state,angles,inputMode,steering,now,navigation=null){
       const crossings=sonicEvents.consume(state);
       if(!active)return;
-      if(inputMode==='sensor')jitter.add(now,angles.pitch,steering==='twist'?angles.twist:angles.steer);
+      if(inputMode==='sensor')jitter.add(now,angles.pitch,state.mode==='flight'&&steering==='wrist'?angles.wrist:steering==='twist'?angles.twist:angles.steer);
       const model=flightFeedback(state,settings),phase=haptics.update(model,settings,now);
       const cueChanged=lastModel?.cue!==model.cue;lastModel=model;
       music.setAfterburner(state.mode==='flight'&&state.afterburner?.active===true);
