@@ -36,6 +36,7 @@ import {createPassByTracker} from './passby-events.js';
 import {createCourseBestStore,courseBestKey} from './course-bests.js';
 import {formatCourseTime} from './course-bests.js';
 import {createStartPreferences,createStartRecord} from './start-flow-state.js';
+import {advanceFrameClock} from './frame-clock.js';
 import {createStartFlowController} from './start-flow-controller.js';
 import {createStartFlowPanel} from './start-flow-panel.js';
 import {createBriefingPreferences} from './briefing-preferences.js';
@@ -941,7 +942,11 @@ function updateHud(now, state) {
 let previousFrame = performance.now();
 function frame(now) {
   const frameStart=performance.now();
-  const dt = Math.min((now - previousFrame) / 1000, 0.05);
+  // A queued rAF can precede the click/timer that launched this flight.
+  // Keep both movement and active-time records at the actual start boundary.
+  const clock=flowEnabled?advanceFrameClock(previousFrame,now):null;
+  const dt = clock?clock.dt:Math.min((now - previousFrame) / 1000, 0.05);
+  if(clock)now=clock.time;
   previousFrame = now;
   if (stage) {
     stage.setGroundPatternStrength(flightPanel.getSettings().groundPatternStrength);
@@ -971,7 +976,7 @@ function frame(now) {
     }
     rates = phase === 'running' ? (playMode === 'flight' ? flightCommands(angles, { pitchMode, steering: flightSteering, settings: flightPanel.getSettings(), currentPitch: stage.getStatus().controlPitch, dt }) : controlRates(angles)) : { pitchRate: 0, yawRate: 0, bankAngle: 0, acceleration: 0, brake: 0 };
     const wasRunning=phase==='running',wasFlying = wasRunning && playMode === 'flight';
-    if (phase === 'running') {
+    if (phase === 'running' && (!flowEnabled || dt > 0)) {
       if (playMode === 'explore') speed = advanceSpeed(speed, dt, rates);
       stage.update(dt, { ...rates, mode: playMode, speed, throttle:Math.min(1,throttle), manualAfterburner, pitchInputDegrees:angles.pitch, speedSettings:flightPanel.getSettings(), craftQuaternion,
         ...(playMode === 'flight' ? { displayTwist: angles.twist,

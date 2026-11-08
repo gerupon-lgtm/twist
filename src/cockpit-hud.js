@@ -27,7 +27,17 @@ export function layoutCockpitHud(active) {
   const tapeY = Math.max(h/2-65,radarShown?radar.bottom+10:0);
   const tapeHeight = Math.max(60,Math.min(130,tapesBottom-tapeY-12));
   root.dataset.compactTapes=String($('app').dataset.startFlow==='on'&&tapeHeight<80);
-  const powerY = bottom.top-30;
+  let powerY = bottom.top-30,powerX=w/2-104,powerWidth=208,sideControls=false;
+  // The new landscape controls occupy the sides, leaving a free middle gap.
+  // Keep this legend/warning below the real flight cue instead of blocking it.
+  if($('app').dataset.startFlow==='on'&&bottom.left>w/2){
+    const gapLeft=Math.max(insets.left+12,practiceRect?.width?practiceRect.right+8:insets.left+12);
+    const gapRight=Math.min(w-insets.right-12,bottom.left-8),gap=gapRight-gapLeft;
+    if(gap>=100){
+      powerWidth=Math.min(208,gap);powerX=Math.max(gapLeft,Math.min(w/2-powerWidth/2,gapRight-powerWidth));
+      powerY=bottom.bottom-24;sideControls=true;
+    }
+  }
   let headingX=w/2-90;
   if(radarShown&&radar.top<compassY+28&&radar.bottom>compassY&&radar.left<headingX+180&&radar.right>headingX) {
     headingX=radar.left<w/2?radar.right+10:radar.left-190;
@@ -39,8 +49,8 @@ export function layoutCockpitHud(active) {
   box($('cockpit-speed'),insets.left+12,tapeY,58,tapeHeight);
   box($('cockpit-altitude'),w-insets.right-92,tapeY,58,tapeHeight);
   box($('cockpit-vario'),w-insets.right-28,tapeY,16,tapeHeight);
-  box($('cockpit-power'),w/2-104,powerY,208,24);
-  return { w,h,compassY,powerY,insets };
+  box($('cockpit-power'),powerX,powerY,powerWidth,24);
+  return { w,h,compassY,powerY,insets,sideControls };
 }
 
 export function updateCockpitHud(state, active, layout = layoutCockpitHud(active), settings={}, heightGuide=null) {
@@ -79,7 +89,9 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   const left = insets.left+82, right = w-insets.right-102;
   const top = compassY+(!$('cockpit-exit-notice').hidden?98:$('cockpit-target-height').hidden?38:70), low = Math.max(top+20,powerY-8);
   let clip = `M${left},${top}H${right}V${low}H${left}Z`;
-  for(const marker of [$('start-flow-view-button'),$('target-edge-marker'),$('cockpit-objective-label'),$('practice-panel')].filter(e=>e&&!e.hidden&&e.getClientRects().length)) {
+  const masks=[$('start-flow-view-button'),$('target-edge-marker'),$('cockpit-objective-label'),$('practice-panel')];
+  if(layout.sideControls)masks.push($('bottom-panel'));
+  for(const marker of masks.filter(e=>e&&!e.hidden&&e.getClientRects().length)) {
     const r=marker.getBoundingClientRect();
     const holeLeft=Math.max(left,r.left-4),holeRight=Math.min(right,r.right+4);
     const holeTop=Math.max(top,r.top-4),holeBottom=Math.min(low,r.bottom+4);
