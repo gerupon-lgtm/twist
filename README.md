@@ -2,15 +2,15 @@
 
 自機を画面中央に保ち、周囲が動く中で空中の光を集める3D操作検証です。飛行機は右旋回なら右、左旋回なら左へ機体が傾き、スマホ本体の傾きと画面のエンジン出力で操縦します。探索ではスマホの回転を打ち消して最初の上向きを保ちます。
 
-**操作検証 v0.1.28（公開確認済み） / 2026-11-08**
+**操作検証 v0.1.29（公開確認済み） / 2026-11-08**
 
-v0.1.28の公開URLです。単体385件・ブラウザー267件・公開用ビルド、公開66ファイルと新作3曲の実再生・設定・workerを確認済みです。詳しくはdocs/verification-v0128.mdを参照してください。以下の`v`は更新確認用の値で、過去版を選ぶ指定ではありません。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
+v0.1.29の公開URLです。単体427件・ブラウザー全311件・公開用PWA5件・ビルドと負荷比較、公開70ファイルと実画面16項目を確認済みです。保存版25/26も各4項目に成功しました。詳しくはdocs/verification-v0129.mdを参照してください。以下の`v`は更新確認用の値で、過去版を選ぶ指定ではありません。機首angle、左右端を倒す旋回を使い、視点の未指定は従来表示、機体表示はbank/fixedを残します。
 
-- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&music=newrock&v=0.1.28)
-- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&music=newrock&v=0.1.28)
-- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&music=newrock&v=0.1.28)
-- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&music=newrock&v=0.1.28)
-- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&music=newrock&v=0.1.28)
+- [従来視点・overlay](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=overlay&music=proposals&v=0.1.29)
+- [追尾3D視点・chase](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=chase&music=proposals&v=0.1.29)
+- [操縦席視点・cockpit](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=bank&camera=cockpit&music=proposals&v=0.1.29)
+- [追尾3D・自機固定fixed](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=angle&display=fixed&camera=chase&music=proposals&v=0.1.29)
+- [機首が回り続けるrate（比較）](https://twist.sikumilab.com/?mode=flight&course=easy&view=assisted&steer=tilt&pitch=rate&display=bank&camera=overlay&music=proposals&v=0.1.29)
 
 `mode` の指定なしは探索、`view` の指定なしは見失い対策、飛行機の `steer` の指定なしは「ひねる（標準）」です。開始画面・一時停止画面の「遊び方」で飛行機・探索を切り替えると、速度・出力0でステージの最初へ戻ります。「見え方」は同じ位置・向きのまま切り替えて比較できます。[操作・地面表示](docs/device-controls-v018.md) と [公開版の検証記録](docs/verification-v018.md) を参照してください。
 
