@@ -32,7 +32,7 @@ test('music settings explain game, individual preview, upper-part engine and nam
  await open(page);
  await expect(page.locator('#feedback-musicEngine')).toHaveValue('scc');await expect(page.locator('#feedback-clearTrackId')).toHaveValue('clear');
  await expect(page.locator('#feedback-help-musicSet')).toContainText('7曲');await expect(page.locator('#feedback-help-musicSet')).toContainText('試聴の選択は飛行中の曲を変えません');
- await expect(page.locator('#feedback-help-musicEngine')).toContainText('低音と打楽器は元の方式');await expect(page.locator('#feedback-help-musicEngine')).toContainText('先頭から');
+ await expect(page.locator('#feedback-help-musicEngine')).toContainText('旋律・和音・ベース');await expect(page.locator('#feedback-help-musicEngine')).toContainText('ドラムは元の方式');await expect(page.locator('#feedback-help-musicEngine')).toContainText('先頭から');
  await expect(page.locator('#feedback-help-clearTrackId')).toContainText('効果音をオフにすると鳴りません');
  expect(await page.locator('#feedback-clearTrackId option').allTextContents()).toEqual(['突破の凱歌','凱旋の点火','鋼の勝利','閃光の帰還']);
  await expect(page.locator('#music-preview-track option')).toHaveCount(16);

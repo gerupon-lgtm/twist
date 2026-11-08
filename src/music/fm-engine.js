@@ -8,7 +8,7 @@ export class FmEngine{
   constructor(rate=48000,capacity=FM_MAX_VOICES){
     if(!Number.isFinite(rate)||rate<8000||!Number.isInteger(capacity)||capacity<1||capacity>FM_MAX_VOICES)throw new RangeError('Invalid FM capacity/rate');
     this.rate=rate;this.capacity=capacity;this.active=new Int16Array(capacity);this.count=0;
-    this.voices=Array.from({length:capacity},()=>({state:0,channel:0,note:0,velocity:0,frequency:0,preset:null,age:0,releaseAge:0,releaseLevel:0,level:0,carrier:0,modulator:0,index:0}));
+    this.voices=Array.from({length:capacity},()=>({state:0,channel:0,note:0,velocity:0,frequency:0,preset:null,age:0,releaseAge:0,releaseLevel:0,level:0,carrier:0,modulator:0,filtered:0,index:0}));
     this.cc7=new Float64Array(8).fill(127);this.bend=new Float64Array(8);this.noteOns=0;this.noteOffs=0;this.maximumVoices=0;this.overflows=0;this.invalidEvents=0;
   }
   tune(v){v.frequency=440*2**((v.note-69+this.bend[v.channel]/8192*2)/12);}
@@ -30,7 +30,7 @@ export class FmEngine{
       const retrigger=slot>=0;
       if(!retrigger){for(let i=0;i<this.capacity;i++)if(this.voices[i].state===0){slot=i;break;}}
       if(slot<0){this.overflows++;return false;}
-      const v=this.voices[slot];if(!retrigger){v.index=this.count;this.active[this.count++]=slot;v.carrier=0;v.modulator=0;}
+      const v=this.voices[slot];if(!retrigger){v.index=this.count;this.active[this.count++]=slot;v.carrier=0;v.modulator=0;v.filtered=0;}
       v.state=1;v.channel=channel;v.note=e.note;v.velocity=e.velocity/127;v.preset=FM_PRESETS[presetId];v.age=0;v.level=0;v.releaseAge=0;this.tune(v);
       this.noteOns++;this.maximumVoices=Math.max(this.maximumVoices,this.count);return true;
     }
@@ -52,13 +52,15 @@ export class FmEngine{
     for(let k=0;k<this.count;){
       const v=this.voices[this.active[k]],p=v.preset,rate=this.rate,frequency=v.frequency;
       const modFrequency=Math.min(frequency*p.ratio,rate*.4),maxIndex=Math.max(0,(rate*.45-frequency)/modFrequency-1);
-      const gain=v.velocity*(this.cc7[v.channel]/127)*p.gain;let ended=false;
+      const gain=v.velocity*(this.cc7[v.channel]/127)*p.gain,filter=p.lowpass?1-Math.exp(-TWO_PI*Math.min(p.lowpass,rate*.2)/rate):1;let ended=false;
       for(let i=0;i<out.length;i++){
         if(v.state===2){v.level=v.releaseLevel*Math.max(0,1-v.releaseAge/(p.release*rate));if(v.releaseAge++>=p.release*rate){this.remove(v);ended=true;break;}}
         else{const age=v.age/rate;v.level=age<p.attack?age/p.attack:p.sustain+(1-p.sustain)*Math.exp(-(age-p.attack)/p.decay*5);}
-        const index=Math.min(maxIndex,p.index*(.2+.8*Math.exp(-v.age/(p.modDecay*rate))));
+        const sustain=p.indexSustain??.2,index=Math.min(maxIndex,p.index*(sustain+(1-sustain)*Math.exp(-v.age/(p.modDecay*rate))));
         v.modulator=wrap(v.modulator+modFrequency/rate);v.carrier=wrap(v.carrier+(frequency+modFrequency*index*sine(v.modulator))/rate);
-        out[i]+=sine(v.carrier)*v.level*gain;v.age++;
+        let sample=sine(v.carrier);
+        if(p.drive){const x=clamp(sample*p.drive,-3,3),square=x*x;sample=x*(27+square)/(27+9*square);v.filtered+=filter*(sample-v.filtered);sample=v.filtered;}
+        out[i]+=sample*v.level*gain;v.age++;
       }
       if(!ended)k++;
     }

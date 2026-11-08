@@ -21,9 +21,20 @@ test('retrigger and channel stops preserve another voice, and capacity never sil
  e.stop();assert.ok(render(e).every(v=>v===0));assert.equal(e.snapshot().activeVoices,0);
 });
 test('metadata fallback and high-note rendering are finite at both native rates',()=>{
- assert.equal(fmPartStatus({role:'bass',fmPreset:'lead'}).eligible,false);assert.equal(fmPartStatus({role:'lead',fmPreset:'unknown'}).reason,'unknown-preset');
+ assert.equal(fmPartStatus({role:'bass',fmPreset:null}).preset,'bass');assert.equal(fmPartStatus({role:'lead',fmPreset:'unknown'}).reason,'unknown-preset');
  for(const rate of [44100,48000])for(const preset of Object.keys(FM_PRESETS)){
   const e=new FmEngine(rate,4);e.handle({type:'noteOn',channel:0,note:127,velocity:127},preset);e.handle({type:'pitchBend',channel:0,value:8191});
   assert.ok(render(e).every(v=>Number.isFinite(v)&&Math.abs(v)<1));e.handle({type:'cc',channel:0,controller:120,value:0});assert.equal(e.snapshot().activeVoices,0);
+ }
+});
+test('distorted guitar holds a bent note across render blocks and releases without a stuck voice',()=>{
+ for(const rate of [44100,48000]){
+  const guitar=new FmEngine(rate,2);guitar.handle({type:'noteOn',channel:0,note:73,velocity:110},'distortion-guitar');
+  assert.ok(energy(render(guitar,.15))>0);
+  guitar.handle({type:'pitchBend',channel:0,value:4096});
+  assert.ok(Math.abs(guitar.snapshot().voices[0].frequency-440*2**((74-69)/12))<1e-8);
+  const sustain=render(guitar,.4);assert.ok(sustain.every(Number.isFinite));assert.ok(energy(sustain)>0);
+  guitar.handle({type:'noteOff',channel:0,note:73});render(guitar,.12);
+  assert.equal(guitar.snapshot().activeVoices,0);assert.ok(render(guitar).every(v=>v===0));
  }
 });

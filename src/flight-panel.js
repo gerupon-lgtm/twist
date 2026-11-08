@@ -65,7 +65,9 @@ export function createFlightPanel(getModes) {
   // This repository had no existing sensitivity preset. Apply only on an explicit
   // click and only to the new wrist maximum; old numeric values are never touched.
   const wristPresets=document.createElement('div');wristPresets.id='wrist-sensitivity-presets';wristPresets.dataset.settingKey='maxSteerWrist';
-  const presetLabel=document.createElement('span');presetLabel.textContent='手首の操作感度';wristPresets.append(presetLabel);
+  const presetLabel=document.createElement('span');presetLabel.id='wrist-sensitivity-label';presetLabel.textContent='手首の操作感度';wristPresets.append(presetLabel);
+  wristPresets.setAttribute('role','group');wristPresets.setAttribute('aria-labelledby',presetLabel.id);
+  const wristStatus=document.createElement('output');wristStatus.id='wrist-sensitivity-status';wristStatus.setAttribute('aria-live','polite');
   for(const [id,label] of [['calm','おだやか'],['normal','ふつう'],['agile','機敏']]){
     const button=document.createElement('button');button.type='button';button.dataset.wristPreset=id;button.textContent=label;
     button.addEventListener('click',()=>{if(getModes().mode!=='flight'||getModes().steer!=='wrist')return;
@@ -73,7 +75,7 @@ export function createFlightPanel(getModes) {
       if(next.maxSteerWrist===settings.maxSteerWrist)return;
       rangeEditors.maxSteerWrist.remember();settings=next;persist();});wristPresets.append(button);
   }
-  $('flight-settings-fields').append(wristPresets);
+  wristPresets.append(wristStatus);$('flight-settings-fields').append(wristPresets);
   function refreshLayout() {
     const modes=getModes(),maximum=computeFieldOfView(innerWidth,innerHeight,modes.view).vertical;
     const input=$('setting-cockpitFov');input.max=String(Math.floor(maximum*10)/10);
@@ -94,6 +96,12 @@ export function createFlightPanel(getModes) {
     settings={...settings,cockpitFov:fovAuto.checked?0:Math.floor(computeFieldOfView(innerWidth,innerHeight,getModes().view).vertical*10)/10};persist();
   });
   function refresh() {
+    let selected=null;
+    for(const button of wristPresets.querySelectorAll('button')){
+      const active=WRIST_SENSITIVITY_PRESETS[button.dataset.wristPreset]===settings.maxSteerWrist;
+      button.setAttribute('aria-pressed',String(active));if(active)selected=button.textContent;
+    }
+    wristStatus.textContent=`${selected??'カスタム'}：${settings.maxSteerWrist}°`;
     for (const [key, field] of Object.entries(FLIGHT_SETTING_FIELDS)) {
       if(typeof field.initial==='boolean')$(`setting-${key}`).checked=settings[key];else $(`setting-${key}`).value = settings[key];
       $(`setting-value-${key}`).textContent = typeof field.initial==='boolean'||field.options?'':`${settings[key]}${field.unit}`;

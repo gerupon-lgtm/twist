@@ -2,13 +2,14 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {createMusicSynth,measureFmVoices} from '../src/music/music-synth.js';
 import {validateTrack} from '../src/music/score.js';
 const track=()=>validateTrack({file:'test.mid',parts:{1:{waveform:4,volume:64,role:'lead',fmPreset:'lead'},2:{waveform:1,volume:100,role:'bass'},3:{waveform:1,volume:70,role:'chords',fmPreset:'invalid'},10:{volume:80,role:'drums'}}});
-test('hybrid routes only explicit upper parts, preserves bass/drums and applies CC7 once',()=>{
+test('FM routes lead and bass, preserves drums and reports invalid timbres while applying CC7 once',()=>{
  const reg=[],fm=[];const scc={handle:e=>reg.push(e),resetControllers(){},allNotesOff(){reg.push('allOff');}};
  const f=createMusicSynth({scc,clock:{event:e=>fm.push(e)},track:track(),engine:'fm',score:{events:[],duration:1}});
- assert.equal(track().parts[1].role,'lead');assert.equal(f.snapshot().fmParts.join(','),'1');
+ assert.equal(track().parts[1].role,'lead');assert.equal(f.snapshot().fmParts.join(','),'1,2');
  f.handle({type:'noteOn',channel:0,note:70,velocity:90});f.handle({type:'cc',channel:0,controller:7,value:100});
  f.handle({type:'noteOn',channel:1,note:40,velocity:100});f.handle({type:'noteOn',channel:2,note:64,velocity:80});f.handle({type:'noteOn',channel:9,note:36,velocity:100});
- assert.equal(reg.length,3);assert.equal(fm.at(-1).event.value,Math.round(100*64/127));assert.equal(fm.at(-2).event.note,70);
+ assert.equal(reg.length,2);assert.equal(fm.find(w=>w.event.type==='cc').event.value,Math.round(100*64/127));assert.equal(fm.find(w=>w.event.type==='noteOn'&&w.event.channel===0).event.note,70);
+ assert.equal(fm.at(-1).presetId,'bass');
  assert.equal(f.snapshot().fallbacks[0].channel,3);f.allNotesOff();assert.equal(fm.at(-1).event.type,'allNotesOff');assert.equal(reg.at(-1),'allOff');
 });
 test('FM capacity analysis includes release overlap, repeated notes and channel cleanup',()=>{

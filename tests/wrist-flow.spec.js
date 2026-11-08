@@ -98,6 +98,26 @@ test('wrist preset undo restores the last manual value and repeated selected pre
   await undo.click();await expect(input).toHaveValue('27');await expect(history).toHaveText('変更前：18°');
 });
 
+test.describe('wrist sensitivity touch feedback',()=>{
+  test.use({hasTouch:true});
+  test('selected preset is visible after tapping and a custom angle clears the selection',async({page})=>{
+    await boot(page);await page.locator('#start-flow-pose-settings').click();await step(page,'settings');
+    await expect(page.locator('[data-wrist-preset=normal]')).toHaveAttribute('aria-pressed','true');
+    for(const [id,value] of [['calm','30'],['normal','25'],['agile','18']]){
+      await page.locator(`[data-wrist-preset=${id}]`).tap();
+      await expect(page.locator('#setting-maxSteerWrist')).toHaveValue(value);
+      await expect(page.locator(`[data-wrist-preset=${id}]`)).toHaveAttribute('aria-pressed','true');
+      await expect(page.locator('#wrist-sensitivity-presets [aria-pressed=true]')).toHaveCount(1);
+      await expect(page.locator('#wrist-sensitivity-status')).toContainText(value+'°');
+    }
+    await page.locator('#setting-maxSteerWrist').evaluate(el=>{el.value='27';el.dispatchEvent(new Event('input',{bubbles:true}));});
+    await expect(page.locator('#wrist-sensitivity-presets [aria-pressed=true]')).toHaveCount(0);
+    await expect(page.locator('#wrist-sensitivity-status')).toHaveText('カスタム：27°');
+    await page.reload();await step(page,'title');await page.locator('#start-flow-title-settings').click();await step(page,'settings');
+    await expect(page.locator('#wrist-sensitivity-status')).toHaveText('カスタム：27°');
+  });
+});
+
 test('fixed display retains legacy twist compensation while wrist controls bank',async({page})=>{
   await boot(page,{hold:45});await page.locator('#start-flow-pose-settings').click();await page.getByText('② 詳しい設定',{exact:true}).click();await page.locator('#display-fixed').click();
   await page.locator('#setting-displayTimeConstant').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
@@ -106,6 +126,18 @@ test('fixed display retains legacy twist compensation while wrist controls bank'
   // A 45-degree hold produces a local screen twist distinct from wrist15.
   const legacy=await page.evaluate(()=>window.wristSensor.legacyTwist());expect(Math.abs(legacy-15)).toBeGreaterThan(1);
   expect(state.displayRoll).toBeCloseTo(legacy*Math.PI/180,6);await proof(page,'fixed-display');
+});
+
+test('sensitivity buttons change the actual bank response to the same wrist motion',async({page})=>{
+  const banks=[];
+  for(const preset of ['calm','agile']){
+    await boot(page);await page.locator('#start-flow-pose-settings').click();await step(page,'settings');
+    await page.locator(`[data-wrist-preset=${preset}]`).click();
+    await page.locator('#start-flow-settings-close').click();await step(page,'pose');await launch(page);
+    await input(page,{wrist:15},1000);banks.push((await read(page)).bank);
+    await page.evaluate(()=>clearInterval(window.wristSensorTimer));
+  }
+  expect(banks[0]).toBeGreaterThan(.1);expect(banks[1]).toBeGreaterThan(banks[0]*1.5);
 });
 
 test.describe('Android orientation continuation',()=>{

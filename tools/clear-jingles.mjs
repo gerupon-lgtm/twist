@@ -72,7 +72,7 @@ export function generatedClearTracks(){
  return Object.fromEntries(CLEAR_JINGLES.map(song=>[song.id,{title:song.title,file:song.id+'.mid',bpm:song.bpm,beats:song.beats,parts:{
   1:{waveform:song.id==='clear-overdrive'?1:4,volume:99,role:'lead',fmPreset:'lead'},
   2:{waveform:1,volume:53,role:'chords',fmPreset:'chords'},
-  3:{waveform:0,volume:86,role:'bass',fmPreset:null},
+  3:{waveform:0,volume:86,role:'bass',fmPreset:'bass'},
   4:{waveform:1,volume:48,role:'chords',fmPreset:'chords'},
   10:{volume:88,role:'drums',fmPreset:null},
  }}]));

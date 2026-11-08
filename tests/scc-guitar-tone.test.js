@@ -35,9 +35,10 @@ function instrument({track=makeTrack(),trackId='rock',engine='scc',fmClock=true}
 const voices=scc=>scc.voices.active().filter(voice=>voice.part!==0).map(({part,note,velocity,ch,startedAt})=>({part,note,velocity,ch,startedAt}));
 const bankWaves=({scc,registers})=>[...new Set(voices(scc).map(voice=>scc.channelBank[voice.ch]))].map(bank=>({bank,wave:Array.from({length:32},(_,i)=>registers.get(waveAddr(bank,i)))}));
 
-test('only the approved six part-one tags are added to public metadata',()=>{
+test('SCC metadata keeps every original field except six guitar tags and the explicitly revised FM assignments',()=>{
   const current=JSON.parse(readFileSync(new URL('../public/music/tracks.json',import.meta.url))),old=JSON.parse(readFileSync(new URL('../public/versions/0.1.33/music/tracks.json',import.meta.url)));
   for(const id of SCC_GUITAR_TRACK_IDS){assert.equal(current[id].parts[1].sccTimbre,SCC_GUITAR_TIMBRE,id);delete current[id].parts[1].sccTimbre;}
+  for(const data of [current,old])for(const track of Object.values(data))if(track?.file)for(const part of Object.values(track.parts))delete part.fmPreset;
   assert.deepEqual(current,old);
 });
 

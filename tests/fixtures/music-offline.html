@@ -5,7 +5,7 @@ import {validateTrack,prepareScore} from '/src/music/score.js';
 import {createMusicSynth} from '/src/music/music-synth.js';
 import {fmPartStatus} from '/src/music/fm-presets.js';
 
-window.renderWholeTrack=async({id,engine,rate})=>{
+window.renderWholeTrack=async({id,engine,rate,volume=25,bgmVolume=50})=>{
   const config=await fetch('/music/tracks.json').then(r=>r.json()),track=validateTrack(config[id]);
   const bytes=new Uint8Array(await fetch('/music/'+track.file).then(r=>r.arrayBuffer()));
   const score=prepareScore(bytes,track),writes=[];let at=0;
@@ -22,8 +22,8 @@ window.renderWholeTrack=async({id,engine,rate})=>{
   const node=new AudioWorkletNode(context,'twist-audio',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});
   let metrics=null;const messages=[];node.port.onmessage=({data})=>{if(data.type==='metrics')metrics=data;else if(messages.length<10)messages.push(data);};
   node.connect(context.destination);
-  node.port.postMessage({type:'settings',settings:{sound:true,bgm:true,sfx:false,volume:25,bgmVolume:50,abMusic:false}});
-  node.port.postMessage({type:'musicGain',gain:.5});
+  node.port.postMessage({type:'settings',settings:{sound:true,bgm:true,sfx:false,volume,bgmVolume,abMusic:false}});
+  node.port.postMessage({type:'musicGain',gain:bgmVolume/100});
   node.port.postMessage({type:'musicReg',writes});
   // Offline rendering may outrun main-thread MessagePort delivery for a short
   // score. Confirm the actual processor received the queue while time is zero.

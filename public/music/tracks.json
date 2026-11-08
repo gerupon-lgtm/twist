@@ -75,7 +75,7 @@
         "waveform": 1,
         "volume": 111,
         "role": "lead",
-        "fmPreset": "lead",
+        "fmPreset": "distortion-guitar",
         "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
@@ -94,7 +94,7 @@
         "waveform": 1,
         "volume": 88,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "5": {
         "waveform": 1,
@@ -139,7 +139,7 @@
         "waveform": 1,
         "volume": 96,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "5": {
         "waveform": 1,
@@ -184,7 +184,7 @@
         "waveform": 1,
         "volume": 92,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "5": {
         "waveform": 1,
@@ -229,7 +229,7 @@
         "waveform": 1,
         "volume": 92,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "5": {
         "waveform": 1,
@@ -256,7 +256,7 @@
         "waveform": 1,
         "volume": 101,
         "role": "lead",
-        "fmPreset": "lead",
+        "fmPreset": "distortion-guitar",
         "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
@@ -275,7 +275,7 @@
         "waveform": 1,
         "volume": 83,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "5": {
         "waveform": 1,
@@ -302,7 +302,7 @@
         "waveform": 1,
         "volume": 101,
         "role": "lead",
-        "fmPreset": "lead",
+        "fmPreset": "distortion-guitar",
         "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
@@ -321,7 +321,7 @@
         "waveform": 1,
         "volume": 83,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "5": {
         "waveform": 1,
@@ -348,7 +348,7 @@
         "waveform": 1,
         "volume": 101,
         "role": "lead",
-        "fmPreset": "lead",
+        "fmPreset": "distortion-guitar",
         "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
@@ -367,7 +367,7 @@
         "waveform": 1,
         "volume": 83,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "5": {
         "waveform": 1,
@@ -394,7 +394,7 @@
         "waveform": 4,
         "volume": 99,
         "role": "lead",
-        "fmPreset": "lead",
+        "fmPreset": "distortion-guitar",
         "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
@@ -407,7 +407,7 @@
         "waveform": 1,
         "volume": 79,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "5": {
         "waveform": 1,
@@ -446,7 +446,7 @@
         "waveform": 1,
         "volume": 79,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "5": {
         "waveform": 1,
@@ -473,7 +473,7 @@
         "waveform": 1,
         "volume": 99,
         "role": "lead",
-        "fmPreset": "lead",
+        "fmPreset": "distortion-guitar",
         "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
@@ -486,7 +486,7 @@
         "waveform": 1,
         "volume": 79,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "5": {
         "waveform": 1,
@@ -538,7 +538,7 @@
         "waveform": 1,
         "volume": 88,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "4": {
         "waveform": 1,
@@ -577,7 +577,7 @@
         "waveform": 0,
         "volume": 96,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "10": {
         "volume": 85,
@@ -608,7 +608,7 @@
         "waveform": 0,
         "volume": 86,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "4": {
         "waveform": 1,
@@ -645,7 +645,7 @@
         "waveform": 0,
         "volume": 86,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "4": {
         "waveform": 1,
@@ -682,7 +682,7 @@
         "waveform": 0,
         "volume": 86,
         "role": "bass",
-        "fmPreset": null
+        "fmPreset": "bass"
       },
       "4": {
         "waveform": 1,

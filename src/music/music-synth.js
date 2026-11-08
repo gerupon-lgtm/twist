@@ -27,7 +27,7 @@ export function createMusicSynth({scc,clock,track,trackId,engine='scc',score}){
     const status=fmPartStatus(part);
     if(status.eligible&&Number(channel)>8)fallbacks.push({channel:Number(channel),reason:'non-melodic-channel'});
     else if(status.eligible&&typeof clock.event==='function'&&requiredVoices<=FM_MAX_VOICES)fm.set(Number(channel)-1,status.preset);
-    else if(['lead','chords'].includes(part.role)||!part.role&&Number(channel)<=8)fallbacks.push({channel:Number(channel),reason:status.reason??(requiredVoices>FM_MAX_VOICES?'capacity':'clock-unavailable')});
+    else if(part.role!=='drums'&&Number(channel)<=8)fallbacks.push({channel:Number(channel),reason:status.reason??(requiredVoices>FM_MAX_VOICES?'capacity':'clock-unavailable')});
   }
   if(fm.size)clock.event({kind:'fm',event:{type:'configure',capacity:Math.max(1,requiredVoices)}});
   function handle(event){

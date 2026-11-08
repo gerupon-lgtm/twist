@@ -67,7 +67,7 @@ test('new metadata uses explicit lead/chords presets and leaves bass and drums o
  for(const [id,track]of Object.entries(tracks)){
   assert.equal(track.file,id+'.mid');assert.equal(track.loop,undefined);
   assert.deepEqual(Object.fromEntries(Object.entries(track.parts).map(([ch,part])=>[ch,[part.role,part.fmPreset]])),{
-   1:['lead','lead'],2:['chords','chords'],3:['bass',null],4:['chords','chords'],10:['drums',null],
+   1:['lead','lead'],2:['chords','chords'],3:['bass','bass'],4:['chords','chords'],10:['drums',null],
   });
  }
 });
@@ -106,7 +106,7 @@ test('all sixteen public files have complete role mappings and balanced actual n
   const song=parseSmf(await readFile(new URL('../public/music/'+track.file,import.meta.url)));const audit=noteAudit(song);assert.ok(audit.ons>0,id);assert.ok(audit.peakMelodic<=5,id);
   for(const event of song.events.filter(event=>event.type==='noteOn')){
    const part=track.parts[event.channel+1];assert.ok(part,id+' channel '+(event.channel+1));
-   assert.ok(['lead','chords','bass','drums'].includes(part.role));assert.equal(part.fmPreset,['lead','chords'].includes(part.role)?part.role:null);
+   assert.ok(['lead','chords','bass','drums'].includes(part.role));assert.equal(part.fmPreset,part.role==='drums'?null:part.sccTimbre==='distortion-guitar-v1'?'distortion-guitar':part.role);
    assert.equal(part.role==='drums',event.channel===9);
   }
  }

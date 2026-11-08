@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
+import {APP_VERSION} from '../src/version.js';
 test.use({screenshot:'off'});
 const data=JSON.parse(await readFile('public/music/tracks.json','utf8'));
 const ids=Object.entries(data).filter(([,track])=>track&&typeof track.file==='string'&&track.file.endsWith('.mid')).map(([id])=>id);
@@ -14,7 +15,8 @@ for(const engine of ['scc','fm'])for(const rate of [44100,48000])test(`native wh
       try{
         const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
         await page.goto('/tests/fixtures/music-offline.html');await page.waitForFunction(()=>window.fixtureReady===true);
-        const row=await page.evaluate(options=>window.renderWholeTrack(options),{id,engine,rate});results.push(row);
+        const volume=engine==='fm'?100:25,bgmVolume=engine==='fm'?100:50;
+        const row=await page.evaluate(options=>window.renderWholeTrack(options),{id,engine,rate,volume,bgmVolume});results.push({...row,volume,bgmVolume});
         console.log(JSON.stringify({nativeWholeScore:id,engine,rate,seconds:row.duration,renderMs:row.wallMs,peak:Math.max(...row.channels.map(c=>c.peak))}));
         expect(errors).toEqual([]);expect(row.actualRate).toBe(rate);expect(row.scoreNoteOns).toBeGreaterThan(0);
         expect(row.invalid).toBe(0);expect(row.fmNoteOns).toBe(row.expectedFmNotes);expect(row.synth.fallbacks).toEqual([]);
@@ -34,6 +36,6 @@ for(const engine of ['scc','fm'])for(const rate of [44100,48000])test(`native wh
       }finally{await context.close();}
     }
   }finally{
-    await mkdir('.cache',{recursive:true});await writeFile(`.cache/v0137-native-whole-${engine}-${rate}.json`,JSON.stringify({engine,rate,expectedIds:ids,results,complete:results.length===ids.length},null,2));
+    await mkdir('.cache',{recursive:true});await writeFile(`.cache/v${APP_VERSION.replaceAll('.','')}-native-whole-${engine}-${rate}.json`,JSON.stringify({engine,rate,expectedIds:ids,results,complete:results.length===ids.length},null,2));
   }
 });
