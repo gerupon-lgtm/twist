@@ -1,6 +1,12 @@
 # v0.1.35 検証
 
-2026-11-09。**ローカルの最終検証を完了、公開反映は確認待ち。Pixel 9aは未確認。** v34の成功を今回の成功件数へ加算していない。[実装](implementation-v0135.md)。
+2026-11-09。**ローカル検証・公開・配信確認まで完了。Pixel 9aは未確認。** v34の成功を今回の成功件数へ加算していない。[実装](implementation-v0135.md)、[公開版](https://twist.sikumilab.com/?v=0.1.35)。
+
+公開対象は `3066007f1590ad6eb35582b2e21ca0c8e91b6cb9`。[Actions 42496437621](https://github.com/gerupon-lgtm/twist/actions/runs/42496437621) の12工程すべて成功。`.cache/v0135-actions-final.json`。
+
+公開220ファイルの長さ・SHA（中身の照合値）・形式、実ブラウザー21項目が成功した。実行・console・HTTP・request・navigation中断のエラーはすべて0。`.cache/v0135-public-verification.json`。さらに公開先の4コースとSKIP→GO→BGM・一時停止地図の5条件、7検査が成功し、実際の音声サンプル・単一メイン音声処理・画像と音声ファイルの版を確認した。`.cache/v0135-public-intro-public-first/report.json`。公開タイトル、紹介360×640、操縦席844×390の画像も確認した。
+
+保存版v25/v26/v29/v31/v32/v33/v34は各4項目成功、ファイル21/21/28/28/28/31/31も全件一致した。`.cache/archives-v0135-verification.json`。追加したv34保存版31ファイルはGit indexの内容も公開原本のSHAと一致する。保存版の生成済みshaderの空白は原本のまま保持した。
 
 ## 最終確認
 
