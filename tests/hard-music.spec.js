@@ -12,7 +12,7 @@ async function crash(page){
 }
 test('adopted tracks advance only after actual crash/restart, while pause resumes the same song',async({page})=>{
  test.setTimeout(60000); // Two real 15-second crash windows plus native audio preparation and restarts.
- await page.goto('/?mode=flight');await page.locator('#practice-button').click();
+ await page.goto('/?mode=flight&music=current');await page.locator('#practice-button').click();
  await expect.poll(async()=>(await music(page)).track).toBe(config.rock.title);
  await page.locator('#pause-button').click();await page.locator('#start-button').click();
  await expect.poll(async()=>(await music(page)).track).toBe(config.rock.title);
@@ -23,7 +23,7 @@ test('adopted tracks advance only after actual crash/restart, while pause resume
 test('both selected flight tracks repeat at the configured segment boundary',async({page})=>{
  const shortened=structuredClone(config);shortened.rock.loop={start:.4,end:1.8};shortened.steel.loop={start:.2,end:1.6};
  await page.route('**/music/tracks.json*',route=>route.fulfill({json:shortened}));
- await page.goto('/?mode=flight');await page.locator('#practice-button').click();
+ await page.goto('/?mode=flight&music=current');await page.locator('#practice-button').click();
  await expect.poll(async()=>(await music(page)).loopCount,{timeout:8000}).toBeGreaterThanOrEqual(1);
  await crash(page);await expect.poll(async()=>(await music(page)).track).toBe(config.steel.title);
  await expect.poll(async()=>(await music(page)).loopCount,{timeout:8000}).toBeGreaterThanOrEqual(1);
@@ -32,7 +32,7 @@ test('the complete original 72-second song remains compatible in an explicit leg
  test.setTimeout(90000);
  const legacy=structuredClone(config);delete legacy.catalog;
  await page.route('**/music/tracks.json*',route=>route.fulfill({json:legacy}));
- await page.goto('/?mode=explore');await page.locator('#practice-button').click();
+ await page.goto('/?mode=explore&music=current');await page.locator('#practice-button').click();
  await expect.poll(async()=>(await music(page)).track).toBe(config.flight.title);
  await expect.poll(async()=>(await music(page)).loopCount,{timeout:80000,intervals:[500]}).toBeGreaterThanOrEqual(1);
  await expect(page.locator('#app')).toHaveAttribute('data-phase','running');

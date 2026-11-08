@@ -124,7 +124,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
     if(this.event&&(currentTime-this.eventAt)*1000<EVENT_FEEDBACK[this.event].duration)return 'event';
     if(this.active&&sonicWarning(this.model.cue))return 'warning';return null;
   }
-  countdownSnapshot(){return {...this.countdownMetrics,history:this.countdownMetrics.history.map(value=>({...value})),session:this.countdownSession,active:Boolean(this.countdown),cue:this.countdown?.cue??null};}
+  countdownSnapshot(){return {...this.countdownMetrics,history:this.countdownMetrics.history.map(value=>({...value})),session:this.countdownSession,active:Boolean(this.countdown),cue:this.countdown?.cue??null,atSeconds:currentTime};}
   publishCountdown(){this.port.postMessage({type:'countdown',countdown:this.countdownSnapshot()});}
   endCountdown(reason){if(!this.countdown)return;this.countdown=null;this.countdownMetrics.reason=reason;this.untilUpdate=0;this.publishCountdown();}
   cancelCountdownBus(session){

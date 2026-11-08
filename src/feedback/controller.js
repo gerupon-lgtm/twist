@@ -1,4 +1,4 @@
-import { loadFeedbackSettings, saveFeedbackSettings, normalizeFeedbackSettings, FEEDBACK_FIELDS,FEEDBACK_SETTINGS_KEY,loadMusicPreviewSettings,saveMusicPreviewSettings } from './settings.js';
+import { loadFeedbackSettings, saveFeedbackSettings, normalizeFeedbackSettings, FEEDBACK_FIELDS,FEEDBACK_SETTINGS_KEY,loadMusicPreviewSettings,saveMusicPreviewSettings,DEFAULT_MUSIC_PREVIEW_TRACK_ID } from './settings.js';
 import { createGameAudio } from './audio.js';
 import { flightFeedback } from './model.js';
 import { createHaptics } from './haptics.js';
@@ -10,6 +10,7 @@ import { changedSettings,initialSettingText } from '../setting-differences.js';
 import { FEEDBACK_HELP } from '../settings-help.js';
 import {createSonicEventConsumer} from './supersonic-model.js';
 import {resolveFlightSelection,resolvePreviewRequest,resolveMusicQuery} from '../music/catalog.js';
+import {createLaunchMusicGate} from './launch-music.js';
 
 export function createFeedbackController(){
   let storage;try{storage=localStorage;}catch{/* Defaults work without storage. */}
@@ -21,6 +22,8 @@ export function createFeedbackController(){
   let frames=0,frameSum=0,frameMax=0;
   const audio=createGameAudio(),jitter=createSensorJitter();
   const music=createMusicPlayer(audio);music.setSettings(settings);
+  const launchMusic=createLaunchMusicGate({play:()=>music.play('flight'),stop:()=>music.stop(),
+    isAllowed:()=>active&&!document.hidden&&settings.sound&&settings.bgm&&settings.volume>0});
   const sonicEvents=createSonicEventConsumer();
   const supported=!isIPhone(navigator.userAgent)&&typeof navigator.vibrate==='function';
   const haptics=createHaptics(supported?navigator.vibrate.bind(navigator):null);
@@ -49,7 +52,8 @@ export function createFeedbackController(){
       }
       if(field.group==='vibration')jitter.reset();
       haptics.stop();audio.configure(settings);music.setSettings(settings);
-      if(!settings.sound)audio.stop();else if(active){audio.start();void music.play('flight');}
+      if(!settings.sound)audio.stop();else if(active)audio.start();
+      if(active)launchMusic.request();
       if(previewIntent){
         if(!settings.sound)stopPreview();
         else {previewAudio?.configure(previewSettings());previewMusic?.setSettings(previewSettings());if(key==='musicEngine')void playPreview();}
@@ -79,7 +83,8 @@ export function createFeedbackController(){
   });
   previewStart.addEventListener('click',()=>{void playPreview();});previewStop.addEventListener('click',stopPreview);
   const adjustments=document.getElementById('flight-adjustments');adjustments.addEventListener('toggle',()=>{if(!adjustments.open)stopPreview();});
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPreview();});window.addEventListener('pagehide',stopPreview);
+  const hidden=()=>{stopPreview();launchMusic.stop();audio.cancelCountdown();};
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)hidden();});window.addEventListener('pagehide',hidden);
   function previewSettings(){return {...settings,bgm:true,sfx:false,abMusic:false};}
   function previewLabelFor(id){
     const role=catalog.clearIds.includes(id)?'クリア':id===catalog.afterburnerId?'AB追加打楽器':id===catalog.comparisonId?'比較':!catalog.flightIds.includes(id)?'試聴専用':'';
@@ -99,9 +104,9 @@ export function createFeedbackController(){
       if(query.flightRequest!==null&&!musicSelectionEdited){
         settings={...settings,musicSet:query.flightRequest};music.setSettings(settings);
         const home=document.getElementById('home-link'),link=new URL(home.href);link.searchParams.set('music',settings.musicSet);home.href=link.href;
-        if(active)void music.play('flight');
+        if(active)launchMusic.request();
       }
-      const fallback=resolvePreviewRequest(storedMusicRequest,catalog);
+      const fallback=resolvePreviewRequest(storedMusicRequest,catalog,{fallback:DEFAULT_MUSIC_PREVIEW_TRACK_ID});
       previewTrackId=resolvePreviewRequest(query.previewRequest??storedPreview.trackId??storedMusicRequest,catalog,{fallback});
       previewSelect.replaceChildren(...catalog.previewIds.map(id=>new Option(previewLabelFor(id),id)));previewSelect.disabled=false;previewSelect.value=previewTrackId;
       const clearSelect=document.getElementById('feedback-clearTrackId');for(const option of clearSelect.children)if(catalog.byId[option.value])option.textContent=catalog.byId[option.value].title;
@@ -156,15 +161,16 @@ export function createFeedbackController(){
   return {
     unlock(){stopPreview();haptics.arm();if(settings.sound){void audio.unlock();void music.preload();}},
     countdownAudio(signal){
-      if(signal?.type==='cancel'){audio.cancelCountdown(signal.session);return;}
-      if(signal?.type==='prepare'){audio.configure(settings);return audio.prepareCountdown(signal.session,settings);}
+      if(signal?.type==='cancel'){launchMusic.cancelSession(signal.session);audio.cancelCountdown(signal.session);return;}
+      if(signal?.type==='prepare'){launchMusic.prepare(signal.session);audio.configure(settings);return audio.prepareCountdown(signal.session,settings);}
       if(signal?.type==='tick')return audio.countdownTone(signal.session,signal.number,settings);
-      if(signal?.type==='go'&&active)return audio.countdownTone(signal.session,'go',settings);
+      if(signal?.type==='go'&&active){const played=audio.countdownTone(signal.session,'go',settings);
+        launchMusic.go(signal.session,{played,completion:played?audio.waitForCountdownEnd(signal.session):null});return played;}
     },
-    start({flightNumber=1}={}){stopPreview();active=true;lastAfterburner=null;lastModel=null;music.setFlightNumber(flightNumber);audio.start();audio.configure(settings);void music.play('flight');},
-    stop(){stopPreview();active=false;lastAfterburner=null;lastModel=null;music.stop();audio.stop();haptics.stop();jitter.clearWindow();},
+    start({flightNumber=1}={}){stopPreview();active=true;lastAfterburner=null;lastModel=null;music.setFlightNumber(flightNumber);audio.start();audio.configure(settings);launchMusic.start();},
+    stop(){stopPreview();active=false;lastAfterburner=null;lastModel=null;launchMusic.stop();audio.stop();haptics.stop();jitter.clearWindow();},
     event(kind){haptics.event(kind,settings,performance.now());
-      if(kind==='clear')void music.play('clear').then(result=>{if(result==='unavailable')audio.event(kind,settings);});
+      if(kind==='clear'){launchMusic.stop();void music.play('clear').then(result=>{if(result==='unavailable')audio.event(kind,settings);});}
       else audio.event(kind,settings);
     },
     passBy(payload){if(active&&settings.sound&&settings.sfx&&settings.passbySound!==false&&!['ground','stall','buffet'].includes(lastModel?.cue))audio.passBy(payload,settings);},
@@ -180,10 +186,10 @@ export function createFeedbackController(){
       for(const event of crossings){haptics.sonic(event,settings,now,model);audio.sonicTransition(event,settings);}
     },
     frameTiming(ms){if(active&&Number.isFinite(ms)){frames++;frameSum+=ms;frameMax=Math.max(frameMax,ms);}},
-    reset(){jitter.reset();music.reset();audio.resetMetrics();sonicEvents.reset();frames=0;frameSum=0;frameMax=0;},
+    reset(){launchMusic.stop();jitter.reset();music.reset();audio.resetMetrics();sonicEvents.reset();frames=0;frameSum=0;frameMax=0;},
     exitOpened(){if(active)audio.event('exitOpen',settings);},
     report(){return {settings:{...settings},changedSettings:changedSettings(FEEDBACK_FIELDS,settings),vibrationSupported:supported,sensorJitter:jitter.snapshot(),
-      audio:audio.snapshot(),music:music.snapshot(),sonicTransitions:sonicEvents.snapshot(),frameCpu:{meanMs:frames?frameSum/frames:0,maxMs:frameMax}};},
+      audio:audio.snapshot(),music:music.snapshot(),launchMusic:launchMusic.snapshot(),sonicTransitions:sonicEvents.snapshot(),frameCpu:{meanMs:frames?frameSum/frames:0,maxMs:frameMax}};},
     updateDiagnostics(){
       if(!adjustments.hidden)refreshPreview();
       const s=audio.snapshot(),j=jitter.snapshot();

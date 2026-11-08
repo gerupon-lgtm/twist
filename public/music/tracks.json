@@ -75,7 +75,8 @@
         "waveform": 1,
         "volume": 111,
         "role": "lead",
-        "fmPreset": "lead"
+        "fmPreset": "lead",
+        "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
         "waveform": 0,
@@ -255,7 +256,8 @@
         "waveform": 1,
         "volume": 101,
         "role": "lead",
-        "fmPreset": "lead"
+        "fmPreset": "lead",
+        "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
         "waveform": 0,
@@ -300,7 +302,8 @@
         "waveform": 1,
         "volume": 101,
         "role": "lead",
-        "fmPreset": "lead"
+        "fmPreset": "lead",
+        "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
         "waveform": 0,
@@ -345,7 +348,8 @@
         "waveform": 1,
         "volume": 101,
         "role": "lead",
-        "fmPreset": "lead"
+        "fmPreset": "lead",
+        "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
         "waveform": 0,
@@ -390,7 +394,8 @@
         "waveform": 4,
         "volume": 99,
         "role": "lead",
-        "fmPreset": "lead"
+        "fmPreset": "lead",
+        "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
         "waveform": 1,
@@ -468,7 +473,8 @@
         "waveform": 1,
         "volume": 99,
         "role": "lead",
-        "fmPreset": "lead"
+        "fmPreset": "lead",
+        "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
         "waveform": 4,

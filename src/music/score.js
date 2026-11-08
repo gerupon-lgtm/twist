@@ -1,5 +1,6 @@
 import { parseSmf } from '../vendor/scc/midi/smf.js';
 import { PRESET_NAMES } from '../vendor/scc/core/presets.js';
+import { SCC_GUITAR_TIMBRE } from './scc-guitar-tone.js';
 
 export function validateTrack(track){
   if(!track||typeof track.file!=='string'||!track.file.endsWith('.mid')||/[:?#\\]/.test(track.file)||track.file.startsWith('/')||track.file.split('/').includes('..'))throw Error('Invalid MIDI path');
@@ -9,7 +10,8 @@ export function validateTrack(track){
     const wave=part.waveform??0,volume=part.volume??100;
     if(!Number.isInteger(wave)||wave<0||wave>=PRESET_NAMES.length||!Number.isFinite(volume)||volume<0||volume>127)throw Error('Invalid part');
     parts[n]={waveform:wave,volume,...(typeof part.role==='string'?{role:part.role}:{}),
-      ...(typeof part.fmPreset==='string'||part.fmPreset===null?{fmPreset:part.fmPreset}:{})};
+      ...(typeof part.fmPreset==='string'||part.fmPreset===null?{fmPreset:part.fmPreset}:{}),
+      ...(part.sccTimbre===SCC_GUITAR_TIMBRE?{sccTimbre:part.sccTimbre}:{})};
   }
   if(track.loop&&(!Number.isFinite(track.loop.start)||!Number.isFinite(track.loop.end)||track.loop.start<0||track.loop.end>3600||track.loop.end-track.loop.start<.1))throw Error('Invalid loop');
   return {file:track.file,title:typeof track.title==='string'?track.title:track.file,parts,loop:track.loop?{...track.loop}:null};

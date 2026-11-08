@@ -72,9 +72,14 @@ test('new metadata uses explicit lead/chords presets and leaves bass and drums o
  }
 });
 
-test('published32 original thirteen MID bytes remain unchanged',async()=>{
+test('published33 preserves the thirteen originals while only the six authorized current leads may change',async()=>{
  assert.deepEqual([...PROTECTED_MIDI_FILES].sort(),Object.keys(baseline).sort());
- for(const [file,expected]of Object.entries(baseline))assert.equal(hash(await readFile(new URL('../public/music/'+file,import.meta.url))),expected,file);
+ const arranged=new Set(['rock.mid','steel.mid','horizon.mid','storm.mid','ignition.mid','overdrive.mid']);
+ for(const [file,expected]of Object.entries(baseline)){
+  assert.equal(hash(await readFile(new URL('../public/versions/0.1.33/music/'+file,import.meta.url))),expected,'published33 '+file);
+  if(!arranged.has(file))assert.equal(hash(await readFile(new URL('../public/music/'+file,import.meta.url))),expected,'current untouched '+file);
+ }
+ for(const id of ids)assert.equal(hash(await readFile(new URL('../public/music/'+id+'.mid',import.meta.url))),hash(await readFile(new URL('../public/versions/0.1.33/music/'+id+'.mid',import.meta.url))),id);
 });
 
 test('dedicated writer touches only three allowlisted filenames and check never repairs an edited file',async()=>{
@@ -122,6 +127,10 @@ test('role augmentation preserves every legacy field and uses the actual song-sp
  for(const id of ['clear','comparison'])assert.deepEqual(Object.entries(config[id].parts).filter(([,part])=>part.role==='bass').map(([channel])=>channel),['3']);
  assert.equal(config.clear.parts[4].role,'lead');assert.equal(config['clear-ignition'].parts[4].role,'chords');
  delete config.catalog;for(const id of ids)delete config[id];
- for(const track of Object.values(config).filter(track=>track?.file))for(const part of Object.values(track.parts)){delete part.role;delete part.fmPreset;}
+ const guitarIds=new Set(['rock','steel','horizon','storm','ignition','overdrive']);
+ for(const [id,track]of Object.entries(config).filter(([,track])=>track?.file))for(const [channel,part]of Object.entries(track.parts)){
+  if(part.sccTimbre!==undefined){assert.ok(guitarIds.has(id)&&channel==='1');assert.equal(part.sccTimbre,'distortion-guitar-v1');delete part.sccTimbre;}
+  delete part.role;delete part.fmPreset;
+ }
  assert.equal(hash(JSON.stringify(config)),'dc574a85d916ee3684a0e62a39cee3690bde97306bdbb495bdcb3bebb3833c66');
 });

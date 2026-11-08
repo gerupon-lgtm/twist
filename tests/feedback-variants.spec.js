@@ -3,6 +3,11 @@ import {test,expect} from './helpers/legacy-ui.js';
 const music=page=>page.locator('#feedback-diagnostics').getAttribute('data-music').then(JSON.parse);
 const preview=page=>page.locator('.music-preview-controls').getAttribute('data-music').then(JSON.parse);
 const slider=(page,id,value)=>page.locator('#'+id).evaluate((e,v)=>{e.value=String(v);e.dispatchEvent(new Event('input',{bubbles:true}));},value);
+// Playlist regressions explicitly choose their baseline; the app default is Ignition Sky.
+const useAdoptedPlaylist=page=>page.addInitScript(()=>{
+ const key='twist.feedback-settings.v1';
+ if(localStorage.getItem(key)===null)localStorage.setItem(key,JSON.stringify({musicSet:'current'}));
+});
 test('fine flight, collection and stall issue distinct rhythms, and classic can be selected and saved',async({page})=>{
  await page.addInitScript(()=>{
   window.vibrations=[];Object.defineProperty(navigator,'vibrate',{value:p=>{window.vibrations.push(p);return true;},configurable:true});
@@ -17,6 +22,7 @@ test('fine flight, collection and stall issue distinct rhythms, and classic can 
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await expect(page.locator('#feedback-flightVibration')).toHaveValue('classic');
 });
 test('an old-song link selects its individual preview while adopted flight selection persists in copies',async({page})=>{
+ await useAdoptedPlaylist(page);
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>window.copied=text},configurable:true}));
  await page.goto('/?mode=explore&music=brave');await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('rock');
  await expect.poll(async()=>JSON.parse(await page.locator('#feedback-diagnostics').getAttribute('data-audio')).peak).toBeGreaterThan(0);
@@ -30,6 +36,7 @@ test('an old-song link selects its individual preview while adopted flight selec
  expect((await music(page)).playedTracks).toEqual(['黒曜の翼','鋼翼の鼓動']);
 });
 test('the complete brave composition loops at 67.764672 seconds in individual preview without restarting gameplay',async({page})=>{
+ await useAdoptedPlaylist(page);
  test.setTimeout(85000);await page.goto('/?mode=explore&music=brave');await page.locator('#practice-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('rock');
  await page.locator('#pause-button').click();await page.locator('#flight-adjustments > summary').click();await expect(page.locator('#music-preview-track')).toHaveValue('brave');
  const session=await page.locator('#app').getAttribute('data-session');await page.locator('#music-preview-start').click();

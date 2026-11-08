@@ -24,8 +24,8 @@ test('haptic batches preserve the effects phase and an event interrupts the fine
   assert.equal(h.update(m,defaults,300),undefined);assert.deepEqual(h.update(m,defaults,550),{restarted:true,elapsedMs:0});h.stop();assert.equal(calls.at(-1),0);
 });
 test('enum defaults and persisted invalid values cannot create arbitrary music groups or patterns',()=>{
-  assert.equal(defaults.flightVibration,'fine');assert.equal(defaults.musicSet,'current');
-  for(const invalid of [null,undefined,'__proto__',[],42])assert.equal(normalizeFeedbackSettings({musicSet:invalid}).musicSet,'current');
+  assert.equal(defaults.flightVibration,'fine');assert.equal(defaults.musicSet,'ignition');
+  for(const invalid of [null,undefined,'__proto__',[],42])assert.equal(normalizeFeedbackSettings({musicSet:invalid}).musicSet,'ignition');
   assert.equal(normalizeFeedbackSettings({musicSet:'brave',flightVibration:'classic'}).musicSet,'brave');
 });
 test('shared ground and buffet rhythms resynchronize after delayed frames instead of accumulating drift',()=>{

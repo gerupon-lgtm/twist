@@ -21,7 +21,7 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
   root.innerHTML=`
     <section class="flow-screen flow-title" data-flow-screen="title" aria-labelledby="start-flow-title-heading" hidden>
       <div class="flow-title-art" aria-hidden="true"><svg viewBox="0 0 300 180"><path class="flow-route" d="M38 145 106 102 70 58 183 34 244 94"/><circle cx="106" cy="102" r="8"/><circle cx="70" cy="58" r="8"/><circle cx="183" cy="34" r="8"/><path class="flow-plane" d="m38 134 13 27-13-7-13 7z"/><path class="flow-exit" d="M230 110V80h28v30"/></svg></div>
-      <div class="flow-title-copy"><h1 id="start-flow-title-heading">twist</h1><p>傾けて、空をめぐろう。</p><small id="start-flow-version"></small></div>
+      <div class="flow-title-copy"><h1 id="start-flow-title-heading">twist</h1><p>Tilt to Play.</p><small id="start-flow-version"></small></div>
       <div class="flow-title-actions">${button('start-flow-start','start','はじめる','primary')}<div class="flow-inline-actions">${button('start-flow-title-settings','settings','設定','text')}${button('start-flow-title-help','help','遊び方','text')}</div></div>
       <div id="start-flow-title-platform" class="flow-platform"></div>
     </section>

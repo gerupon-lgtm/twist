@@ -11,27 +11,28 @@ const source=(await readFile(new URL('../src/feedback/audio.js',import.meta.url)
 const {createGameAudio}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const settings={sound:true,sfx:true,volume:25,vario:false};
 function fixture(t,{deferModule=false}={}){
-  const messages=[];let context;
+  const messages=[];let context,node;
   globalThis.window={AudioContext:class{
     constructor(){context=this;this.state='suspended';this.currentTime=0;this.resumes=0;this.defer=false;this.audioWorklet={addModule:()=>deferModule?new Promise(resolve=>{this.completeModule=resolve;}):Promise.resolve()};}
     resume(){this.resumes++;if(this.defer)return new Promise(resolve=>{this.release=()=>{this.state='running';resolve();};});this.state='running';return Promise.resolve();}
     suspend(){this.state='suspended';return Promise.resolve();}close(){this.state='closed';return Promise.resolve();}
   }};
-  globalThis.AudioWorkletNode=class{constructor(){this.port={postMessage:m=>messages.push(m)};}connect(){}disconnect(){}};
+  globalThis.AudioWorkletNode=class{constructor(){node=this;this.port={postMessage:m=>messages.push(m)};}connect(){}disconnect(){}};
   const audio=createGameAudio();
   t.after(async()=>{await audio.dispose();delete globalThis.window;delete globalThis.AudioWorkletNode;});
-  return {audio,messages,context:()=>context};
+  return {audio,messages,context:()=>context,receive:data=>node.port.onmessage({data})};
 }
 
-test('3/2/1 have the same pitch, GO is higher, and registers use a short bounded envelope',()=>{
+test('3/2/1 stay short and equal while higher GO has a bounded 1.5 second envelope',()=>{
   assert.deepEqual([3,2,1].map(n=>countdownTone(n)),Array(3).fill({hz:880,durationMs:90}));
-  assert.deepEqual(countdownTone('go'),{hz:1760,durationMs:160});assert.equal(countdownTone(0),null);
+  assert.deepEqual(countdownTone('go'),{hz:1760,durationMs:1500});assert.equal(countdownTone(0),null);
   const regs=()=>{const r=new Uint8Array(14);r[7]=63;return r;};
   const before=regs();assert.equal(applyCountdownRegisters(before,3,0)[10],0);
   const tick=applyCountdownRegisters(regs(),3,20),go=applyCountdownRegisters(regs(),'go',20);
   assert.equal(tick[10],11);assert.equal(tick[7]&(1<<2),0);assert.ok(tick[7]&(1<<5));
   assert.ok((go[4]+256*go[5])<(tick[4]+256*tick[5]));
   assert.deepEqual(applyCountdownRegisters(regs(),3,90),regs());assert.deepEqual(applyCountdownRegisters(regs(),3,NaN),regs());
+  assert.ok(applyCountdownRegisters(regs(),'go',1250)[10]>0);assert.deepEqual(applyCountdownRegisters(regs(),'go',1500),regs());
 });
 test('audio prepares a private preflight session, consumes duplicate beats, and gates GO on actual start',async t=>{
   const {audio,messages,context}=fixture(t);await audio.unlock();assert.equal(context().state,'suspended');
@@ -61,6 +62,33 @@ test('zero volume consumes the beat without starting it, even after volume is re
   assert.equal(audio.countdownTone(1,3,{...settings,volume:0}),false);
   assert.equal(audio.countdownTone(1,3,settings),false);
   assert.equal(messages.filter(m=>m.type==='countdownTone').length,0);
+});
+test('GO completion follows its worklet end and stop/disable release the wait without replay',async t=>{
+  const {audio,messages,context,receive}=fixture(t);await audio.unlock();await audio.prepareCountdown(1,settings);audio.start();
+  assert.equal(audio.countdownTone(1,'go',settings),true);
+  let completed=false;const ending=audio.waitForCountdownEnd(1).then(value=>{completed=true;return value;});
+  await Promise.resolve();assert.equal(completed,false,'Sending GO must not release BGM');
+  const history=[{session:1,cue:'go',hz:1760,at:context().currentTime}];
+  context().currentTime=1.4;receive({countdown:{session:1,active:true,cue:'go',reason:'playing',history}});
+  await Promise.resolve();assert.equal(completed,false,'A playing GO remains a barrier');
+  context().currentTime=1.5;receive({countdown:{session:1,active:false,cue:null,reason:'finished',history}});
+  assert.equal((await ending).reason,'finished');
+  await audio.prepareCountdown(2,settings);audio.start();audio.countdownTone(2,'go',settings);
+  const stopped=audio.waitForCountdownEnd(2);audio.stop();assert.equal((await stopped).reason,'cancelled');
+  await audio.prepareCountdown(3,settings);audio.start();audio.countdownTone(3,'go',settings);
+  const disabled=audio.waitForCountdownEnd(3);audio.configure({...settings,sfx:false});assert.equal((await disabled).reason,'disabled');
+  assert.equal(messages.filter(m=>m.type==='countdownTone').length,3);
+});
+test('an unacknowledged or rejected native GO releases promptly and is never replayed',async t=>{
+  const {audio,messages,receive}=fixture(t);await audio.unlock();await audio.prepareCountdown(1,settings);audio.start();
+  t.mock.timers.enable({apis:['setTimeout']});audio.countdownTone(1,'go',settings);
+  const missing=audio.waitForCountdownEnd(1);t.mock.timers.tick(COUNTDOWN_AUDIO.ackTimeoutMs);
+  assert.equal((await missing).reason,'unavailable');assert.equal(audio.countdownTone(1,'go',settings),false);
+  await audio.prepareCountdown(2,settings);audio.start();audio.countdownTone(2,'go',settings);
+  const rejected=audio.waitForCountdownEnd(2);receive({countdown:{session:2,active:false,reason:'expired',suppressed:1,history:[]}});
+  assert.equal((await rejected).reason,'expired');assert.equal(audio.countdownTone(2,'go',settings),false);
+  assert.equal(messages.filter(m=>m.type==='countdownTone').length,2);
+  assert.ok(messages.some(m=>m.type==='countdownCancel'&&m.session===1));
 });
 test('the initial gesture can finish loading after halt suspended it and still prepare all three beats',async t=>{
   const {audio,messages,context}=fixture(t,{deferModule:true});

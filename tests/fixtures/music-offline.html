@@ -14,7 +14,7 @@ window.renderWholeTrack=async({id,engine,rate})=>{
     event(value){writes.push({...value,at});}};
   const scc=new Synth(clock,{drums:true});scc.init();
   for(const [channel,part]of Object.entries(track.parts))if(Number(channel)<=8)scc.setWave(PRESET_NAMES[part.waveform],Number(channel)-1);
-  const synth=createMusicSynth({scc,clock,track,engine,score});synth.resetControllers();
+  const synth=createMusicSynth({scc,clock,track,trackId:id,engine,score});synth.resetControllers();
   for(const event of score.events){clock.setScheduleTime(.1+event.time);synth.handle(event);}
   clock.setScheduleTime(.1+score.duration);synth.allNotesOff();
   const context=new OfflineAudioContext(2,Math.ceil((score.duration+.7)*rate),rate);

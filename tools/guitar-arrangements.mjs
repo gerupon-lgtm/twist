@@ -1,0 +1,19 @@
+/** Original sparse answer phrases and articulation. Only six main lead parts. */
+const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;};
+export const GUITAR_ARRANGEMENTS=freeze([
+ {id:'rock',sha256:'09d4e38b877b891eaa5548d7c7de265b21776d8fd1870f0ee00a8ae323cd201c',bpm:156,description:'D-minor bite: picked hook attacks, with whole-tone bends only at new answer endings.',vibratoHz:5.7,vibratoCents:25,extendBeats:.24,
+  fills:[{after:28,pitches:[69,72,74],weights:[1,1,2],minimumGap:.32,bendFinal:{fromNote:72,toNote:74}},{after:76,pitches:[77,76,74],weights:[1,1,2],minimumGap:.32,bendFinal:{fromNote:72,toNote:74}},{after:148,pitches:[81,77,74],weights:[1,2,3],minimumGap:.32,bendFinal:{fromNote:72,toNote:74}}]},
+ {id:'steel',sha256:'17f21d2aa0134aadbacd29802a20ba5c7c74ea6c65528ea54cd129d1e98f5e63',bpm:144,description:'E-minor calls with spacious hook notes and explicit whole-tone answer endings.',vibratoHz:5,vibratoCents:23,extendBeats:.38,
+  fills:[{after:28,pitches:[71,74,76],weights:[1,1,3],minimumGap:.75,bendFinal:{fromNote:74,toNote:76}},{after:76,pitches:[79,78,76],weights:[1,1,3],minimumGap:.75,bendFinal:{fromNote:74,toNote:76}},{after:164,pitches:[74,71,76],weights:[1,1,4],minimumGap:.75,bendFinal:{fromNote:74,toNote:76}}]},
+ {id:'horizon',sha256:'46f42efb7f43694c48a2b939f70691c27a81d3455bf1c6f3c6363570b1fd305f',bpm:148,description:'B-minor singing line: late narrow hook vibrato, explicit whole-tone answers and preserved synth rests.',vibratoHz:4.8,vibratoCents:19,extendBeats:.4,
+  fills:[{after:36,pitches:[78,81,83],weights:[1,2,4],minimumGap:.75,bendFinal:{fromNote:81,toNote:83}},{after:76,pitches:[86,85,83],weights:[1,1,4],minimumGap:.75,bendFinal:{fromNote:81,toNote:83}},{after:156,pitches:[81,78,83],weights:[1,2,4],minimumGap:.75,bendFinal:{fromNote:81,toNote:83}}]},
+ {id:'storm',sha256:'e842f44ac3d0c3d71bc1c8ef6d1155379f51f2fd495a0e72a7fe019402451a22',bpm:152,description:'D-minor separated pick groups, quick answer scoops and explicit whole-tone answer endings.',vibratoHz:6,vibratoCents:21,extendBeats:.27,
+  fills:[{after:32,pitches:[69,72,74],weights:[1,2,3],minimumGap:.75,bendFinal:{fromNote:72,toNote:74}},{after:80,pitches:[77,76,74],weights:[1,1,3],minimumGap:.75,bendFinal:{fromNote:72,toNote:74}},{after:160,pitches:[81,79,74],weights:[1,2,4],minimumGap:.75,bendFinal:{fromNote:72,toNote:74}}]},
+ {id:'overdrive',sha256:'5a9d73ad7113fc79b0453326c7d6ac4ae63b381864d912171e1ecdd7be34ac69',bpm:175,description:'A-minor bridge replies end with explicit whole-tone bends; the supplied chorus hook remains intact.',vibratoHz:5.9,vibratoCents:27,extendBeats:.3,
+  fills:[{after:172,pitches:[76,79,81],weights:[1,1,3],minimumGap:.75,bendFinal:{fromNote:79,toNote:81}},{after:184,pitches:[84,83,81],weights:[1,1,4],minimumGap:.75,bendFinal:{fromNote:79,toNote:81}},{after:200,pitches:[79,76,81],weights:[1,2,4],minimumGap:.75,bendFinal:{fromNote:79,toNote:81}}]},
+ // The user explicitly requested this brass-to-guitar exception for part1 only.
+ {id:'ignition',sha256:'24278c137bab189d01a0fe55d82379ff47634f30b85502bd8ebf1bee79c20c60',bpm:165,description:'User-authorized guitar melody, explicit whole-tone answer endings and the unbroken bar18 C#5-to-E5 bend.',vibratoHz:5.3,vibratoCents:24,extendBeats:.35,
+  bendHook:{bar:18,startBeat:68.5,fromNote:73,toBeat:70,toNote:76,endBeat:71.5,baseNote:75,startBend:-8192,endBend:4096,rampStartBeat:69.55},
+  fills:[{after:22,pitches:[74,77,81],weights:[1,1,3],minimumGap:.75,bendFinal:{fromNote:79,toNote:81}},{after:166,pitches:[74,72,69],weights:[1,1,4],minimumGap:.75,bendFinal:{fromNote:67,toNote:69}},{after:182,pitches:[69,72,74],weights:[1,2,4],minimumGap:.75,bendFinal:{fromNote:72,toNote:74}}]},
+]);
+export const GUITAR_IDS=Object.freeze(GUITAR_ARRANGEMENTS.map(song=>song.id));

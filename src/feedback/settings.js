@@ -1,5 +1,6 @@
 export const FEEDBACK_SETTINGS_KEY = 'twist.feedback-settings.v1';
 export const MUSIC_PREVIEW_SETTINGS_KEY = 'twist.music-preview.v1';
+export const DEFAULT_MUSIC_PREVIEW_TRACK_ID = 'clear-overdrive';
 export const FEEDBACK_FIELDS = Object.freeze({
   sound: { label: '音', initial: true },
   volume: { label: '全体の音量', initial: 25, min: 0, max: 100, step: 1, unit: '%' },
@@ -8,7 +9,7 @@ export const FEEDBACK_FIELDS = Object.freeze({
   bgm: { label: 'BGM', initial: true },
   bgmVolume: { label: 'BGMの音量', initial: 50, min: 0, max: 100, step: 1, unit: '%' },
   musicEngine: {label:'BGMの音色',initial:'scc',options:{scc:'SCC',fm:'軽量FM（上のパート）'}},
-  musicSet: { label: '飛行中の曲', initial: 'current', options: { current: '採用7曲を順番に', rock: '黒曜の翼', newrock: '鋼翼・黎明・嵐の3曲', steel: '鋼翼の鼓動', horizon: '黎明の航跡', storm: '嵐を越えて', proposals: 'Ignition以降の3曲', ignition: 'Ignition Sky', advance: 'Steel Advance', overdrive: 'Overdrive Horizon', all: 'すべての飛行曲' },legacyOptions:{flight:'蒼穹突破',flight2:'遺跡の閃光',brave:'勇進の航路'} },
+  musicSet: { label: '飛行中の曲', initial: 'ignition', options: { current: '採用7曲を順番に', rock: '黒曜の翼', newrock: '鋼翼・黎明・嵐の3曲', steel: '鋼翼の鼓動', horizon: '黎明の航跡', storm: '嵐を越えて', proposals: 'Ignition以降の3曲', ignition: 'Ignition Sky', advance: 'Steel Advance', overdrive: 'Overdrive Horizon', all: 'すべての飛行曲' },legacyOptions:{flight:'蒼穹突破',flight2:'遺跡の閃光',brave:'勇進の航路'} },
   clearTrackId:{label:'クリア時の曲',initial:'clear',options:{clear:'突破の凱歌','clear-ignition':'凱旋の点火','clear-advance':'鋼の勝利','clear-overdrive':'閃光の帰還'}},
   abMusic: {label:'ABでBGMを切り替える',initial:true},
   passbySound: {label:'すれ違う音',initial:true},

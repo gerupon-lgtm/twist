@@ -23,7 +23,7 @@ test('native sonic bus is gesture gated, single use, and gives warnings and paus
   await page.evaluate(()=>sonicNativeAudio.sonicTransition(sonicNativeEvent(1),sonicNativeSettings));
   await page.waitForTimeout(150);
   const first=await page.evaluate(()=>({audio:sonicNativeAudio.snapshot(),model:sonicNativeModel(),event:sonicNativeEvent(1)}));
-  await writeFile('.cache/v0133-sonic-audio-native-first-state.json',JSON.stringify(first,null,2));console.log(JSON.stringify({sonicFirst:first}));
+  await writeFile('.cache/v0134-sonic-audio-native-first-state.json',JSON.stringify(first,null,2));console.log(JSON.stringify({sonicFirst:first}));
   await expect.poll(()=>page.evaluate(()=>sonicNativeAudio.snapshot().sonic?.accepted)).toBe(1);
   await page.evaluate(()=>sonicNativeAudio.sonicTransition(sonicNativeEvent(1),sonicNativeSettings));
   await expect.poll(()=>page.evaluate(()=>sonicNativeAudio.snapshot().sonic?.reason)).toBe('duplicate');
@@ -42,7 +42,7 @@ test('native sonic bus is gesture gated, single use, and gives warnings and paus
   await expect.poll(()=>page.evaluate(()=>sonicNativeAudio.snapshot().contextState)).toBe('suspended');
   expect(await page.evaluate(()=>sonicNativeAudio.sonicTransition(sonicNativeEvent(4),sonicNativeSettings))).toBe(false);
   const result=await page.evaluate(()=>sonicNativeAudio.snapshot());
-  await writeFile('.cache/v0133-sonic-audio-native.json',JSON.stringify({result,errors},null,2));
+  await writeFile('.cache/v0134-sonic-audio-native.json',JSON.stringify({result,errors},null,2));
   await page.evaluate(()=>sonicNativeAudio.dispose());expect(errors).toEqual([]);
 });
 
@@ -84,6 +84,6 @@ test('actual native sonic flight produces both direction signals and consumes a 
   expect((await audio()).sonic.accepted).toBe(2);expect(await pulses()).toBe(2);
   await page.locator('#pause-button').click();await phase('pause');
   await expect.poll(async()=>(await audio())?.contextState).toBe('suspended');
-  await writeFile('.cache/v0133-sonic-audio-flight-native.json',JSON.stringify({up,down,final:await audio(),vibrations:await page.evaluate(()=>sonicFlightVibrations),errors},null,2));
+  await writeFile('.cache/v0134-sonic-audio-flight-native.json',JSON.stringify({up,down,final:await audio(),vibrations:await page.evaluate(()=>sonicFlightVibrations),errors},null,2));
   expect(errors).toEqual([]);
 });

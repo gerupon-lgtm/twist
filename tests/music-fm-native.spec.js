@@ -18,6 +18,11 @@ for(const engine of ['scc','fm'])for(const rate of [44100,48000])test(`native wh
         console.log(JSON.stringify({nativeWholeScore:id,engine,rate,seconds:row.duration,renderMs:row.wallMs,peak:Math.max(...row.channels.map(c=>c.peak))}));
         expect(errors).toEqual([]);expect(row.actualRate).toBe(rate);expect(row.scoreNoteOns).toBeGreaterThan(0);
         expect(row.invalid).toBe(0);expect(row.fmNoteOns).toBe(row.expectedFmNotes);expect(row.synth.fallbacks).toEqual([]);
+        if(engine==='scc'&&data[id].parts?.[1]?.sccTimbre){
+          expect(row.synth.sccTimbre?.id).toBe(data[id].parts[1].sccTimbre);
+          expect(row.synth.sccTimbre.transitions).toBeGreaterThan(0);
+          expect(row.synth.sccTimbre.mode).toBe('original');
+        }else expect(row.synth.sccTimbre).toBeUndefined();
         expect(row.preparation.time).toBe(0);expect(row.preparation.metrics.musicSchedule.pending).toBeGreaterThan(0);
         expect(row.metrics).not.toBeNull();
         expect(row.metrics.fm.overflows).toBe(0);expect(row.metrics.fm.invalidEvents).toBe(0);
@@ -29,6 +34,6 @@ for(const engine of ['scc','fm'])for(const rate of [44100,48000])test(`native wh
       }finally{await context.close();}
     }
   }finally{
-    await mkdir('.cache',{recursive:true});await writeFile(`.cache/v0133-native-whole-${engine}-${rate}.json`,JSON.stringify({engine,rate,expectedIds:ids,results,complete:results.length===ids.length},null,2));
+    await mkdir('.cache',{recursive:true});await writeFile(`.cache/v0134-native-whole-${engine}-${rate}.json`,JSON.stringify({engine,rate,expectedIds:ids,results,complete:results.length===ids.length},null,2));
   }
 });

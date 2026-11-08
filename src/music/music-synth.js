@@ -1,5 +1,6 @@
 import {FM_PRESETS,fmPartStatus} from './fm-presets.js';
 import {FM_MAX_VOICES} from './fm-engine.js';
+import {createSccGuitarTone} from './scc-guitar-tone.js';
 
 /** Measure held notes plus real release tails before scheduling any sound. */
 export function measureFmVoices(score,track,{sampleRate=8000}={}){
@@ -18,9 +19,10 @@ export function measureFmVoices(score,track,{sampleRate=8000}={}){
   }
   return maximum;
 }
-/** The SCC branch intentionally retains the v32 facade's exact call order. */
-export function createMusicSynth({scc,clock,track,engine='scc',score}){
+/** Untagged SCC parts retain the original facade's exact call order. */
+export function createMusicSynth({scc,clock,track,trackId,engine='scc',score}){
   const fm=new Map(),fallbacks=[],requiredVoices=measureFmVoices(score,track,{sampleRate:clock.sampleRate});
+  const guitar=createSccGuitarTone(scc,{trackId,track,engine});
   if(engine==='fm')for(const [channel,part]of Object.entries(track.parts)){
     const status=fmPartStatus(part);
     if(status.eligible&&Number(channel)>8)fallbacks.push({channel:Number(channel),reason:'non-melodic-channel'});
@@ -31,7 +33,9 @@ export function createMusicSynth({scc,clock,track,engine='scc',score}){
   function handle(event){
     const volume=track.parts[(event.channel??0)+1]?.volume??127;
     const scaled=event.type==='cc'&&event.controller===7?{...event,value:Math.round(event.value*volume/127)}:event;
-    if(fm.has(event.channel))clock.event({kind:'fm',event:scaled,presetId:fm.get(event.channel)});else scc.handle(scaled);
+    if(fm.has(event.channel))clock.event({kind:'fm',event:scaled,presetId:fm.get(event.channel)});
+    else if(guitar)guitar.handle(scaled,event=>scc.handle(event));
+    else scc.handle(scaled);
   }
   return {handle,
     resetControllers(){scc.resetControllers();for(const [channel,part]of Object.entries(track.parts)){
@@ -39,7 +43,7 @@ export function createMusicSynth({scc,clock,track,engine='scc',score}){
       if(fm.has(event.channel)){clock.event({kind:'fm',event:{type:'pitchBend',channel:event.channel,value:0},presetId:fm.get(event.channel)});clock.event({kind:'fm',event,presetId:fm.get(event.channel)});}
       else scc.handle(event);
     }},
-    allNotesOff(){scc.allNotesOff();if(fm.size)clock.event({kind:'fm',event:{type:'allNotesOff'}});},
-    snapshot:()=>({requestedEngine:engine,effectiveEngine:fm.size?'fm':'scc',fmParts:[...fm.keys()].map(n=>n+1),requiredVoices,fallbacks:fallbacks.map(row=>({...row}))}),
+    allNotesOff(){scc.allNotesOff();guitar?.reset();if(fm.size)clock.event({kind:'fm',event:{type:'allNotesOff'}});},
+    snapshot:()=>({requestedEngine:engine,effectiveEngine:fm.size?'fm':'scc',fmParts:[...fm.keys()].map(n=>n+1),requiredVoices,fallbacks:fallbacks.map(row=>({...row})),...(guitar?{sccTimbre:guitar.snapshot()}:{})}),
   };
 }

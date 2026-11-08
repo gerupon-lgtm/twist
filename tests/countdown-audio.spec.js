@@ -33,7 +33,7 @@ async function boot(page,{course='easy',settings={},moduleDelay=0,resumeGate=fal
       constructor(...args){
         super(...args);const send=this.port.postMessage.bind(this.port);
         this.port.postMessage=(message,...rest)=>{
-          if(['countdownBegin','countdownCancel','countdownTone','state','stop','musicReg','event'].includes(message.type))state.posts.push({type:message.type,session:message.session,cue:message.cue,launched:message.launched,at:performance.now(),phase:document.getElementById('app')?.dataset.phase});
+          if(['countdownBegin','countdownCancel','countdownTone','state','stop','musicReg','event'].includes(message.type))state.posts.push({type:message.type,session:message.session,cue:message.cue,launched:message.launched,at:performance.now(),audioTime:state.contexts[0]?.currentTime,phase:document.getElementById('app')?.dataset.phase});
           return send(message,...rest);
         };
         this.port.addEventListener('message',({data})=>{if(data.countdown||data.type==='metrics')state.received.push({at:performance.now(),...data});});
@@ -55,7 +55,7 @@ const cues=async page=>(await history(page)).map(row=>row.cue);
 const soundingVibrations=page=>page.evaluate(()=>countdownNative.vibrations.filter(({pattern})=>Array.isArray(pattern)?pattern.some(value=>value>0):pattern>0).length);
 async function evidence(page,name,errors){
   const result=await page.evaluate(()=>({posts:countdownNative.posts,received:countdownNative.received,vibrations:countdownNative.vibrations,contexts:countdownNative.contexts.map(context=>({state:context.state,time:context.currentTime})),phase:document.getElementById('app').dataset.phase,startup:JSON.parse(document.getElementById('app').dataset.startup??'null')}));
-  await writeFile('.cache/v0133-countdown-'+name+'.json',JSON.stringify({...result,audio:await audio(page),errors},null,2));
+  await writeFile('.cache/v0134-countdown-'+name+'.json',JSON.stringify({...result,audio:await audio(page),errors},null,2));
   expect(errors).toEqual([]);
 }
 async function holdAtThree(page){
@@ -101,6 +101,53 @@ for(const course of ['easy','supersonic'])test(`native ${course} countdown plays
   await expect(page.locator('#app')).toHaveAttribute('data-phase','running');await page.waitForTimeout(250);expect(await cues(page)).toEqual([3,2,1,'go']);
   await page.locator('#pause-button').click();await evidence(page,evidenceId,errors);
   }finally{await evidence(page,evidenceId+'-diagnostic',errors);}
+});
+
+test('native GO lasts 1.5 seconds while flying and BGM follows its actual audio-bus end',async({page})=>{
+  test.setTimeout(20000);const errors=await boot(page,{settings:{bgm:true}}),id='go-tail-native-'+Date.now();
+  try{
+    await holdAtThree(page);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
+    await expect.poll(()=>cues(page)).toEqual([3,2,1,'go']);
+    const go=(await history(page)).at(-1),before=await page.locator('#app').evaluate(el=>({position:JSON.parse(el.dataset.position),session:JSON.parse(el.dataset.session)}));
+    await expect.poll(()=>page.evaluate(at=>{
+      const latest=countdownNative.received.findLast(row=>row.countdown)?.countdown;
+      return latest?.active&&latest.cue==='go'&&countdownNative.contexts[0].currentTime-at>=1.05;
+    },go.at),{timeout:2500,intervals:[16]}).toBe(true);
+    const during=await page.evaluate(()=>({music:countdownNative.posts.filter(row=>row.type==='musicReg'),phase:document.getElementById('app').dataset.phase,
+      position:JSON.parse(document.getElementById('app').dataset.position),session:JSON.parse(document.getElementById('app').dataset.session)}));
+    expect(during.phase).toBe('running');expect(during.music).toEqual([]);
+    expect(Math.hypot(during.position.x-before.position.x,during.position.y-before.position.y,during.position.z-before.position.z)).toBeGreaterThan(4);
+    expect(during.session.elapsedSeconds).toBeGreaterThan(before.session.elapsedSeconds+.7);
+    await expect.poll(()=>page.evaluate(()=>countdownNative.received.some(row=>row.countdown?.reason==='finished'&&row.countdown.history.at(-1)?.cue==='go')),{timeout:2500,intervals:[16]}).toBe(true);
+    await expect.poll(()=>page.evaluate(()=>countdownNative.posts.filter(row=>row.type==='musicReg').length),{timeout:4000,intervals:[16]}).toBeGreaterThan(0);
+    const result=await page.evaluate(()=>({end:countdownNative.received.find(row=>row.countdown?.reason==='finished'&&row.countdown.history.at(-1)?.cue==='go'),
+      firstMusic:countdownNative.posts.find(row=>row.type==='musicReg'),contexts:countdownNative.contexts.length}));
+    expect(result.end.countdown.atSeconds-go.at).toBeGreaterThanOrEqual(1.5);
+    expect(result.firstMusic.audioTime).toBeGreaterThanOrEqual(result.end.countdown.atSeconds);
+    expect(result.firstMusic.at).toBeGreaterThanOrEqual(result.end.at);expect(result.contexts).toBe(1);
+    await expect.poll(async()=>(await audio(page))?.musicActive??false,{timeout:4000}).toBe(true);
+    await page.locator('#pause-button').click();await evidence(page,id,errors);
+  }finally{await evidence(page,id+'-diagnostic',errors);}
+});
+
+test('native pause during GO cancels its pending BGM and the old completion cannot resume it',async({page})=>{
+  test.setTimeout(16000);const errors=await boot(page,{settings:{bgm:true}}),id='go-pause-native-'+Date.now();
+  try{
+    await holdAtThree(page);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');await expect.poll(()=>cues(page)).toEqual([3,2,1,'go']);
+    await page.locator('#pause-button').click();await step(page,'pause');await page.waitForTimeout(1800);
+    expect(await page.evaluate(()=>countdownNative.posts.filter(row=>row.type==='musicReg'))).toEqual([]);
+    expect((await audio(page)).contextState).toBe('suspended');await evidence(page,id,errors);
+  }finally{await evidence(page,id+'-diagnostic',errors);}
+});
+
+test('native SFX-off launches BGM without the silent 1.5 second GO tail',async({page})=>{
+  test.setTimeout(16000);const errors=await boot(page,{settings:{bgm:true,sfx:false}}),id='silent-go-music-native-'+Date.now();
+  try{
+    await holdAtThree(page);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
+    await expect.poll(()=>page.evaluate(()=>countdownNative.posts.some(row=>row.type==='musicReg')),{timeout:1000,intervals:[16]}).toBe(true);
+    expect(await cues(page)).toEqual([]);expect(await page.evaluate(()=>countdownNative.contexts.length)).toBe(1);
+    await page.locator('#pause-button').click();await evidence(page,id,errors);
+  }finally{await evidence(page,id+'-diagnostic',errors);}
 });
 
 test('native cancel and pose settings discard the old session, while a deliberate fresh start gets four new cues',async({page})=>{

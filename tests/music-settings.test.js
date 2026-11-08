@@ -5,6 +5,7 @@ import {MUSIC_PREVIEW_SETTINGS_KEY,loadMusicPreviewSettings,saveMusicPreviewSett
 
 test('engine and clear selection have conservative defaults while legacy saved requests are read without writing',()=>{
   const initial=normalizeFeedbackSettings();assert.equal(initial.musicEngine,'scc');assert.equal(initial.clearTrackId,'clear');
+  assert.equal(initial.musicSet,'ignition');assert.equal(initial.abMusic,true);assert.equal(initial.passbySound,true);
   const raw=JSON.stringify({sound:false,bgm:false,volume:37,musicSet:'brave',unknown:'keep raw'}),writes=[];
   const storage={getItem:key=>key===FEEDBACK_SETTINGS_KEY?raw:null,setItem:(...args)=>writes.push(args)};
   const loaded=loadFeedbackSettings(storage);assert.equal(loaded.musicSet,'brave');assert.equal(loaded.volume,37);assert.equal(loaded.bgm,false);assert.equal(loaded.sound,false);

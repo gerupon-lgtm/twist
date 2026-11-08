@@ -61,7 +61,7 @@ export function createMusicPlayer(audio,{fetchFile=fetch,base=new URL('./music/'
     const {track,score}=library.entries[trackId],sink=audio.createMusicClock?.()??audio.musicClock;
     const synth=new Synth(sink,{drums:true});synth.init();
     for(const [channel,part]of Object.entries(track.parts))if(Number(channel)<=8)synth.setWave(PRESET_NAMES[part.waveform],Number(channel)-1);
-    const facade=createMusicSynth({scc:synth,clock:sink,track,score,engine:settings.musicEngine??'scc'});synthStatus=facade.snapshot();
+    const facade=createMusicSynth({scc:synth,clock:sink,track,trackId,score,engine:settings.musicEngine??'scc'});synthStatus=facade.snapshot;
     const previewLoop=preview&&!catalog.clearIds.includes(trackId)&&trackId!==catalog.afterburnerId&&trackId!==catalog.comparisonId;
     const stream=(id==='flight'||previewLoop)&&track.loop?createLoopStream(score):null;
     player=new SmfPlayer({synth:facade,clock:sink,onEnd:()=>{if(token===generation){clearInterval(expander);expander=null;afterburnerMusic.stop();audio.stopMusic();current=null;status='ready';if(id==='clear'||preview)audio.suspendIfIdle();}}});
@@ -91,7 +91,7 @@ export function createMusicPlayer(audio,{fetchFile=fetch,base=new URL('./music/'
     snapshot:()=>({status,playing:Boolean(player?.playing),track:lastTrack,playedTracks:[...playedTracks],current,
       clearTrack:tracks?.entries[selectedClear()]?.track.title??null,clearTrackId:selectedClear(),position:player?.position??0,flightNumber,trackId:currentTrackId,
       musicSet:settings.musicSet??'current',flightTracks:selectedTracks().map(id=>tracks.entries[id].track.title),
-      requestedMusicSet:selection().requested,effectiveFlightIds:selectedTracks(),fallbackReason:selection().fallbackReason,catalogLegacy:catalog?.legacy??null,synth:synthStatus?structuredClone(synthStatus):null,
+      requestedMusicSet:selection().requested,effectiveFlightIds:selectedTracks(),fallbackReason:selection().fallbackReason,catalogLegacy:catalog?.legacy??null,synth:synthStatus?structuredClone(synthStatus()):null,
       afterburnerMusic:afterburnerMusic.snapshot(),
       loopCount:currentScoreDuration?Math.floor((player?.position||0)/currentScoreDuration):0}),
   };

@@ -1,5 +1,5 @@
 /** Preflight-only tones. They never generate haptics, game state or music events. */
-export const COUNTDOWN_AUDIO=Object.freeze({prepareTimeoutMs:1500,tickHz:880,goHz:1760,tickMs:90,goMs:160,volume:11});
+export const COUNTDOWN_AUDIO=Object.freeze({prepareTimeoutMs:1500,ackTimeoutMs:250,tickHz:880,goHz:1760,tickMs:90,goMs:1500,volume:11});
 export const validCountdownSession=value=>Number.isSafeInteger(value)&&value>0;
 export const validCountdownCue=value=>value===3||value===2||value===1||value==='go';
 export function countdownTone(cue){
