@@ -16,6 +16,10 @@ import { FLIGHT_TURN, normalizeTurnGravity, flightYawForBank, applyHorizontalTur
 import { STAGE_HALF_EXTENT, stageBoundaryStatus } from './boundary.js';
 import { createStageBoundary } from './stage-boundary.js';
 import { DIRECTION_LANDMARKS } from './arena.js';
+import {resolveCourseWorldProfile,courseStageDimensions} from './course-world-profile.js';
+import {createCourseSurface,courseGroundClearance} from './course-surface.js';
+import {sierraPointMetadata} from './courses/sierra50.js';
+import {createCoursePointFlags} from './course-landmarks.js';
 
 const COLLECT_RADIUS = 3.2;
 const EXIT_RADIUS = 4;
@@ -26,6 +30,8 @@ const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallbac
 /** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */
 export function createStage(canvas, { visibility = 'assisted', display = 'bank', cameraMode = 'overlay', course = COURSE, turnGravity:initialTurnGravity=FLIGHT_TURN.defaultGravity } = {}) {
   const layout=course&&Array.isArray(course.lights)&&course.lights.length>=3?course:COURSE;
+  const courseProfile=resolveCourseWorldProfile(layout),halfExtent=courseProfile?.halfExtent??STAGE_HALF_EXTENT;
+  const surface=createCourseSurface(layout),groundAt=(x,z)=>surface.heightAt(x,z),heightCeiling=courseProfile?.maxHeight??45;
   const START=new THREE.Vector3(layout.start.x,layout.start.y,layout.start.z);
   const BEACONS=layout.lights.map(p=>new THREE.Vector3(p.x,p.y,p.z));
   const EXIT=new THREE.Vector3(layout.exit.x,layout.exit.y,layout.exit.z);
@@ -50,15 +56,16 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY);
-  scene.fog = new THREE.Fog(SKY, 220, 1100);
-  const camera = new THREE.PerspectiveCamera(64, 1, 0.1, 250);
+  scene.fog = new THREE.Fog(SKY, courseProfile?.fog.near??220, courseProfile?.fog.far??1100);
+  const camera = new THREE.PerspectiveCamera(64, 1, 0.1, courseProfile?.camera.far??250);
   // Both cameras remain fixed for the entire simulation.
   const world = new THREE.Group();
   scene.add(world);
-  const scenery=createScenery({halfExtent:STAGE_HALF_EXTENT,avoidPoints:[layout.start,...layout.lights,layout.exit],
+  const scenery=createScenery({halfExtent,avoidPoints:[layout.start,...layout.lights,layout.exit],
     coursePoints:[layout.start,...layout.lights,layout.exit],abStraights:layout.abStraights});world.add(scenery.group);
   const airflow=createSpeedEffects();camera.add(airflow.group);scene.add(camera);
-  const boundaryVisual=createStageBoundary({halfExtent:STAGE_HALF_EXTENT});world.add(boundaryVisual.group);
+  const boundaryVisual=createStageBoundary({halfExtent});world.add(boundaryVisual.group);
+  const pointFlags=courseProfile?createCoursePointFlags(layout,surface):null;if(pointFlags)world.add(pointFlags.group);
   scene.add(new THREE.HemisphereLight(0xf4fcff, 0x7896a2, 2.4));
   const sun = new THREE.DirectionalLight(0xfff8e7, 2.6);
   sun.position.set(-35, 65, 30);
@@ -147,13 +154,13 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   // A finite floating island, its perimeter, and neighboring islands give height
   // and translation a visible reference without texture downloads.
   const island = new THREE.Mesh(new THREE.CylinderGeometry(84, 77, 6, 64), stoneSide);
-  island.position.set(0, -3.1, -24);
+  island.position.set(0,groundAt(0,-24)-3.1,-24);
   island.scale.z = 1.1;
   world.add(island);
   const islandTop = new THREE.Mesh(new THREE.CircleGeometry(83.8, 64), groundMaterial);
   islandTop.name = 'ground-surface';
   islandTop.rotation.x = -Math.PI / 2;
-  islandTop.position.set(0, 0, -24);
+  islandTop.position.set(0, groundAt(0,-24), -24);
   islandTop.scale.y = 1.1;
   world.add(islandTop);
 
@@ -163,7 +170,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   const outerGround = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), groundMaterial);
   outerGround.name = 'ground-outer-surface';
   outerGround.rotation.x = -Math.PI / 2;
-  outerGround.position.y = -0.08;
+  outerGround.position.y = groundAt(0,0)-0.08;
   world.add(outerGround);
   const groundPattern=createGroundPattern({maxAnisotropy:renderer.capabilities.getMaxAnisotropy()});
   groundPattern.applyWorldUV(islandTop);groundPattern.applyWorldUV(outerGround);
@@ -174,9 +181,10 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   horizonBackdrop.renderOrder = -10;
   world.add(horizonBackdrop);
   const outerGridPoints = [];
-  for (let offset = -700; offset <= 700; offset += 8) {
-    outerGridPoints.push(offset, -0.045, -700, offset, -0.045, 700);
-    outerGridPoints.push(-700, -0.045, offset, 700, -0.045, offset);
+  const outerGridExtent=courseProfile?halfExtent:700,outerGridStep=courseProfile?40:8;
+  for (let offset = -outerGridExtent; offset <= outerGridExtent; offset += outerGridStep) {
+    outerGridPoints.push(offset,groundAt(offset,-outerGridExtent)-.045,-outerGridExtent,offset,groundAt(offset,outerGridExtent)-.045,outerGridExtent);
+    outerGridPoints.push(-outerGridExtent,groundAt(-outerGridExtent,offset)-.045,offset,outerGridExtent,groundAt(outerGridExtent,offset)-.045,offset);
   }
   const outerGridGeometry = new THREE.BufferGeometry();
   outerGridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(outerGridPoints, 3));
@@ -188,8 +196,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   const gridPoints = [];
   for (let offset = -80; offset <= 80; offset += 8) {
     const extent = Math.sqrt(83 * 83 - offset * offset);
-    gridPoints.push(offset, 0.035, -24 - extent * 1.1, offset, 0.035, -24 + extent * 1.1);
-    gridPoints.push(-extent, 0.035, -24 + offset * 1.1, extent, 0.035, -24 + offset * 1.1);
+    gridPoints.push(offset,groundAt(offset,-24-extent*1.1)+.035,-24-extent*1.1,offset,groundAt(offset,-24+extent*1.1)+.035,-24+extent*1.1);
+    gridPoints.push(-extent,groundAt(-extent,-24+offset*1.1)+.035,-24+offset*1.1,extent,groundAt(extent,-24+offset*1.1)+.035,-24+offset*1.1);
   }
   const gridGeometry = new THREE.BufferGeometry();
   gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridPoints, 3));
@@ -199,14 +207,14 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   world.add(grid);
 
   // The broad stripe and cross marks establish forward motion at the start.
-  box(world, 0, 0.025, -25, 0.15, 0.05, 106, groundMarkMaterial);
+  box(world,0,groundAt(0,-25)+.025,-25,.15,.05,106,groundMarkMaterial);
   const floorMarks = new THREE.InstancedMesh(unitBox, groundMarkMaterial, 14);
   const matrix = new THREE.Matrix4();
   const markPosition = new THREE.Vector3();
   const markScale = new THREE.Vector3(3.6, 0.04, 0.16);
   const identity = new THREE.Quaternion();
   for (let i = 0; i < 14; i += 1) {
-    markPosition.set(0, 0.04, 28 - i * 8);
+    markPosition.set(0,groundAt(0,28-i*8)+.04,28-i*8);
     matrix.compose(markPosition, identity, markScale);
     floorMarks.setMatrixAt(i, matrix);
   }
@@ -228,7 +236,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   const groundTiles = new THREE.InstancedMesh(unitBox, groundTileMaterial, groundTilePositions.length);
   groundTiles.name = 'ground-paving';
   groundTilePositions.forEach(([x, z], index) => {
-    matrix.compose(markPosition.set(x, 0.012, z), identity, markScale.set(3.7, 0.02, 3.7));
+    matrix.compose(markPosition.set(x,groundAt(x,z)+.012,z), identity, markScale.set(3.7, 0.02, 3.7));
     groundTiles.setMatrixAt(index, matrix);
   });
   world.add(groundTiles);
@@ -413,13 +421,14 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     for (let tick = 0; tick <= index; tick += 1) {
       box(group, (tick - index / 2) * 0.42, -2.05, 0, 0.15, 0.4, 0.15, gold);
     }
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, position.y, 5),
+    const ground=groundAt(position.x,position.z),aboveGround=position.y-ground;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, aboveGround, 5),
       new THREE.MeshBasicMaterial({ color: 0xe3a139, transparent: true, opacity: 0.28 }));
     stem.userData.legacyMaterial = stem.material;
-    stem.position.set(position.x, position.y / 2, position.z);
+    stem.position.set(position.x,ground+aboveGround/2,position.z);
     world.add(stem, group);
     const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 0.45, 20), stone);
-    pedestal.position.set(position.x, 0.25, position.z);
+    pedestal.position.set(position.x,ground+.25,position.z);
     world.add(pedestal);
     return { group, stem, ring, orb, halo, hint };
   });
@@ -428,7 +437,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   exitGroup.position.copy(EXIT);
   const exitRing = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.15, 8, 48), dimGuide);
   exitGroup.add(exitRing);
-  const exitVisual=createExitBeacon({altitude:EXIT.y});exitGroup.add(exitVisual.group);
+  const exitVisual=createExitBeacon({altitude:EXIT.y-groundAt(EXIT.x,EXIT.z)});exitGroup.add(exitVisual.group);
   world.add(exitGroup);
   // Legacy shape is translated with the shared course, and never surrounds the assisted portal.
   const legacyExitFrame=new THREE.Group();legacyExitFrame.position.copy(EXIT);world.add(legacyExitFrame);
@@ -621,11 +630,12 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     // This group is a child of world, so it receives the same inverse pose as
     // the floor. Its local location remains the craft's true ground position.
     const overIsland = position.x ** 2 + ((position.z + 24) / 1.1) ** 2 < 83.5 ** 2;
-    groundProjection.position.set(position.x, overIsland ? 0.075 : -0.025, position.z);
-    groundProjection.scale.setScalar(1.1 + position.y * 0.045);
+    const groundClearance=courseGroundClearance(surface,position);
+    groundProjection.position.set(position.x,groundAt(position.x,position.z)+(overIsland ? .075 : -.025),position.z);
+    groundProjection.scale.setScalar(1.1 + groundClearance * 0.045);
     groundProjection.visible = true;
-    groundShadowMaterial.opacity = THREE.MathUtils.clamp(0.22 - position.y * 0.003, 0.08, 0.22);
-    groundOutlineMaterial.opacity = THREE.MathUtils.clamp(0.36 - position.y * 0.004, 0.14, 0.36);
+    groundShadowMaterial.opacity = THREE.MathUtils.clamp(0.22 - groundClearance * 0.003, 0.08, 0.22);
+    groundOutlineMaterial.opacity = THREE.MathUtils.clamp(0.36 - groundClearance * 0.004, 0.14, 0.36);
   }
 
   function stopMotion() {
@@ -734,12 +744,13 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     if(speedExtraFov>0){fieldOfView.vertical=Math.min(115,baseVerticalFov+speedExtraFov);fieldOfView.horizontal=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(fieldOfView.vertical)/2)*width/height));}
     camera.aspect = width / height;
     camera.fov = fieldOfView.vertical;
-    camera.far=1800;
+    camera.far=courseProfile?.camera.far??1800;
     camera.updateProjectionMatrix();
     scenery.group.visible=visibility==='assisted';
     islandTop.material=outerGround.material=visibility==='assisted'?groundPattern.material:groundMaterial;
     groundTiles.visible=visibility!=='assisted';
-    directionLandmarks.visible = visibility === 'assisted';
+    directionLandmarks.visible = visibility === 'assisted'&&!courseProfile;
+    if(pointFlags)pointFlags.group.visible=visibility==='assisted';
     refreshTargets();
   }
 
@@ -877,7 +888,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         previousVelocity.copy(velocity);
         const burn=advanceAfterburner(afterburner,step,{running:true,flight:true,manualRequest:input.manualAfterburner===true,
           autoEnabled:speedSettings.autoAfterburner===true,pitchInputDegrees:input.pitchInputDegrees,autoAngle:speedSettings.autoAfterburnerAngle,
-          groundClearance:position.y,speed,grounded});afterburner=burn.state;
+          groundClearance:courseGroundClearance(surface,position),speed,grounded});afterburner=burn.state;
         const paid=Math.max(0,Math.min(step,burn.activeSeconds));
         let next=paid>0?stepFlightVelocity(velocity,paid,{forward,up,throttle:1,afterburner:true}):null;
         if(paid>0)overspeedFromAB=true;
@@ -894,17 +905,18 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         recoveryAssist = next.recoveryAssist;
         angleOfAttack = next.angleOfAttack;
         position.addScaledVector(previousVelocity, step / 2).addScaledVector(velocity, step / 2);
-        if (position.y <= 0 && velocity.y < 0) {
+        if (position.y <= groundAt(position.x,position.z) && velocity.y < 0) {
           // Stop at the intersection with the actual ground reference plane.
-          const fraction = previousPosition.y / (previousPosition.y - position.y);
+          const previousClearance=courseGroundClearance(surface,previousPosition),clearance=courseGroundClearance(surface,position);
+          const fraction = previousClearance/(previousClearance-clearance);
           position.lerpVectors(previousPosition, position, THREE.MathUtils.clamp(fraction, 0, 1));
-          position.y = 0;
+          position.y = groundAt(position.x,position.z);
           contactVelocity.copy(velocity);
           grounded = true;
           stopMotion();
         }
-        position.y = THREE.MathUtils.clamp(position.y, 0, 45);
-        if (position.y >= 45 && velocity.y > 0) velocity.y = 0;
+        position.y = THREE.MathUtils.clamp(position.y,groundAt(position.x,position.z),heightCeiling);
+        if (position.y >= heightCeiling && velocity.y > 0) velocity.y = 0;
         speed = velocity.length();
         yawRate = grounded ? 0 : flightYawForBank(bank, speed, turnGravity);
         // Observation only: collection already treats this stored movement as
@@ -923,7 +935,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         // Exploration remains direct movement at the supplied speed, with no
         // stored momentum or force calculation.
         position.addScaledVector(forward, speed * step);
-        position.y = THREE.MathUtils.clamp(position.y, 2, 45);
+        position.y = THREE.MathUtils.clamp(position.y,groundAt(position.x,position.z)+2,heightCeiling);
         velocity.subVectors(position, previousPosition).divideScalar(step);
       }
       if (mode === 'flight') baseOrientation.premultiply(fullFlightYaw).multiply(fullFlightPitch).normalize();
@@ -950,10 +962,10 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     return {
       collected,
       total: BEACONS.length,
-      course:{id:layout.id??'legacy',name:layout.name??'比較用（旧配置）',targetCount:BEACONS.length},
-      stageSize:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2},
+      course:{id:layout.id??'legacy',name:layout.name??'比較用（旧配置）',targetCount:BEACONS.length,...(courseProfile?{pointNames:[...layout.pointNames]}:{})},
+      stageSize:courseStageDimensions(layout)??{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2},
       turnGravity,
-      boundary:stageBoundaryStatus(position,{heading:Math.atan2(forward.x,-forward.z),velocity,speed,turnGravity,maxBank:turnBankLimit}),
+      boundary:stageBoundaryStatus(position,{halfExtent,heading:Math.atan2(forward.x,-forward.z),velocity,speed,turnGravity,maxBank:turnBankLimit}),
       boundaryAppearance:boundaryVisual.snapshot(),
       afterburner:{...afterburner},
       afterburnerMotion,
@@ -962,18 +974,20 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       radarHeading: Math.hypot(velocity.x, velocity.z) > .1 ? Math.atan2(velocity.x, -velocity.z) : Math.atan2(forward.x, -forward.z),
       navigationTargets: complete ? [] : collected < BEACONS.length ? BEACONS.slice(collected).map((p,i) => ({
         id: `light-${collected+i+1}`, kind: 'light', number: collected+i+1, label: `光 ${collected+i+1}`, next: i === 0,
+        ...(sierraPointMetadata(layout,collected+i)?{pointName:layout.pointNames[collected+i]}:{}),
         position: { x: p.x, y: p.y, z: p.z },
-      })) : [{ id: 'exit', kind: 'exit', label: '出口', next: true, position: { x: EXIT.x, y: EXIT.y, z: EXIT.z } }],
+      })) : [{ id: 'exit', kind: 'exit', label: '出口', next: true, position: { x: EXIT.x, y: EXIT.y, z: EXIT.z },...(courseProfile?{pointName:'G'}:{}) }],
       beaconAppearance: { core: `#${(visibility === 'assisted' ? brightCore : core).color.getHexString()}`,
         ring: `#${(visibility === 'assisted' ? brightRing : gold).color.getHexString()}`,
         minPixels: visibility === 'assisted' ? 22 : 0, columnTarget: visibility === 'assisted' && collected < BEACONS.length ? collected + 1 : null },
       targetLabel: collected < BEACONS.length ? `光 ${collected + 1}` : '出口',
+      ...(courseProfile?{pointName:layout.pointNames[Math.min(collected,BEACONS.length)],pointNames:[...layout.pointNames],surface:{kind:surface.kind},targetGroundHeight:groundAt(target.x,target.z),targetHeightAboveGround:target.y-groundAt(target.x,target.z)}:{}),
       exitAppearance:{...exitVisual.snapshot(),position:{x:EXIT.x,y:EXIT.y,z:EXIT.z},radius:EXIT_RADIUS,stoneFrame:legacyExitFrame.visible},
       distance: relative.length(),
       bearing: Math.atan2(localRelative.x, -localRelative.z),
       elevation: Math.atan2(localRelative.y, Math.hypot(localRelative.x, localRelative.z)),
       altitude: position.y,
-      groundClearance: position.y,
+      groundClearance: courseGroundClearance(surface,position),
       viewAssistance,
       viewPitch,
       viewPosition: { x: viewPosition.x, y: viewPosition.y, z: viewPosition.z },
@@ -1023,7 +1037,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       groundPattern:{...groundPattern.snapshot(),visible:visibility==='assisted',centralPavingVisible:groundTiles.visible},
       abLane:abLaneStatus(layout.abStraights,position),
       targetLocal: { x: localRelative.x, y: localRelative.y, z: localRelative.z },
-      landmarks: visibility === 'assisted' ? DIRECTION_LANDMARKS.map((landmark) => ({
+      landmarks: visibility === 'assisted' ? (pointFlags?.landmarks??DIRECTION_LANDMARKS).map((landmark) => ({
         ...landmark, position: { ...landmark.position },
       })) : [],
     };
@@ -1033,8 +1047,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     afterburner=createAfterburnerState();overspeedFromAB=false;
     afterburnerMotion=Object.freeze([]);
     position.copy(START);
-    baseOrientation.identity();
-    orientation.identity();
+    if(courseProfile)baseOrientation.setFromAxisAngle(worldUpAxis,-layout.startHeading);else baseOrientation.identity();
+    orientation.copy(baseOrientation);
     craft.quaternion.identity();
     bank = 0;
     stopMotion();
@@ -1068,7 +1082,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     materials.delete(groundPattern.material);
     materials.forEach((material) => material.dispose());
     groundPattern.dispose();
-    hintTexture.dispose();
+    hintTexture.dispose();pointFlags?.disposeTextures();
     exitVisual.dispose();
     renderer.dispose();
   }

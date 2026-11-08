@@ -44,7 +44,7 @@ export function updateRadar(state, { visibility, phase, range, language='en',ext
       : `${target.number}${sign}${target.next ? Math.round(Math.abs(point.height))+'m' : ''}`;
     const text = svg('text', { x: Math.max(-40,Math.min(40,x)), y: Math.max(-29,Math.min(32,y + (y < -20 ? 12 : -8))),
       'text-anchor': x > 15 ? 'end' : x < -15 ? 'start' : 'middle' });
-    text.textContent = caption;
+    text.textContent = target.pointName?`${caption}·${target.pointName}`:caption;
     const title = svg('title', {}); title.textContent = ja
       ? `${target.label}・${point.elevation === 'level' ? '同じ高さ' : (point.height > 0 ? '上' : '下')+Math.round(Math.abs(point.height))+'m'}・水平距離${Math.round(point.distance)}m`
       : `${hudTargetLabel(target,language)} ${hudHeightDelta(point.height,language,{digits:0})} ${Math.round(point.distance)}m`;

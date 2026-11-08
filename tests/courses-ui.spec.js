@@ -29,9 +29,10 @@ async function copySettings(page){
   await page.locator('#settings-copy').click();return page.evaluate(()=>JSON.parse(window.__courseUiCopy));
 }
 async function primaryOptions(page){
-  // The three protected routes remain intact; the high-speed prototype is a fourth flight-only choice.
+  // The protected routes remain intact. Sierra also permits exploration;
+  // only the high-speed prototype is a flight-only choice.
   const flight=await page.locator('#app').getAttribute('data-play-mode')==='flight';
-  expect(await page.locator('#course-select option:not([hidden])').evaluateAll(options=>options.map(option=>option.value))).toEqual(flight?[...courseIds,'supersonic']:courseIds);
+  expect(await page.locator('#course-select option:not([hidden])').evaluateAll(options=>options.map(option=>option.value))).toEqual(flight?[...courseIds,'supersonic','sierra50']:[...courseIds,'sierra50']);
 }
 async function initialCourseState(page,id){
   const course=getCourse(id),count=course.lights.length;
@@ -122,7 +123,15 @@ test('intro course choice persists without starting; valid URL overrides storage
   // A storage fixture, not a position/collection hook, makes the invalid-URL fallback explicit.
   await page.evaluate(key=>localStorage.setItem(key,'normal'),COURSE_STORAGE_KEY);
   await navigate(page,'mode=flight&camera=cockpit&course=unknown');await expect(page.locator('#course-select')).toHaveValue('normal');
-  await initialCourseState(page,'normal');expect(errors).toEqual([]);
+  await initialCourseState(page,'normal');
+  // The new ordinary course is available through the same explicit exploration
+  // URL while loading it must not overwrite the saved normal flight course.
+  await navigate(page,'mode=explore&course=sierra50');await primaryOptions(page);
+  await expect(page.locator('#course-select')).toHaveValue('sierra50');await expect(page.locator('#app')).toHaveAttribute('data-play-mode','explore');
+  expect(await dataset(page,'course')).toMatchObject({id:'sierra50',targetCount:6});
+  expect(await page.evaluate(key=>localStorage.getItem(key),COURSE_STORAGE_KEY)).toBe('normal');
+  await start(page);await expect(page.locator('#app')).toHaveAttribute('data-play-mode','explore');
+  expect(await dataset(page,'course')).toMatchObject({id:'sierra50',targetCount:6});expect(errors).toEqual([]);
 });
 
 test('changing a paused course resets route/session measurements, stays stopped, and copies the new count',async({page})=>{
@@ -145,7 +154,7 @@ test('changing a paused course resets route/session measurements, stays stopped,
   expect((await dataset(page,'target-views'))[0].firstVisibleSeconds).toBe(0);expect(errors).toEqual([]);
 });
 
-test('legacy comparison deep-link retains only the three primary choices and can switch back to a standard course',async({page})=>{
+test('legacy comparison deep-link preserves the primary course choices and can switch back to a standard course',async({page})=>{
   const errors=await prepare(page,'mode=flight&camera=cockpit&course=legacy');
   await primaryOptions(page);await initialCourseState(page,'legacy');
   await expect(page.locator('#course-note')).toHaveText(/比較|従来|旧/);

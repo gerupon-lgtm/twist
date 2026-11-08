@@ -51,18 +51,18 @@ for(const fuel of ['unlimited','gauge'])test(`main flow physically crosses all s
   const result=await report(page);validate(result,fuel);
   const stored=await page.evaluate(()=>({normal:localStorage.getItem('twist.flight-settings.v1'),normalPB:localStorage.getItem('twist.course-bests.v1'),sonic:localStorage.getItem('twist.supersonic-bests.v1')}));
   expect(stored.normal).toBe(normalSaved);expect(stored.normalPB).toBeNull();expect(stored.sonic).toContain('supersonic:');
-  await writeFile(`.cache/v0136-main-six-gates-${fuel}.json`,JSON.stringify({initial,current,result,stored,errors},null,2));expect(errors).toEqual([]);
+  await writeFile(`.cache/v0137-main-six-gates-${fuel}.json`,JSON.stringify({initial,current,result,stored,errors},null,2));expect(errors).toEqual([]);
 });
 
 test('native main clock reaches actual M2 with live audio and visible cone/haze before course completion',async({page})=>{
   test.setTimeout(100000);const errors=await start(page,{native:true,sound:true});
   await mkdir('.cache',{recursive:true});
-  const started=Date.now(),samples=[],cameraSamples=[],observationPath=`.cache/v0136-native-main-observation-${started}.json`;
+  const started=Date.now(),samples=[],cameraSamples=[],observationPath=`.cache/v0137-native-main-observation-${started}.json`;
   let cone=null,haze=null,result=null;
   try{
   await page.locator('#throttle-input').press('End');
   await expect.poll(async()=>{const s=await read(page);samples.push({wallSeconds:(Date.now()-started)/1000,...s});return s.sonic.mach;},{timeout:12000,intervals:[100]}).toBeGreaterThan(.98);
-  cone=await read(page);expect(cone.effects.coneVisible).toBe(true);await page.screenshot({path:'.cache/v0136-native-M1-cone.png'});
+  cone=await read(page);expect(cone.effects.coneVisible).toBe(true);await page.screenshot({path:'.cache/v0137-native-M1-cone.png'});
   await page.locator('#start-flow-view-button').click();await page.locator('#start-flow-view-button').click();
   await expect(page.locator('#app')).toHaveAttribute('data-camera','cockpit');
   // The view button updates immediately; diagnostic snapshots publish at80ms.
@@ -72,13 +72,13 @@ test('native main clock reaches actual M2 with live audio and visible cone/haze 
     cameraSamples.push({wallSeconds:(Date.now()-started)/1000,renderMode,mach:value.sonic.mach,hazeVisible:value.effects.hazeVisible});return renderMode;
   },{timeout:2000,intervals:[16]}).toBe('cockpit');
   haze=await read(page);expect(haze.sonic.mach).toBeGreaterThanOrEqual(.95);expect(haze.sonic.mach).toBeLessThanOrEqual(1.05);
-  expect(haze.effects.hazeVisible).toBe(true);await page.screenshot({path:'.cache/v0136-native-M1-haze.png'});
+  expect(haze.effects.hazeVisible).toBe(true);await page.screenshot({path:'.cache/v0137-native-M1-haze.png'});
   await expect(page.locator('#app')).toHaveAttribute('data-phase','complete',{timeout:80000});
   result=await report(page);validate(result,'unlimited');
   expect((Date.now()-started)/1000).toBeGreaterThan(result.supersonic.simulationSeconds-.5);
   expect(result.feedback.audio.status).toBe('ready');expect(result.feedback.audio.sonic.accepted).toBeGreaterThanOrEqual(1);
-  await page.screenshot({path:'.cache/v0136-native-M2-result.png'});
-  await writeFile('.cache/v0136-main-native-M2.json',JSON.stringify({cone,haze,samples,cameraSamples,result,wallSeconds:(Date.now()-started)/1000,errors},null,2));expect(errors).toEqual([]);
+  await page.screenshot({path:'.cache/v0137-native-M2-result.png'});
+  await writeFile('.cache/v0137-main-native-M2.json',JSON.stringify({cone,haze,samples,cameraSamples,result,wallSeconds:(Date.now()-started)/1000,errors},null,2));expect(errors).toEqual([]);
   }finally{
     const last=await read(page).catch(()=>null);
     await writeFile(observationPath,JSON.stringify({cone,haze,samples,cameraSamples,result,last,wallSeconds:(Date.now()-started)/1000,errors},null,2));

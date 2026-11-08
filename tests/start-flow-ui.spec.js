@@ -31,8 +31,8 @@ async function contained(page,selector){
 for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}])test(`start screen component and all actual play inputs fit without scrolling ${size.width}x${size.height}`,async({page})=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   expect(await setup(page,size)).toEqual({inertUnchanged:true,sameAdjustments:true,samePitch:true});
-  await show(page,'title',{version:'0.1.36'});await contained(page,'#start-flow-start');await contained(page,'#start-flow-title-settings');await contained(page,'#start-flow-title-help');
-  await expect(page.locator('#start-flow-version')).toContainText('0.1.36');
+  await show(page,'title',{version:'0.1.37'});await contained(page,'#start-flow-start');await contained(page,'#start-flow-title-settings');await contained(page,'#start-flow-title-help');
+  await expect(page.locator('#start-flow-version')).toContainText('0.1.37');
   expect(await page.locator('#start-flow-panel').evaluate(e=>e.scrollHeight<=e.clientHeight+1)).toBe(true);
   await page.screenshot({path:`test-results/v0130-component-title-${size.width}x${size.height}.png`});
   for(let slide=0;slide<3;slide++){await show(page,'tutorial',{slide});await contained(page,'#start-flow-tutorial-next');await contained(page,'#start-flow-tutorial-skip');await contained(page,'#start-flow-tutorial-text');}

@@ -174,7 +174,7 @@ export function updateGuidancePanel(state,{phase='running',camera='overlay',sett
   let bearingDeg=wrap(absoluteBearing-heading*DEG);if(bearingDeg===-180)bearingDeg=180;
   let notice=reset?null:history.notice;
   if(history&&sameCourse&&!retried&&count>history.count&&flags.nextTargetNotice&&!state.complete){
-    notice={until:clock+1800,bearing:bearingDeg,height:delta,target:{collected:count,total,targetLabel:state.targetLabel}};
+    notice={until:clock+1800,bearing:bearingDeg,height:delta,target:{collected:count,total,targetLabel:state.targetLabel,...(state.pointName?{pointName:state.pointName}:{})}};
   }
   if(!flags.nextTargetNotice||notice?.until<=clock)notice=null;
   history={count,total,courseId,camera,width,height,now:clock,direction:smoothed.clone(),rotation:projection.rotation.clone(),notice,turn,

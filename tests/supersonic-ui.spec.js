@@ -51,9 +51,9 @@ for(const size of sizes)test(`sonic real play keeps M/G, kilometre altitude and 
     await expect(page.locator('#afterburner-hud output')).toHaveText('∞');
     const g=await geometry(page);checkGeometry(g,`${camera} ${size.width}x${size.height}`);evidence.push({camera,state,geometry:g});
     const box=await page.locator('#throttle-input').boundingBox();for(const key of ['x','y','width','height'])expect(Math.abs(box[key]-throttle[key])).toBeLessThanOrEqual(.5);
-    await page.screenshot({path:`.cache/v0136-sonic-ui-${camera}-${size.width}x${size.height}.png`});
+    await page.screenshot({path:`.cache/v0137-sonic-ui-${camera}-${size.width}x${size.height}.png`});
   }
-  await writeFile(`.cache/v0136-sonic-ui-${size.width}x${size.height}.json`,JSON.stringify({evidence,errors},null,2));expect(errors).toEqual([]);
+  await writeFile(`.cache/v0137-sonic-ui-${size.width}x${size.height}.json`,JSON.stringify({evidence,errors},null,2));expect(errors).toEqual([]);
 });
 
 test('sonic settings save independently and physical changes wait for the next attempt',async({page})=>{
@@ -95,7 +95,7 @@ test('actual sonic climb reaches ALT2.4k and reports measured Mach/G across all 
     await expect(page.locator('#supersonic-g')).toHaveText(`G ${state.sonic.gLoad.toFixed(1)}`);
     const altitude=camera==='cockpit'?page.locator('#cockpit-altitude strong'):page.locator('#altitude-value');
     await expect(altitude).toHaveText(formatSupersonicAltitude(state.position.y));checkGeometry(await geometry(page),`ALT2.4k ${camera}`);
-    await page.screenshot({path:`.cache/v0136-sonic-alt24-${camera}.png`});
+    await page.screenshot({path:`.cache/v0137-sonic-alt24-${camera}.png`});
   }
   expect(errors).toEqual([]);
 });

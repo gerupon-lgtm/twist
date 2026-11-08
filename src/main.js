@@ -9,7 +9,9 @@ import './boundary.css';
 import './speedfeel-results.css';
 import './essential-hud.css';
 import {updateEssentialHud} from './essential-hud.js';
-import {getCourse,COURSE_CRITERIA,NORMAL_COURSE_IDS,PLAYABLE_COURSE_IDS,isSupersonicCourse} from './course-catalog.js';
+import {getCourse,COURSE_CRITERIA,NORMAL_COURSE_IDS,ORDINARY_COURSE_IDS,PLAYABLE_COURSE_IDS,isSupersonicCourse} from './course-catalog.js';
+import {courseStageDimensions,courseRecordMetadata,courseRadarRange} from './course-world-profile.js';
+import {SIERRA_COURSE_ID,withSierraSegmentLabels} from './courses/sierra50.js';
 import {createSupersonicStage} from './supersonic/stage.js';
 import {createSupersonicProfile} from './supersonic/profile.js';
 import {supersonicIntent} from './supersonic/intent.js';
@@ -107,7 +109,7 @@ function recordedSegments(){
     return selectedCourse.gates.map((gate,index)=>({id:gate.id,index,label:index===0?'開始→門1':gate.kind==='exit'?`門${index}→出口`:`門${index}→門${index+1}`,
       seconds:rows[index]?.segmentSeconds??null,closestDistance:rows[index]?.minimumCenterDistance??null,nearMisses:rows[index]?.missCount??0,passedAtSeconds:rows[index]?.passedAtSeconds??null}));
   }
-  const records=approaches.snapshot();return routeTiming.snapshot().map((segment,index)=>({...segment,...records[index]}));
+  const records=approaches.snapshot(),rows=routeTiming.snapshot().map((segment,index)=>({...segment,...records[index]}));return withSierraSegmentLabels(rows,selectedCourse);
 }
 function courseTimeSnapshot(){
   if(courseTime)return {...courseTime};
@@ -119,8 +121,8 @@ function sonicReport(){
   return {...supersonicSummary(state.supersonic,sonicActivity.snapshot()),configuredSettings:sonicPanel?.getSettings(),renderOrigin:state.supersonic.renderDiagnostics?.origin,renderDiagnostics:state.supersonic.renderDiagnostics,
     activityClockMeaning:{activeSeconds:'observed-running-frame-time-excluding-terminal-remainder',interruptedSeconds:'unprocessed-active-time-not-menu-or-pause-duration'}};
 }
-function stageDimensions(){return sonicMode()?{halfExtent:20000,width:40000,depth:40000,minHeight:0,maxHeight:6000}:{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2};}
-const flightPanel = createFlightPanel(() => ({ pitch: effectivePitchMode(), steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?(flightSteering==='wrist'?'estimated-forearm-world':'screen'):'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason,...(playMode==='flight'&&flightSteering==='wrist'?{wrist:wristRecord.snapshot()}: {})}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length}, stageSize:stageDimensions(), ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...(sonicMode()?{supersonic:sonicReport()}:{}),...pwa.report() }));
+function stageDimensions(){return sonicMode()?{halfExtent:20000,width:40000,depth:40000,minHeight:0,maxHeight:6000}:courseStageDimensions(selectedCourse)??{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2};}
+const flightPanel = createFlightPanel(() => ({ pitch: effectivePitchMode(), steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?(flightSteering==='wrist'?'estimated-forearm-world':'screen'):'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason,...(playMode==='flight'&&flightSteering==='wrist'?{wrist:wristRecord.snapshot()}: {})}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length,...(courseRecordMetadata(selectedCourse)?{geography:courseRecordMetadata(selectedCourse),radarRange:1000}:{})}, stageSize:stageDimensions(), ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...(sonicMode()?{supersonic:sonicReport()}:{}),...pwa.report() }));
 sonicPanel=createSupersonicPanel({storage:courseStorage,settingsHost:$('flight-settings-fields'),onChange:()=>{lastHudAt=0;if(stage)updateHud(performance.now(),stage.getStatus());}});
 function makeStage(){
   return sonicMode()?createSupersonicStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,supersonicSettings:sonicPanel.getSettings()})
@@ -290,14 +292,17 @@ for (const value of ['overlay','chase','cockpit']) $(`camera-${value}`).addEvent
 
 function applyCourseUI(){
   const select=$('course-select');
+  if(!select.querySelector('option[value="sierra50"]')){const option=document.createElement('option');option.value=SIERRA_COURSE_ID;option.textContent=getCourse(SIERRA_COURSE_ID).name;select.append(option);}
   if(playMode==='flight'&&!select.querySelector('option[value="supersonic"]')){const option=document.createElement('option');option.value='supersonic';option.textContent='高速空域（試作）';select.append(option);}
   const sonicOption=select.querySelector('option[value="supersonic"]');if(sonicOption){sonicOption.hidden=playMode!=='flight';sonicOption.disabled=playMode!=='flight';}
+  const sierraOption=select.querySelector('option[value="sierra50"]');
+  if(sonicOption&&sonicOption.nextElementSibling!==sierraOption)select.insertBefore(sonicOption,sierraOption);
   if(selectedCourse.id==='legacy'&&!select.querySelector('option[value="legacy"]')){
     const option=document.createElement('option');option.value='legacy';option.hidden=true;option.textContent='比較用（旧配置）';select.append(option);
   }
   select.value=selectedCourse.id;
   const range=COURSE_CRITERIA.difficulties?.[selectedCourse.id]?.cruiseTimeRange;
-  $('course-note').textContent=sonicMode()?'40km四方・門5枚＋出口・ABでM2を試す':selectedCourse.id==='legacy'?'v0.1.25 比較用（旧配置）':`光${selectedCourse.lights.length}個${range?`・約${range[0]}〜${range[1]}秒`:''}`;
+  $('course-note').textContent=sonicMode()?'40km四方・門5枚＋出口・ABでM2を試す':selectedCourse.id===SIERRA_COURSE_ID?'推定座標1/50・光A〜F→出口G・レーダー1000m（コース用）':selectedCourse.id==='legacy'?'v0.1.25 比較用（旧配置）':`光${selectedCourse.lights.length}個${range?`・約${range[0]}〜${range[1]}秒`:''}`;
 }
 function applyModeUI() {
   applyCourseUI();
@@ -975,6 +980,7 @@ function updateHud(now, state) {
   app.dataset.viewPitch = String(state.viewPitch || 0);
   app.dataset.viewAssistance = String(state.viewAssistance || 0);
   app.dataset.horizontalFov = String(state.fieldOfView?.horizontal || 0);
+  app.dataset.cameraClipping = JSON.stringify(state.cameraClipping??null);
   app.dataset.landmarkCount = String(state.landmarks?.length || 0);
   app.dataset.beaconAppearance = JSON.stringify(state.beaconAppearance);
   app.dataset.scenery = JSON.stringify(state.scenery);
@@ -997,10 +1003,11 @@ function updateHud(now, state) {
   app.dataset.supersonic=JSON.stringify(state.supersonic??null);
   const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
   $('cockpit-exit-notice').hidden=!(cockpitActive&&visibility==='assisted'&&state.collected===state.total&&now<exitNoticeUntil);
-  $('cockpit-exit-notice').textContent=hudText(language,'exitOpen');
+  $('cockpit-exit-notice').textContent=hudText(language,'exitOpen')+(state.pointName?` · ${state.pointName}`:'');
   const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive,language,inlineParent:$('flight-essential-height')});
   updateEssentialHud({...state,inputHeld},{phase,mode:playMode,camera:cameraMode,language});
-  updateRadar(state, { phase, visibility, range: state.supersonic?sonicPanel.getSettings().radarRange:settings.radarRange,language,extraObstacles:state.supersonic?sonicPanel.getObstacleRects():[] });
+  updateRadar(state, { phase, visibility, range: state.supersonic?sonicPanel.getSettings().radarRange:courseRadarRange(selectedCourse,settings.radarRange),language,extraObstacles:state.supersonic?sonicPanel.getObstacleRects():[] });
+  if(selectedCourse.id===SIERRA_COURSE_ID)app.dataset.courseRadar=JSON.stringify({effectiveRange:1000,savedRange:settings.radarRange,source:'course-profile'});else delete app.dataset.courseRadar;
   const cockpitLayout = layoutCockpitHud(cockpitActive);
   if(state.supersonic){
     updateCockpitHud({...state,inputHeld},cockpitActive,cockpitLayout,{...settings,hudLanguage:language},heightGuide);
@@ -1087,7 +1094,7 @@ function frame(now) {
     if (state.collected > previousCollected) {
       previousCollected = state.collected; feedback.event('collect');
       const language=normalizeHudLanguage(flightPanel.getSettings().hudLanguage);
-      if(state.collected===state.total&&visibility==='assisted'){exitNoticeUntil=now+3500;feedback.exitOpened();showToast(language==='ja'?'出口が開きました。黄色と白の門へ向かいましょう。':hudText(language,'exitOpen'));}
+      if(state.collected===state.total&&visibility==='assisted'){exitNoticeUntil=now+3500;feedback.exitOpened();showToast(language==='ja'?(state.pointName?`出口 ${state.pointName}が開きました。黄色と白の門へ向かいましょう。`:'出口が開きました。黄色と白の門へ向かいましょう。'):hudText(language,'exitOpen')+(state.pointName?` · ${state.pointName}`:''));}
       else showToast(hudCollectedNotice(state,language));
     }
     if (state.complete && phase === 'running') {
@@ -1142,7 +1149,7 @@ function courseCard(id){
   const bestSeconds=id==='supersonic'?sonicBests.best(supersonicBestKey(createSupersonicProfile(sonicPanel.getSettings()),course)):courseBests.best(course,playMode);
   return {id,name:course.name,targetCount:course.lights.length,timeHint:range?'目安 '+range[0]+'〜'+range[1]+'秒':'',bestSeconds,bestLabel:formatCourseTime(bestSeconds),previewSvg:createCoursePreviewSVG(course),
     createPreviewSVG:({width,height})=>createCoursePreviewSVG(course,{width,height,featured:true}),
-    ...(id==='supersonic'?{detail:'門5枚＋出口 · 40km四方 · ABでM2'}:{})};
+    ...(id==='supersonic'?{detail:'門5枚＋出口 · 40km四方 · ABでM2'}:id===SIERRA_COURSE_ID?{detail:'光A〜F→出口G · 推定地理1/50 · 約3.9km',timeHint:'巡航の直線目安 約6分49秒（旋回を含まない）'}:{})};
 }
 function cancelFlowPending(fresh){
   permissionAttempt++;flowPermissionAwaiting=false;pendingCalibration=false;clearTimeout(waitingTimer);pwa.cancelEntry();halt();reference=null;
@@ -1155,7 +1162,7 @@ function setupStartFlow(){
   flowCoordinator=createStartFlowController({ui:flowUI,map:briefingUI,pwa,preferences:startPreferences,briefingPreferences,record:startRecord,
     read:()=>({phase,mode:playMode,camera:cameraMode,steering:flightSteering,input:inputMode,course:selectedCourse,state:stage?.getStatus()??{grounded:false},pauseReason:lastPauseReason,result:{newBest:phase==='complete'&&courseTime?.newBest===true}}),
     actions:{
-      courseCards:()=>(playMode==='flight'?PLAYABLE_COURSE_IDS:NORMAL_COURSE_IDS).map(courseCard),
+      courseCards:()=>(playMode==='flight'?PLAYABLE_COURSE_IDS:ORDINARY_COURSE_IDS).map(courseCard),
       prepareFresh:prepareFlowFresh,cancelPending:cancelFlowPending,
       selectCourse:id=>selectCourse(id),selectMode:mode=>{if(flowDev)selectMode(mode);},setCamera:value=>selectCamera(value),
       ready:()=>setPhase('ready'),launch:(mode,reason)=>run(mode,reason),unlock:()=>feedback.unlock(),countdownAudio:signal=>feedback.countdownAudio(signal),briefingAudio:signal=>feedback.briefingAudio(signal),

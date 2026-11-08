@@ -25,6 +25,7 @@ export function updateTargetHeightPanel(state,{phase,visibility,enabled,cockpit,
     el.setAttribute('aria-label',ja
       ? `現在高度 ${guide.altitude.toFixed(1)}m、目標高度 ${number(guide.target)}m、取得できる高さの範囲 ${number(guide.lower)}〜${number(guide.upper)}m、差 ${delta}。${status}。進路も目標へ合わせてください。`
       : `ALT ${guide.altitude.toFixed(1)}m, TGT ALT ${number(guide.target)}m, ALT BAND ${number(guide.lower)}–${number(guide.upper)}m, ${delta}. ${status}.`);
+    if(state.surface?.kind==='flat'&&Number.isFinite(state.targetHeightAboveGround))el.setAttribute('aria-label',el.getAttribute('aria-label')+(ja?` 目標は地面から${number(state.targetHeightAboveGround)}m。`:` Target above ground ${number(state.targetHeightAboveGround)}m.`));
     const cue=guide.inside?hudText(language,'heightOkay'):guide.urgent?(ja?`早めに${guide.direction==='up'?'▲':'▼'}`:hudText(language,guide.direction==='up'?'climb':'descend')):'';
     const current=el===inline&&inlineParent?'':`<strong class="current-height">${ja?'現在':'ALT '}${state.supersonic?display(guide.altitude):guide.altitude.toFixed(1)}m</strong>　`;
     const markup=`${el===inline?heightBandSvg(guide,true,Boolean(state.supersonic)):''}<span><b>${current}${hudText(language,'targetAltitude')} ${display(guide.target)}m</b><small>${delta}${cue?`　${cue}`:''}</small></span>`;

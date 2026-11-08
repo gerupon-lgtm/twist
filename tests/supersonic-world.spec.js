@@ -3,7 +3,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 
 const fixture='/tests/fixtures/supersonic-renderer.html';
-const evidence=new URL('../.cache/v0136-world/',import.meta.url);
+const evidence=new URL('../.cache/v0137-world/',import.meta.url);
 async function save(name,value){await mkdir(evidence,{recursive:true});await writeFile(new URL(name,evidence),JSON.stringify(value,null,2)+'\n');}
 
 test('GPU marker centroid agrees with final camera in 3 views, 2 origins, and a grid crossing near 20km',async({page})=>{

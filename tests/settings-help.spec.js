@@ -15,6 +15,7 @@ for(const size of [{width:390,height:844},{width:360,height:640},{width:844,heig
  const diagram=await page.locator('#hud-visual-help svg').boundingBox();expect(diagram.width).toBeGreaterThan(200);expect(diagram.x).toBeGreaterThanOrEqual(0);expect(diagram.x+diagram.width).toBeLessThanOrEqual(size.width);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:`.cache/v${APP_VERSION.replaceAll('.','')}-hud-symbol-help-${size.width}.png`});
   await page.goto('/settings-guide.html?v='+APP_VERSION);await expect(page.locator('header')).toContainText('v'+APP_VERSION);await expect(page.locator('h1')).toContainText('早見表');await expect(page.locator('table')).toHaveCount(12);
+  await expect(page.locator('main')).not.toContainText(/\[[^\n]+?\]\([^)\n]+\.md\)/);
   const steeringTable=page.locator('table').filter({hasText:'手首（比較）'});await expect(steeringTable).toHaveCount(1);await expect(steeringTable.locator('tr')).toHaveCount(4);for(const label of ['ひねる（標準）','回す（比較）','手首（比較）'])await expect(steeringTable).toContainText(label);
   await expect(page.locator('tr').filter({hasText:'旋回の中立範囲（手首）'})).toContainText('3°（0〜8°');await expect(page.locator('tr').filter({hasText:'旋回が最大になる手首の角度'})).toContainText('25°（5〜40°）');
   const startTable=page.locator('table').filter({hasText:'開始前の地図'});await expect(startTable).toHaveCount(1);for(const label of ['コース選択','操作の方法','飛行中の「視点」','スロットルの位置','一時停止'])await expect(startTable).toContainText(label);

@@ -1,4 +1,5 @@
 import {getCourseArena} from './arena.js';
+import {sierraPointMetadata} from './courses/sierra50.js';
 
 export const BRIEFING_DRAW_SECONDS=3.6;
 const finitePoint=point=>point&&[point.x,point.y,point.z].every(Number.isFinite);
@@ -20,9 +21,9 @@ export function createBriefingModel(course,{state=null,arena=getCourseArena(cour
   const heading=Number.isFinite(course.startHeading)?course.startHeading:0;
   const collected=Number.isInteger(state?.collected)?Math.max(0,Math.min(course.lights.length,state.collected)):0;
   const targets=course.lights.map((position,index)=>Object.freeze({id:`tgt-${index+1}`,kind:'target',number:index+1,
-    label:`TGT ${index+1}`,height:position.y,completed:index<collected,position:point(position)}));
+    ...(sierraPointMetadata(course,index)??{}),label:sierraPointMetadata(course,index)?.label??`TGT ${index+1}`,height:position.y,completed:index<collected,position:point(position)}));
   const start=Object.freeze({id:'start',kind:'start',label:'START',height:course.start.y,position:point(course.start)});
-  const exit=Object.freeze({id:'exit',kind:'exit',label:'EXIT',height:course.exit.y,completed:state?.complete===true,position:point(course.exit)});
+  const exit=Object.freeze({id:'exit',kind:'exit',...(sierraPointMetadata(course,course.lights.length)??{}),label:sierraPointMetadata(course,course.lights.length)?.label??'EXIT',height:course.exit.y,completed:state?.complete===true,position:point(course.exit)});
   const route=Object.freeze([start,...targets,exit]);
   const abStraights=Object.freeze((course.abStraights??[]).map((lane,index)=>{
     if(!finitePoint(lane.from)||!finitePoint(lane.to)||!Number.isFinite(lane.width)||lane.width<=0)
@@ -82,6 +83,6 @@ export function createCoursePreviewSVG(course,{width=160,height=92,featured=fals
   const markerRadius=featured?5:3,routeWidth=featured?2.2:1.7,targetColor=featured?'#df4295':'#d69736';
   const map=fitBriefingMap(createBriefingModel(course),{width,height,padding:featured?14:11,thumbnail:true});
   const lanes=map.abStraights.map(lane=>`<path d="M${lane.corners.map(p=>`${number(p.x)} ${number(p.y)}`).join('L')}Z" fill="#91c4c2" fill-opacity=".5"/>`).join('');
-  const targets=map.targets.map(target=>`<circle cx="${number(target.x)}" cy="${number(target.y)}" r="${markerRadius}" fill="${targetColor}"/>`).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" class="briefing-preview" role="img" aria-label="${escape(course.name??course.id??'Course')} route"><title>${escape(course.name??course.id??'Course')} route</title>${lanes}<path d="${map.path}" fill="none" stroke="#4d7180" stroke-width="${routeWidth}" stroke-linejoin="round"/>${targets}<path d="M${number(map.start.x)} ${number(map.start.y-5)}l4 8-4-2-4 2Z" fill="#117f97"/><rect x="${number(map.exit.x-3)}" y="${number(map.exit.y-3)}" width="6" height="6" fill="#fff5cc" stroke="#b67e25" stroke-width="1.5"/></svg>`;
+  const targets=map.targets.map(target=>`<circle cx="${number(target.x)}" cy="${number(target.y)}" r="${markerRadius}" fill="${targetColor}"/>${target.pointName?`<text x="${number(target.x+markerRadius+2)}" y="${number(target.y+2)}" font-size="7" fill="#25485a">${escape(target.pointName)}</text>`:''}`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" class="briefing-preview" role="img" aria-label="${escape(course.name??course.id??'Course')} route"><title>${escape(course.name??course.id??'Course')} route</title>${lanes}<path d="${map.path}" fill="none" stroke="#4d7180" stroke-width="${routeWidth}" stroke-linejoin="round"/>${targets}<path d="M${number(map.start.x)} ${number(map.start.y-5)}l4 8-4-2-4 2Z" fill="#117f97"/><rect x="${number(map.exit.x-3)}" y="${number(map.exit.y-3)}" width="6" height="6" fill="#fff5cc" stroke="#b67e25" stroke-width="1.5"/>${map.exit.pointName?`<text x="${number(map.exit.x+5)}" y="${number(map.exit.y+2)}" font-size="7" fill="#25485a">${escape(map.exit.pointName)}</text>`:''}</svg>`;
 }

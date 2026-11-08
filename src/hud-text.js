@@ -29,6 +29,9 @@ export function hudText(language, key) {
 
 /** Accept an existing stage status or radar target; the Japanese source label is left intact. */
 export function hudTargetLabel(source, language = 'en') {
+  if(typeof source?.pointName==='string'&&/^[A-G]$/.test(source.pointName)){
+    const {pointName,...ordinary}=source;return `${hudTargetLabel(ordinary,language)} · ${pointName}`;
+  }
   const label = typeof source?.targetLabel === 'string' ? source.targetLabel
     : typeof source?.label === 'string' ? source.label : '';
   const exit = source?.kind === 'exit' || label === '出口'
@@ -111,6 +114,10 @@ export function hudObjectiveText(state, language = 'en') {
 }
 
 export function hudCollectedNotice(state, language = 'en') {
+  if(Array.isArray(state?.pointNames)&&state.pointNames.length===7&&Number.isInteger(state.collected)&&state.collected>0){
+    const previous=state.pointNames[state.collected-1],next=state.pointNames[Math.min(state.collected,6)];
+    return normalizeHudLanguage(language)==='ja'?`${previous}を取得。次は${state.collected>=state.total?'出口 ':''}${next}へ。`:`${previous} COLLECTED · NEXT ${state.collected>=state.total?'EXIT ':''}${next}`;
+  }
   const total=Number.isInteger(state?.total)&&state.total>0?state.total:3;
   const remaining=Number.isInteger(state?.collected)&&state.collected>=0?Math.max(0,total-state.collected):total;
   return normalizeHudLanguage(language) === 'ja'

@@ -98,17 +98,17 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
       id:item.id,kind:item.kind,number:item.number,progress:routeTrace.length>0?tracePoints[index].distance/routeTrace.length:index===map.route.length-1?1:0,
     })));
     for(const landmark of map.landmarks){
-      const symbol=landmark.kind==='tower'?'△':landmark.kind==='square'?'□':landmark.kind==='diamond'?'◇':landmark.kind==='arch'?'∩':'△';
+      const symbol=landmark.kind==='point-flag'?landmark.label:landmark.kind==='tower'?'△':landmark.kind==='square'?'□':landmark.kind==='diamond'?'◇':landmark.kind==='arch'?'∩':'△';
       mapElement.append(svgNode('text',{x:landmark.x,y:landmark.y+4,class:'briefing-landmark','text-anchor':'middle','data-landmark':landmark.id},symbol));
     }
     const start=svgNode('g',{transform:`translate(${map.start.x} ${map.start.y})`,'data-map-point':'start',class:'briefing-start'});
     start.append(svgNode('path',{d:'M0 -8L5.5 6L0 3L-5.5 6Z'}),svgNode('text',{x:0,y:22,'text-anchor':'middle'},'START'));mapElement.append(start);
     for(const target of map.targets){
       const group=svgNode('g',{transform:`translate(${target.x} ${target.y})`,class:'briefing-target','data-map-point':target.id,'data-collected':target.completed});
-      group.append(svgNode('circle',{r:9}),svgNode('text',{'text-anchor':'middle',y:3.5},String(target.number)));mapElement.append(group);
+      group.append(svgNode('circle',{r:9}),svgNode('text',{'text-anchor':'middle',y:3.5},String(target.number)));if(target.pointName)group.append(svgNode('text',{'text-anchor':'middle',y:-14},target.pointName));mapElement.append(group);
     }
     const exit=svgNode('g',{transform:`translate(${map.exit.x} ${map.exit.y})`,class:'briefing-exit','data-map-point':'exit','data-collected':map.exit.completed});
-    exit.append(svgNode('path',{d:'M-7 -7H7V7H-7Z'}),svgNode('text',{x:0,y:-14,'text-anchor':'middle'},'EXIT'));mapElement.append(exit);
+    exit.append(svgNode('path',{d:'M-7 -7H7V7H-7Z'}),svgNode('text',{x:0,y:-14,'text-anchor':'middle'},active.model.exit.pointName?`EXIT · ${active.model.exit.pointName}`:'EXIT'));mapElement.append(exit);
     if(map.current){
       const you=svgNode('g',{transform:`translate(${map.current.x} ${map.current.y}) rotate(${map.current.rotationDegrees})`,class:'briefing-current','data-map-point':'current','data-heading':map.current.heading});
       you.append(svgNode('path',{d:'M0 -11L7 8L0 4L-7 8Z'}));mapElement.append(you);
@@ -125,7 +125,7 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
     const overviewRect=overview.getBoundingClientRect(),contextMap=fitBriefingMap(active.model,{width:Math.max(70,overviewRect.width),height:Math.max(70,overviewRect.height),padding:12});
     overview.setAttribute('viewBox',`0 0 ${contextMap.width} ${contextMap.height}`);overview.replaceChildren(svgNode('path',{d:`${path(contextMap.boundary)}Z`,class:'briefing-boundary'}),svgNode('path',{d:contextMap.path,class:'briefing-overview-route'}));
     for(const landmark of contextMap.landmarks){
-      const symbol=landmark.kind==='tower'?'△':landmark.kind==='square'?'□':landmark.kind==='diamond'?'◇':landmark.kind==='arch'?'∩':'△';
+      const symbol=landmark.kind==='point-flag'?landmark.label:landmark.kind==='tower'?'△':landmark.kind==='square'?'□':landmark.kind==='diamond'?'◇':landmark.kind==='arch'?'∩':'△';
       overview.append(svgNode('text',{x:landmark.x,y:landmark.y+2.5,class:'briefing-context-landmark','text-anchor':'middle','data-landmark':landmark.id},symbol));
     }
     if(contextMap.current)overview.append(svgNode('circle',{cx:contextMap.current.x,cy:contextMap.current.y,r:3,class:'briefing-context-current'}));
