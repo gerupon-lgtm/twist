@@ -75,6 +75,10 @@ for(const camera of ['overlay','chase'])test(`open practice controls stay clear 
  if(!await page.locator('#practice-panel').evaluate(element=>element.open))await page.locator('#practice-summary').click();
  await expect(page.locator('#practice-panel')).toHaveAttribute('open','');
  await expect(page.locator('#app')).toHaveAttribute('data-guidance-ready','true');
+ // Opening details changes the input panel box immediately; HUD avoidance is
+ // applied by the next native animation frame. Read after that layout update,
+ // rather than accepting the pre-toggle ready flag as a fresh HUD placement.
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  const layout=await page.evaluate(()=>{
   const rect=selector=>{const r=document.querySelector(selector).getBoundingClientRect();return{selector,left:r.left,right:r.right,top:r.top,bottom:r.bottom};};
   return {cards:['#flight-essential-speed','#flight-essential-altitude'].map(rect),reserved:['#practice-panel','#bottom-panel','#radar','.navigation'].map(rect)};
