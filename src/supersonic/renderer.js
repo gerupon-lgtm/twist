@@ -7,6 +7,7 @@ import {createSupersonicEffects,supersonicSpeedPresentation} from '../supersonic
 import {chooseRenderOrigin,relativeToOrigin} from './origin.js';
 import {bodyQuaternion,supersonicCameraFrame,renderRootTranslation,cameraLocalPosition,projectCameraPoint} from './camera.js';
 import {createSupersonicWorld} from './world.js';
+import {createSierra10World} from './sierra-world.js';
 
 const SKY=0xb8dce9,plain=v=>({x:v.x,y:v.y,z:v.z}),quat=q=>({...plain(q),w:q.w});
 const finite=(v,f=0)=>Number.isFinite(v)?v:f;
@@ -20,10 +21,10 @@ export function createSupersonicRenderer(canvas,{course,visibility='assisted',di
   let renderer;
   try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});}catch{throw new Error('3D画面を開けませんでした。WebGL 2が使えるブラウザで開き直してください。');}
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.autoClear=false;renderer.info.autoReset=false;renderer.setClearColor(SKY,1);
-  const scene=new THREE.Scene();scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,42000,64000);
+  const scene=new THREE.Scene();scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,course.id==='sierra10'?9000:42000,course.id==='sierra10'?18000:64000);
   const camera=new THREE.PerspectiveCamera(64,1,2,64000);scene.add(camera);
   const root=new THREE.Group();root.name='cpu-rebased-world';scene.add(root);
-  const world=createSupersonicWorld({course,maxAnisotropy:renderer.capabilities.getMaxAnisotropy(),visibility});root.add(world.group);
+  const world=(course.id==='sierra10'?createSierra10World:createSupersonicWorld)({course,maxAnisotropy:renderer.capabilities.getMaxAnisotropy(),visibility});root.add(world.group);
   scene.add(new THREE.HemisphereLight(0xf4fcff,0x658384,2.4));
   const sun=new THREE.DirectionalLight(0xfff8e7,2.6);sun.position.set(-35,65,30);scene.add(sun);
   const worldJet=createAircraft();worldJet.group.name='supersonic-physical-aircraft';root.add(worldJet.group);
@@ -46,7 +47,7 @@ export function createSupersonicRenderer(canvas,{course,visibility='assisted',di
     if(disposed)return;lastState=state;lastInput=input;phase=options.phase??phase;
     const time=state.simulationSeconds??0;
     phoneRoll=advanceDisplayRoll(phoneRoll,finite(input.displayTwist),Math.max(0,dt),finite(input.displayTimeConstant,.05));
-    const settings={...input.speedSettings,...input,speedLines:input.speedSettings?.streakAmount??input.speedLines??input.streakAmount};
+    const settings={...input.speedSettings,...input,speedLines:input.speedSettings?.streakAmount??input.speedLines??input.streakAmount,...(course.flightProfile?.presentationReferenceSpeed?{presentationReferenceSpeed:course.flightProfile.presentationReferenceSpeed}:{})};
     const presentation=supersonicSpeedPresentation(state.speed,settings,state.afterburner,time,mode);extraFov=presentation.extraFov;projection(input);
     const body=bodyQuaternion(state.orientation),base=body.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),state.bank??0));
     if(mode==='chase')chaseAngles=advanceChaseAngles(chaseAngles,bodyViewAngles(base),Math.max(0,dt),finite(input.chaseTimeConstant,.15));
@@ -101,10 +102,10 @@ export function createSupersonicRenderer(canvas,{course,visibility='assisted',di
   /** Real solid geometry and sea share the normal depth test in this diagnostic mask. */
   function drawContactDiagnostic(contactPoint){
     if(mode!=='chase')throw new Error('contact diagnostic requires the physical external view');
-    const seaMesh=world.group.getObjectByName('world-anchored-ocean-tiles');
+    const seaMesh=world.group.getObjectByName('world-anchored-ocean-tiles')??world.group.getObjectByName('sierra-ground-tiles');
     const seaMaterial=new THREE.MeshBasicMaterial({color:0x00ffff,side:THREE.DoubleSide,toneMapped:false});
     const solidMaterial=new THREE.MeshBasicMaterial({color:0xff00ff,toneMapped:false});
-    const restore=[];for(const child of world.group.children){restore.push(()=>{child.visible=child.userData.diagnosticVisible;delete child.userData.diagnosticVisible;});child.userData.diagnosticVisible=child.visible;child.visible=child.name==='supersonic-sea';}
+    const restore=[];for(const child of world.group.children){restore.push(()=>{child.visible=child.userData.diagnosticVisible;delete child.userData.diagnosticVisible;});child.userData.diagnosticVisible=child.visible;child.visible=['supersonic-sea','sierra-ground'].includes(child.name);}
     const oldSeaMaterial=seaMesh.material;seaMesh.material=seaMaterial;
     worldJet.group.traverse(o=>{if(!o.isMesh)return;const material=o.material,visible=o.visible;restore.push(()=>{o.material=material;o.visible=visible;});
       if(o.parent===effects.craftGroup||material.transparent)o.visible=false;else o.material=solidMaterial;});

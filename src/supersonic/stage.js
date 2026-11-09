@@ -39,7 +39,7 @@ export function supersonicBoundaryStatus(state,profile,course){
 
 /** Shared adapter also lets CPU tests exercise the real kernel with a drawing stub. */
 export function createSupersonicStageAdapter(renderer,{course=SUPERSONIC_COURSE,supersonicSettings}={}){
-  let requestedSettings=supersonicSettings,profile=createSupersonicProfile(requestedSettings);
+  let requestedSettings=supersonicSettings,profile=createSupersonicProfile(requestedSettings,course);
   let state=createSupersonicState(profile,course,{attemptId:nextAttempt()}),disposed=false,running=false,lastInput={};
   let events=EMPTY,afterburnerMotion=EMPTY,timing;
   const clearFrame=()=>{events=EMPTY;afterburnerMotion=EMPTY;timing={requestedSeconds:0,advancedSeconds:0,
@@ -86,25 +86,25 @@ export function createSupersonicStageAdapter(renderer,{course=SUPERSONIC_COURSE,
     const targetLocal=renderer.localPosition(target),afterburner={...state.afterburner},metrics={...state.metrics},gateResults=state.gateResults.map(row=>({...row}));
     const targetGate={id:gate.id,index:gate.index,center:copy(gate.center),normal:copy(gate.normal),right:copy(gate.right),up:copy(gate.up),radius:gate.radius};
     const sibling={...state,position:copy(state.position),velocity:copy(state.velocity),orientation:{...state.orientation},supportAcceleration:copy(state.supportAcceleration),crossingState:{...state.crossingState},afterburner,metrics,gateResults,
-      effectiveSettings:{...profile.effectiveSettings},activeGate:targetGate,events,timing:{...timing},availableNormalAcceleration:state.availableNormalAcceleration,
+      effectiveSettings:{...profile.effectiveSettings},...(profile.presentationReferenceSpeed?{presentationReferenceSpeed:profile.presentationReferenceSpeed}:{}),activeGate:targetGate,events,timing:{...timing},availableNormalAcceleration:state.availableNormalAcceleration,
       terminal:state.terminal?structuredClone(state.terminal):null,renderDiagnostics:visual,simulationSeconds:state.simulationSeconds,attemptId:state.attemptId};
     return {...visual,collected:state.collected,total:state.total,course:{id:course.id,name:course.name,targetCount:state.total,profile:'supersonic'},stageSize:{halfExtent:course.arena.halfExtent,width:course.arena.width,depth:course.arena.depth},
       boundary:supersonicBoundaryStatus(state,profile,course),boundaryAppearance:{advisory:true},turnGravity:profile.gravity,
       supersonic:sibling,events,afterburner,afterburnerMotion,complete:state.complete,grounded:state.grounded,mode:'flight',
       radarHeading:Math.hypot(state.velocity.x,state.velocity.z)>.1?Math.atan2(state.velocity.x,-state.velocity.z):state.heading,
-      navigationTargets:state.complete?[]:course.gates.slice(state.activeGateIndex).map((g,i)=>({id:g.id,kind:g.kind,number:g.number,label:g.kind==='exit'?'出口':`門 ${g.number}`,next:i===0,position:copy(g.center)})),
-      targetGate,targetGeometry:{type:'plane-disc',...targetGate},targetLabel:gate.kind==='exit'?'出口':`門 ${gate.number}`,targetPosition:copy(target),targetRadius:gate.radius,targetLocal,
+      navigationTargets:state.complete?[]:course.gates.slice(state.activeGateIndex).map((g,i)=>({id:g.id,kind:g.kind,number:g.number,label:g.kind==='exit'?'出口':`門 ${g.number}`,...(g.pointName?{pointName:g.pointName}:{}),next:i===0,position:copy(g.center)})),
+      ...(course.pointNames?{pointNames:[...course.pointNames]}:{}),targetGate,targetGeometry:{type:'plane-disc',...targetGate},targetLabel:gate.kind==='exit'?'出口':`門 ${gate.number}`,...(gate.pointName?{pointName:gate.pointName}:{}),targetPosition:copy(target),targetRadius:gate.radius,targetLocal,
       distance:Math.hypot(relative.x,relative.y,relative.z),bearing:Math.atan2(targetLocal.x,-targetLocal.z),elevation:Math.atan2(targetLocal.y,Math.hypot(targetLocal.x,targetLocal.z)),
       altitude:state.position.y,groundClearance:state.groundClearance,minimumSeaAltitude:metrics.minimumSeaAltitude,minimumSeaClearance:metrics.minimumSeaClearance,
       speed:state.speed,throttle:state.throttle,recoveryAssist:state.recoveryAssist,angleOfAttack:state.angleOfAttack,verticalSpeed:state.verticalSpeed,
       velocity:copy(state.velocity),position:copy(state.position),orientation:{...state.orientation},bank:state.bank,yawRate:state.yawRate,heading:state.heading,pitch:state.pitch,controlPitch:state.controlPitch,
-      scenery:visual.world??{},groundPattern:visual.world?.sea??{},abLane:abLaneStatus(course.abStraights,state.position),landmarks:course.arena.landmarks??[],
+      scenery:visual.world??{},groundPattern:visual.world?.ground??visual.world?.sea??{},abLane:abLaneStatus(course.abStraights,state.position),landmarks:course.arena.landmarks??[],
       beaconAppearance:{core:'#ffc14b',ring:'#ffc14b',minPixels:0,columnTarget:null},exitAppearance:{position:copy(course.exit),radius:course.gates.at(-1).radius,unlocked:state.collected===state.total},
     };
   }
   function reset(options={}){
     if(disposed)return;if(options.supersonicSettings!==undefined)requestedSettings=options.supersonicSettings;
-    profile=createSupersonicProfile(requestedSettings);state=createSupersonicState(profile,course,{attemptId:nextAttempt(options.attemptId)});running=false;lastInput={};clearFrame();renderer.resetDisplayRotation();draw();
+    profile=createSupersonicProfile(requestedSettings,course);state=createSupersonicState(profile,course,{attemptId:nextAttempt(options.attemptId)});running=false;lastInput={};clearFrame();renderer.resetDisplayRotation();draw();
   }
   clearFrame();draw();
   return {resize:renderer.resize,update,getStatus,reset,launchFlight(){if(disposed||state.complete||state.grounded)return;running=true;clearFrame();draw();},

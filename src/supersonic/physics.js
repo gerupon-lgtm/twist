@@ -29,6 +29,9 @@ export function supersonicCourseFingerprint(course) {
   return supersonicFingerprint({ start: course.start, heading: course.startHeading ?? 0, arena: course.arena,
     gates: course.gates.map(({ center, normal, right, up, radius, kind }) => ({ center, normal, right, up, radius, kind })) });
 }
+function surfaceLevel(course,position,profile){
+  return course.surface?.kind==='flat'?course.surface.heightAt(position.x,position.z):profile.seaLevel;
+}
 function assertProfile(profile) {
   if (!profile || !['speedOfSound', 'startSpeed', 'maxSpeed', 'gravity', 'maxG', 'integrationStep', 'pitchResponseSeconds', 'bankResponseSeconds'].every(key => Number.isFinite(profile[key]) && profile[key] > 0)
     || profile.maxG <= 1 || !Array.isArray(profile.hull) || !profile.hull.length) throw new TypeError('validated supersonic profile required');
@@ -41,7 +44,7 @@ export function createSupersonicState(profile = createSupersonicProfile(), cours
   if (!validation.valid) throw new RangeError(validation.errors.join('; '));
   const heading = course.startHeading ?? 0, orientation = supersonicOrientation(heading, 0, 0);
   const velocity = rotateVector({ x: 0, y: 0, z: -profile.startSpeed }, orientation);
-  const clearance = seaClearance(course.start, orientation, profile.hull, profile.seaLevel);
+  const clearance = seaClearance(course.start, orientation, profile.hull, surfaceLevel(course,course.start,profile));
   if (options.attemptId !== undefined && !(Number.isFinite(options.attemptId) || typeof options.attemptId === 'string' && options.attemptId.length > 0)) throw new TypeError('finite or string attemptId required');
   return {
     schemaVersion: 1, profileId: profile.id, modelVersion: profile.modelVersion,
@@ -56,10 +59,10 @@ export function createSupersonicState(profile = createSupersonicProfile(), cours
     crossingState: { sonicSide: 'subsonic' },
     afterburner: { active: false, fuel: profile.fuel.startFuel, unlimited: profile.fuelMode === 'unlimited', needsRelease: false,
       uses: 0, seconds: 0, earned: 0, consumed: 0, maxSpeed: profile.startSpeed, burstSeconds: 0, timeSeconds: 0, autoHoldSeconds: 0, autoRequest: false },
-    metrics: { maximumMach: profile.startSpeed / profile.speedOfSound, firstMach1Seconds: null, firstMach2Seconds: null,
+    metrics: { maximumSpeed:profile.startSpeed, maximumMach: profile.startSpeed / profile.speedOfSound, firstMach1Seconds: null, firstMach2Seconds: null,
       maximumG: 1, minimumSeaAltitude: course.start.y, minimumSeaClearance: clearance },
     gateResults: course.gates.map((gate, index) => ({ id: gate.id, index, kind: gate.kind, passedAtSeconds: null, segmentSeconds: null,
-      missCount: 0, minimumCenterDistance: distance(course.start, gate.center), lastCrossingRadialDistance: null })),
+      missCount: 0, afterburnerSeconds:0,afterburnerFuel:0, minimumCenterDistance: distance(course.start, gate.center), lastCrossingRadialDistance: null })),
   };
 }
 function cloneState(previous) {
@@ -180,7 +183,8 @@ export function advanceSupersonic(previous, rawInput, dt, profile, course) {
       for (let i = 0; i < 36; i++) { const mid = (low + high) / 2; if (length(motion(state, mid, input, active, profile, false).velocity) >= profile.maxSpeed) high = mid; else low = mid; }
       h = high; candidate = motion(state, h, input, active, profile); capHit = true;
     }
-    const sea = sweepSea(state.position, candidate.position, profile.seaLevel, { fromOrientation: state.orientation, toOrientation: candidate.orientation, hull: profile.hull });
+    const level=surfaceLevel(course,candidate.position,profile);
+    const sea = sweepSea(state.position, candidate.position, level, { fromOrientation: state.orientation, toOrientation: candidate.orientation, hull: profile.hull });
     const gate = course.gates[state.activeGateIndex], hit = gateCrossing(state.position, candidate.position, gate);
     const seaFirst = sea.contact && (!hit || sea.contact.fraction <= hit.fraction + 1e-10);
     const fraction = seaFirst ? sea.contact.fraction : hit ? hit.fraction : 1;
@@ -196,7 +200,7 @@ export function advanceSupersonic(previous, rawInput, dt, profile, course) {
     for (const thresholdMach of [1, 1.01, .99, 2]) for (const crossing of speedCrossings(fromVelocity, candidate.velocity, thresholdMach * profile.speedOfSound)) {
       if (crossing.fraction <= fraction + 1e-10) localEvents.push({ ...crossing, thresholdMach });
     }
-    if (capHit && fraction === 1 && state.metrics.firstMach2Seconds === null && !localEvents.some(e => e.thresholdMach === 2)) localEvents.push({ fraction: 1, direction: 'up', thresholdMach: 2 });
+    if (capHit && profile.maxSpeed>=profile.speedOfSound*2-1e-8 && fraction === 1 && state.metrics.firstMach2Seconds === null && !localEvents.some(e => e.thresholdMach === 2)) localEvents.push({ fraction: 1, direction: 'up', thresholdMach: 2 });
     localEvents.sort((a, b) => a.fraction - b.fraction);
     for (const crossing of localEvents) {
       const localOffset = localStart + h * crossing.fraction;
@@ -220,6 +224,7 @@ export function advanceSupersonic(previous, rawInput, dt, profile, course) {
     if (autoDemand && !ab.autoRequest) ab.autoHoldSeconds = Math.min(profile.autoAfterburner.holdSeconds, ab.autoHoldSeconds + elapsed);
     ab.maxSpeed = Math.max(ab.maxSpeed, length(velocity));
     const row = state.gateResults[state.activeGateIndex];
+    row.afterburnerSeconds=(row.afterburnerSeconds??0)+(active?elapsed:0);row.afterburnerFuel=(row.afterburnerFuel??0)+consumed;
     row.minimumCenterDistance = Math.min(row.minimumCenterDistance, nearestDistance(from, to, gate.center));
     state.position = to; state.velocity = velocity; state.orientation = orientation;
     state.controlPitch += (candidate.pitch - state.controlPitch) * fraction; state.pitch = state.controlPitch;
@@ -234,11 +239,12 @@ export function advanceSupersonic(previous, rawInput, dt, profile, course) {
     const force = forces(velocity, state.controlPitch, state.bank, state.heading, input.throttle, active, profile);
     state.angleOfAttack = force.aoa; state.recoveryAssist = force.recoveryAssist;
     state.supportAcceleration = force.support; state.gLoad = length(force.support) / profile.gravity; state.availableNormalAcceleration = force.available;
-    state.groundClearance = seaClearance(to, orientation, profile.hull, profile.seaLevel);
+    state.groundClearance = seaClearance(to, orientation, profile.hull, level);
+    state.metrics.maximumSpeed=Math.max(state.metrics.maximumSpeed??0,state.speed);
     state.metrics.maximumG = Math.max(state.metrics.maximumG, state.gLoad);
     state.metrics.maximumMach = Math.max(state.metrics.maximumMach, state.mach);
     state.metrics.minimumSeaAltitude = Math.min(state.metrics.minimumSeaAltitude, from.y, to.y);
-    const minimumClearance = hit && !seaFirst && fraction < 1 ? sweepSea(from, to, profile.seaLevel,
+    const minimumClearance = hit && !seaFirst && fraction < 1 ? sweepSea(from, to, level,
       { fromOrientation, toOrientation: orientation, hull: profile.hull }).minimumClearance : sea.minimumClearance;
     state.metrics.minimumSeaClearance = Math.min(state.metrics.minimumSeaClearance, seaFirst ? 0 : minimumClearance);
     if (elapsed > 0) segments.push({ index: segments.length, t0, t1: endTime, seconds: elapsed,
@@ -247,6 +253,10 @@ export function advanceSupersonic(previous, rawInput, dt, profile, course) {
     // Derive the tail from the same compensated consumption ledger. Repeated
     // subtraction would manufacture a second rounding residual beside it.
     remaining = Math.max(0, dt + carriedInSeconds - (advancedSeconds + advancedCarry));
+    const lowAltitude=profile.fuel.lowAltitude;
+    if(!seaFirst&&lowAltitude&&elapsed>0&&state.groundClearance>=0&&state.groundClearance<=lowAltitude.maxClearance&&state.speed>=lowAltitude.minSpeed){
+      const reward=Math.min(profile.fuel.capacity-ab.fuel,elapsed*lowAltitude.perSecond);ab.fuel+=reward;ab.earned+=reward;
+    }
     if (seaFirst) {
       state.grounded = true; state.groundClearance = 0; state.metrics.minimumSeaClearance = Math.min(state.metrics.minimumSeaClearance, 0);
       state.terminal = { type: 'sea', atSeconds: endTime, position: { ...to }, centerPosition: { ...to }, contactPoint: sea.contact.contactPoint,

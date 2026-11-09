@@ -63,7 +63,7 @@ export const SIERRA_COURSE=freeze({id:SIERRA_COURSE_ID,name:'シエラ縦断（1
 
 /** One common optional metadata seam for stage, HUD, preview and recording. */
 export function sierraPointMetadata(course,targetIndex){
- if(course?.id!==SIERRA_COURSE_ID||!Number.isInteger(targetIndex)||targetIndex<0||targetIndex>6)return null;
+ if(![SIERRA_COURSE_ID,'sierra10'].includes(course?.id)||!Number.isInteger(targetIndex)||targetIndex<0||targetIndex>6)return null;
  const exit=targetIndex===6,pointName=course.pointNames?.[targetIndex];if(typeof pointName!=='string')return null;
  return freeze({pointName,kind:exit?'exit':'target',number:exit?null:targetIndex+1,label:exit?`EXIT · ${pointName}`:`TGT ${targetIndex+1} · ${pointName}`});
 }
@@ -73,7 +73,7 @@ export function sierraRouteEdges(course=SIERRA_COURSE){
 }
 /** Add display labels while preserving timing IDs, seconds and nulls. */
 export function withSierraSegmentLabels(rows,course=SIERRA_COURSE){
- if(course?.id!==SIERRA_COURSE_ID)return rows;
+ if(![SIERRA_COURSE_ID,'sierra10'].includes(course?.id))return rows;
  if(!Array.isArray(rows)||rows.length!==7)throw new TypeError('Sierra timing needs seven existing segments');
  const edges=sierraRouteEdges(course);
  return rows.map((row,index)=>({...row,pointFrom:edges[index].fromName,pointTo:edges[index].toName,

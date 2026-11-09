@@ -41,7 +41,7 @@ async function boot(page,{course='easy',screenAngle=0,hold=45,mode='flight',quer
 }
 async function launch(page){await page.locator('#start-flow-hold').click();await tick(page,100);if((await read(page)).phase!=='running'){await waitForCountdownThree(page);await tick(page,3100);}await step(page,'play');expect((await read(page)).phase).toBe('running');}
 async function input(page,value,ms=400){await page.evaluate(value=>window.wristSensor.set(value),value);await tick(page,ms);}
-async function copy(page){await page.locator('#pause-button').click();await step(page,'pause');await page.locator('#start-flow-pause-settings').click();await step(page,'settings');await page.locator('#settings-copy').click();return page.evaluate(()=>JSON.parse(window.wristCopied));}
+async function copy(page,{paused=false}={}){if(!paused)await page.locator('#pause-button').click();await step(page,'pause');await page.locator('#start-flow-pause-settings').click();await step(page,'settings');await page.locator('#settings-copy').click();return page.evaluate(()=>JSON.parse(window.wristCopied));}
 async function proof(page,name){await mkdir('.cache',{recursive:true});const prefix=`.cache/v${APP_VERSION.replaceAll('.','')}-wrist-${name}`;await page.screenshot({path:prefix+'.png'});await writeFile(prefix+'.json',JSON.stringify({state:await read(page),evidence:'synthetic DeviceOrientation/default flow; no physical arm acceptance'},null,2));}
 
 for(const course of ['easy','supersonic'])for(const screenAngle of [0,90,-90])test(`wrist physical holds share right/left direction ${course} screen${screenAngle}`,async({page})=>{
@@ -180,11 +180,27 @@ for(const size of [{width:360,height:640},{width:390,height:844},{width:844,heig
 });
 
 test('exploration keeps its original body-relative control regardless of the remembered flight steering',async({page})=>{
-  const outputs=[];
+  const outputs=[],timings=[];
   for(const query of ['tilt','wrist']){
-    await boot(page,{mode:'explore',query,hold:45});await launch(page);await input(page,{pitch:-10,wrist:15},500);outputs.push(await read(page));
-    const report=await copy(page);expect(report.mode).toBe('explore');expect(report.input.wrist).toBeUndefined();
+    await boot(page,{mode:'explore',query,hold:45});await launch(page);
+    // Apply the real sensor pose just after one rendered frame, then pause via
+    // the UI on the first complete frame after 500ms. Both comparisons therefore
+    // integrate the same input duration; the ordinary browser rAF stays intact.
+    await page.evaluate(()=>{
+      window.wristComparison=null;
+      requestAnimationFrame(begin=>{
+        window.wristSensor.set({pitch:-10,wrist:15});let frames=0;
+        const finish=now=>{frames++;if(now-begin<500){requestAnimationFrame(finish);return;}
+          window.wristComparison={milliseconds:now-begin,frames};document.getElementById('pause-button').click();};
+        requestAnimationFrame(finish);
+      });
+    });
+    await tick(page,600);await step(page,'pause');timings.push(await page.evaluate(()=>window.wristComparison));
+    const report=await copy(page,{paused:true});outputs.push(await read(page));expect(report.mode).toBe('explore');expect(report.input.wrist).toBeUndefined();
     for(const key of ['maxSteerTilt','maxSteerTwist','maxSteerWrist','steerTiltDeadzone','steerTwistDeadzone','steerWristDeadzone'])expect(report.inactiveSettings).toContain(key);
   }
+  for(const timing of timings){expect(timing.milliseconds).toBeGreaterThanOrEqual(500);expect(timing.milliseconds).toBeLessThan(520);expect(timing.frames).toBeGreaterThan(0);}
+  expect(timings[1].milliseconds).toBeCloseTo(timings[0].milliseconds,9);expect(timings[1].frames).toBe(timings[0].frames);
   for(const axis of ['x','y','z']){expect(outputs[1].position[axis]).toBeCloseTo(outputs[0].position[axis],6);expect(outputs[1].velocity[axis]).toBeCloseTo(outputs[0].velocity[axis],6);}
+  await mkdir('.cache',{recursive:true});await writeFile(`.cache/v${APP_VERSION.replaceAll('.','')}-wrist-exploration-timing.json`,JSON.stringify({outputs,timings},null,2));
 });

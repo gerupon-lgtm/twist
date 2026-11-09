@@ -32,7 +32,7 @@ async function primaryOptions(page){
   // The protected routes remain intact. Sierra also permits exploration;
   // only the high-speed prototype is a flight-only choice.
   const flight=await page.locator('#app').getAttribute('data-play-mode')==='flight';
-  expect(await page.locator('#course-select option:not([hidden])').evaluateAll(options=>options.map(option=>option.value))).toEqual(flight?[...courseIds,'supersonic','sierra50']:[...courseIds,'sierra50']);
+  expect(await page.locator('#course-select option:not([hidden])').evaluateAll(options=>options.map(option=>option.value))).toEqual(flight?[...courseIds,'supersonic','sierra50','sierra10']:[...courseIds,'sierra50']);
 }
 async function initialCourseState(page,id){
   const course=getCourse(id),count=course.lights.length;

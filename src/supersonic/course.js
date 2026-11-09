@@ -34,7 +34,8 @@ export function validateSupersonicCourse(course, profile = {}) {
     errors.push('course requires a finite start and ordered gates'); return result;
   }
   const maxG = profile.maxG ?? 9, gravity = profile.gravity ?? 9.8;
-  for (const speed of [200, 340, 680]) {
+  const speeds=profile.validationSpeeds??[200,340,680],maximumValidationSpeed=speeds.at(-1);
+  for (const speed of speeds) {
     result.checks.turnRadii[speed] = supersonicTurnRadius(speed, maxG, gravity);
     if (result.checks.turnRadii[speed] === null) errors.push('invalid turn authority');
   }
@@ -62,7 +63,7 @@ export function validateSupersonicCourse(course, profile = {}) {
       const turn = Math.acos(Math.max(-1, Math.min(1, dot(incoming, outgoing) / (l1 * l2))));
       const radius = turn < 1e-8 ? null : distance(a, c) / (2 * Math.sin(turn));
       result.geometry.turns.push({ index, radians: turn, radius });
-      if (turn > Math.PI - 1e-8 || (radius !== null && radius < result.checks.turnRadii[680])) errors.push(`gate ${index} turn is infeasible at 680m/s and configured G`);
+      if (turn > Math.PI - 1e-8 || (radius !== null && radius < result.checks.turnRadii[maximumValidationSpeed])) errors.push(`gate ${index} turn is infeasible at ${maximumValidationSpeed}m/s and configured G`);
     }
     previous = gate.center;
   }

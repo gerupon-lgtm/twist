@@ -33,8 +33,10 @@ export function gateCrossing(from, to, gate) {
   const a = { x: from.x - gate.center.x, y: from.y - gate.center.y, z: from.z - gate.center.z };
   const b = { x: to.x - gate.center.x, y: to.y - gate.center.y, z: to.z - gate.center.z };
   const d0 = dot(a, gate.normal), d1 = dot(b, gate.normal);
-  if (Math.abs(d0) <= EPS || Math.abs(d1 - d0) <= EPS || d0 * d1 > 0) return null;
-  const fraction = d0 / (d0 - d1);
+  if (Math.abs(d0) <= EPS || Math.abs(d1 - d0) <= EPS || (d0 * d1 > 0 && Math.abs(d1) > EPS)) return null;
+  // Arrival can round a fraction of a nanometre short of the plane. Count that
+  // endpoint once; the start-on-plane guard above prevents the next-step repeat.
+  const fraction = Math.min(1, d0 / (d0 - d1));
   if (fraction < 0 || fraction > 1) return null;
   const position = mix(from, to, fraction);
   const r = { x: position.x - gate.center.x, y: position.y - gate.center.y, z: position.z - gate.center.z };

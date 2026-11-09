@@ -4,7 +4,7 @@ export const sonicWarning=cue=>['ground','stall','buffet'].includes(cue);
 
 /** Separate speed curve, leaving the ordinary 0..45 model byte-for-byte intact. */
 export function supersonicFeedback(state,base){
-  const speed=clamp(state.speed,0,680),wind=speed/680;
+  const speed=clamp(state.speed,0,680),wind=clamp(speed/(state.supersonic?.presentationReferenceSpeed??680),0,1);
   return {...base,speed,wind,engineHz:base.engineHz+wind*80,
     supersonic:{mach:Number.isFinite(state.supersonic?.mach)?state.supersonic.mach:speed/340}};
 }

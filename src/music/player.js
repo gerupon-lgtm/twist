@@ -74,8 +74,14 @@ export function createMusicPlayer(audio,{fetchFile=fetch,base=new URL('./music/'
     const preferred=selectedTracks(),first=preview?catalog.previewIds.includes(exactId)?exactId:null:id==='flight'?trackForFlight(preferred,flightNumber):id==='clear'?requestedClear():null;
     const defaultFlightIds=catalog.legacy?(catalog.legacySets.current??[]):catalog.flightIds;
     const candidates=preview?[first]:id==='flight'?[first,...preferred,...defaultFlightIds]:id==='clear'?[first,...catalog.clearIds]:[];
-    let trackId=null;
-    for(const candidate of new Set(candidates.filter(Boolean))){const entry=await loadEntry(candidate);if(token!==generation)return 'cancelled';if(entry){trackId=candidate;break;}}
+    let trackId=null;const attempted=new Set();
+    while(candidates.length){
+      const candidate=candidates.shift();if(!candidate||attempted.has(candidate))continue;attempted.add(candidate);
+      const entry=await loadEntry(candidate);if(token!==generation)return 'cancelled';if(entry){trackId=candidate;break;}
+      // Lazy loading discovers failures at playback time. Reapply this leg's
+      // index to the filtered list, as the former fully loaded playlist did.
+      if(id==='flight'&&!preview){const replacement=trackForFlight(selectedTracks(),flightNumber);if(replacement&&!attempted.has(replacement))candidates.unshift(replacement);}
+    }
     if(!trackId)return 'unavailable';
     const ready=await audio.waitForReady();if(token!==generation)return 'cancelled';
     if(!ready)return 'unavailable';

@@ -13,7 +13,7 @@ const visible=el=>el&&!el.hasAttribute('hidden')&&el.getClientRects().length>0;
 export function createSupersonicPanel({storage,onChange=()=>{},settingsHost}={}){
   const app=document.getElementById('app');
   if(storage===undefined)try{storage=localStorage;}catch{/* Defaults remain available. */}
-  let settings=loadSupersonicSettings(storage),active=false,effective=null,noticeUntil=0,notice='',lastState=null;
+  let settings=loadSupersonicSettings(storage),active=false,courseOwned=false,effective=null,noticeUntil=0,notice='',lastState=null;
   const events=createSonicEventConsumer(),editors=new Map();
   const fields=document.createElement('fieldset');fields.id='supersonic-settings';fields.className='supersonic-settings';fields.hidden=true;
   const legend=document.createElement('legend');legend.textContent='高速空域（試作）の設定';
@@ -39,6 +39,9 @@ export function createSupersonicPanel({storage,onChange=()=>{},settingsHost}={})
     if(field.type!=='select')editors.set(field.key,createRangeEditor(input,{name:labels[field.key],unit:units[field.key],initial:field.defaultValue}));
   }
   fields.append(saveText);(settingsHost??document.getElementById('flight-adjustments')??app).append(fields);
+  const courseNote=document.createElement('fieldset');courseNote.id='sierra10-settings';courseNote.hidden=true;courseNote.className='supersonic-settings';
+  courseNote.innerHTML='<legend>シエラ1/10・亜音速の設定</legend><p>初速150m/s・通常推力の水平終速250m/s・AB上限300m/s・最大9G。燃料はゲージ制です。高速空域の保存設定は変えません。</p>';
+  fields.after(courseNote);
   const hud=document.createElement('section');hud.id='supersonic-hud';hud.className='supersonic-hud';hud.hidden=true;hud.setAttribute('aria-label','SUPERSONIC FLIGHT');
   const card=document.createElement('div');card.id='supersonic-mach-g';card.className='supersonic-mach-g';
   const mach=document.createElement('strong');mach.id='supersonic-mach';
@@ -82,9 +85,10 @@ export function createSupersonicPanel({storage,onChange=()=>{},settingsHost}={})
     lastState={mach:sonic.mach,gLoad:sonic.gLoad,maxG,phase,camera};
   }
   return {
-    setActive(value){active=value===true;fields.hidden=!active;if(!active){hud.hidden=true;noticeUntil=0;notice='';}},
+    setCourse(course){courseOwned=course?.id==='sierra10';hud.setAttribute('aria-label',courseOwned?'SUBSONIC FLIGHT':'SUPERSONIC FLIGHT');fields.hidden=!active||courseOwned;courseNote.hidden=!active||!courseOwned;},
+    setActive(value){active=value===true;fields.hidden=!active||courseOwned;courseNote.hidden=!active||!courseOwned;if(!active){hud.hidden=true;noticeUntil=0;notice='';}},
     getSettings:()=>({...settings}),observeEvents,updateState,getObstacleRects,
     snapshot:()=>({active,settings:{...settings},effectiveSettings:effective?{...effective}:null,readings:lastState?{...lastState}:null,events:events.snapshot(),notice:noticeUntil?notice:null}),
-    dispose(){fields.remove();hud.remove();editors.clear();},
+    dispose(){fields.remove();courseNote.remove();hud.remove();editors.clear();},
   };
 }

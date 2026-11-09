@@ -6,7 +6,7 @@ import {createCourseSurface,courseGroundClearance} from '../src/course-surface.j
 import {hudTargetLabel,hudCollectedNotice} from '../src/hud-text.js';
 import {createBriefingModel,createCoursePreviewSVG} from '../src/briefing-model.js';
 test('catalog adds exactly one ordinary course, preserves old three plus Sonic and reads old storage without writes',()=>{
- assert.deepEqual(NORMAL_COURSE_IDS,['easy','normal','hard']);assert.deepEqual(ORDINARY_COURSE_IDS,['easy','normal','hard','sierra50']);assert.deepEqual(PLAYABLE_COURSE_IDS,['easy','normal','hard','supersonic','sierra50']);
+ assert.deepEqual(NORMAL_COURSE_IDS,['easy','normal','hard']);assert.deepEqual(ORDINARY_COURSE_IDS,['easy','normal','hard','sierra50']);assert.deepEqual(PLAYABLE_COURSE_IDS,['easy','normal','hard','supersonic','sierra50','sierra10']);
  let saved='hard',writes=0;const storage={getItem:key=>key===COURSE_STORAGE_KEY?saved:null,setItem:(key,value)=>{saved=value;writes++;}};
  assert.equal(loadCourseChoice(storage,'?course=sierra50'),'sierra50');assert.equal(writes,0);assert.equal(saved,'hard');assert.equal(saveCourseChoice(storage,'sierra50'),true);assert.equal(saved,'sierra50');assert.equal(loadCourseChoice(storage),'sierra50');assert.equal(writes,1);
 });

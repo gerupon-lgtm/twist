@@ -14,12 +14,12 @@ export function vaporConeIntensity(mach){
 
 /** Independent visual curve: no normal speed limit or flight state is changed. */
 export function supersonicSpeedPresentation(speed,settings={},afterburner={},timeSeconds=0,camera='overlay'){
-  const velocity=clamp(speed,0,680),progress=smooth(velocity/680);
+  const velocity=clamp(speed,0,680),reference=Number.isFinite(settings.presentationReferenceSpeed)?Math.max(1,settings.presentationReferenceSpeed):680,progress=smooth(clamp(velocity/reference,0,1));
   const maximum=Number.isFinite(settings.speedFov)?clamp(settings.speedFov,0,15):10;
   const active=(afterburner===true||afterburner?.active===true)&&velocity>0;
   const extraFov=maximum*progress+(active?maximum*.3:0),shake={x:0,y:0,z:0};
   if(settings.highSpeedShake!==false){
-    const strength=smooth(clamp((velocity-160)/520,0,1));
+    const strength=smooth(clamp((velocity-reference*160/680)/(reference*520/680),0,1));
     const amplitude=(camera==='cockpit'?.025:.1)*DEG*strength;
     const t=Number.isFinite(timeSeconds)?Math.max(0,timeSeconds)%3600:0;
     shake.x=amplitude*(.65*Math.sin(t*17.3)+.35*Math.sin(t*29.7+.4));

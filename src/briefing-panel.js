@@ -13,7 +13,7 @@ const path=points=>points.map((point,index)=>`${index?'L':'M'}${point.x.toFixed(
 const heightLabel=value=>`▲${Number.isInteger(value)?value:value.toFixed(1)}m`;
 const distanceLabel=value=>value>=1000?`${(value/1000).toFixed(value%1000?1:0)}km`:`${Math.round(value)}m`;
 const introductions={easy:'大きな半周を描いて、最後の直線へ。',normal:'右から左へ切り返し、長い直線を抜ける。',
-  hard:'二つのうずをつないで、出口への直線へ。',supersonic:'海と雲の間を抜け、音の壁の先へ。'};
+  hard:'二つのうずをつないで、出口への直線へ。',sierra10:'A〜Fを順に通過し、亜音速でGの出口へ。',supersonic:'海と雲の間を抜け、音の壁の先へ。'};
 
 /** View policy only: the original course/world coordinates and projection stay untouched. */
 function routeViewModel(model){

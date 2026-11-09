@@ -35,7 +35,7 @@ export function createSupersonicEffects(){
     speed=clamp(state.speed,0,680);mach=Number.isFinite(sonic?.mach)?sonic.mach:speed/340;
     intensity=running?vaporConeIntensity(mach):0;
     craftGroup.visible=intensity>0&&camera!=='cockpit';coneMaterial.opacity=intensity*.24;
-    const settings=input.settings??{},amount=clamp(settings.speedLines??1,0,2),flow=speed/680;
+    const settings=input.settings??{},amount=clamp(settings.speedLines??1,0,2),flow=clamp(speed/(settings.presentationReferenceSpeed??680),0,1);
     lineCount=running?Math.min(CAPACITY,Math.floor((10+58*flow)*Math.min(1,speed/80)*amount)):0;
     lineLength=.025+.11*flow;geometry.setDrawRange(0,lineCount*2);
     haze.visible=camera==='cockpit'&&intensity>0;hazeMaterial.opacity=intensity*.18;

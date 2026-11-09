@@ -20,13 +20,16 @@ for(const[id,title]of songs)test(`provided MML ${id} starts in the native workle
   await expect.poll(async()=>(await music(page)).trackId).toBe(id);expect(errors).toEqual([]);
 });
 test('the added proposal set keeps its order and skips a missing score without silencing the game',async({page})=>{
-  await page.route('**/music/advance.mid?*',route=>route.fulfill({status:404,body:''}));
+  let missingRequests=0;await page.route('**/music/advance.mid?*',route=>{missingRequests++;return route.fulfill({status:404,body:''});});
   await page.goto('/?mode=flight&course=legacy&music=proposals');await page.locator('#practice-button').click();
-  await expect.poll(async()=>(await music(page)).flightTracks).toEqual(['Ignition Sky','Overdrive Horizon']);
+  await expect.poll(async()=>(await music(page)).flightTracks).toEqual(['Ignition Sky','Steel Advance','Overdrive Horizon']);
   await expect.poll(async()=>(await music(page)).trackId).toBe('ignition');
+  expect(missingRequests).toBe(0);
   for(const[id,value]of [['throttle-input',100],['practice-pitch',-25]])await page.locator('#'+id).evaluate((element,value)=>{element.value=String(value);element.dispatchEvent(new Event('input',{bubbles:true}));},value);
   await expect(page.locator('#app')).toHaveAttribute('data-grounded','true',{timeout:15000});
   await page.locator('#start-button').click();await expect.poll(async()=>(await music(page)).trackId).toBe('overdrive');
+  expect(missingRequests).toBeGreaterThan(0);await expect.poll(async()=>(await music(page)).flightTracks).toEqual(['Ignition Sky','Overdrive Horizon']);
+  await expect.poll(async()=>(await audio(page)).musicActive).toBe(true);
   await page.locator('#pause-button').click();await page.locator('#start-button').click();
   await expect.poll(async()=>(await music(page)).trackId).toBe('overdrive');
 });

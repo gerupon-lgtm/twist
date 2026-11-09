@@ -23,10 +23,11 @@ export const SUPERSONIC_PROFILE_DEFAULTS = freeze({
   lowSpeed: { oneGSpeed: 60, stallStartRadians: 20 * Math.PI / 180, stallEndRadians: 70 * Math.PI / 180 },
   hull: SUPERSONIC_AIRCRAFT_HULL, hullId: SUPERSONIC_AIRCRAFT_HULL_ID, hullScale: SUPERSONIC_AIRCRAFT_HULL_SCALE,
 });
-export function createSupersonicProfile(value) {
-  const effectiveSettings = normalizeSupersonicSettings(value);
+export function createSupersonicProfile(value,course) {
+  const {settings,...overrides}=course?.flightProfile??{};
+  const effectiveSettings = normalizeSupersonicSettings(settings??value);
   const { maxG, fuelMode, pitchGain } = effectiveSettings;
-  const physics = { ...SUPERSONIC_PROFILE_DEFAULTS, maxG, fuelMode, pitchGain };
+  const physics = { ...SUPERSONIC_PROFILE_DEFAULTS, ...overrides, maxG, fuelMode, pitchGain };
   return freeze({ ...physics, effectiveSettings, maxBankRadians: Math.atan(Math.sqrt(maxG * maxG - 1)),
     maxPitchRadians: physics.referencePitchDegrees * pitchGain * Math.PI / 180,
     fingerprint: supersonicFingerprint(physics) });

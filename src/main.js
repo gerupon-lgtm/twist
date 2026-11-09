@@ -12,6 +12,7 @@ import {updateEssentialHud} from './essential-hud.js';
 import {getCourse,COURSE_CRITERIA,NORMAL_COURSE_IDS,ORDINARY_COURSE_IDS,PLAYABLE_COURSE_IDS,isSupersonicCourse} from './course-catalog.js';
 import {courseStageDimensions,courseRecordMetadata,courseRadarRange} from './course-world-profile.js';
 import {SIERRA_COURSE_ID,withSierraSegmentLabels} from './courses/sierra50.js';
+import {SIERRA10_COURSE_ID} from './courses/sierra10.js';
 import {createSupersonicStage} from './supersonic/stage.js';
 import {createSupersonicProfile} from './supersonic/profile.js';
 import {supersonicIntent} from './supersonic/intent.js';
@@ -100,14 +101,15 @@ let inputMode = null;
 let inputHeld=false,lastPauseReason='',exitNoticeUntil=0,activeFrameAt=0;
 const inputTransitions=[];
 function sonicMode(){return playMode==='flight'&&isSupersonicCourse(selectedCourse);}
+function sierra10Mode(){return selectedCourse.id===SIERRA10_COURSE_ID;}
 function effectivePitchMode(){return sonicMode()?'angle':pitchMode;}
-function currentSonicProfile(state=stage?.getStatus()){return createSupersonicProfile(state?.supersonic?.effectiveSettings??sonicPanel?.getSettings()??loadSupersonicSettings(courseStorage));}
+function currentSonicProfile(state=stage?.getStatus()){return createSupersonicProfile(state?.supersonic?.effectiveSettings??sonicPanel?.getSettings()??loadSupersonicSettings(courseStorage),selectedCourse);}
 function sonicBestKey(){return supersonicBestKey(currentSonicProfile(),selectedCourse);}
 function recordedSegments(){
   if(sonicMode()){
     const rows=stage?.getStatus().supersonic?.gateResults??[];
-    return selectedCourse.gates.map((gate,index)=>({id:gate.id,index,label:index===0?'開始→門1':gate.kind==='exit'?`門${index}→出口`:`門${index}→門${index+1}`,
-      seconds:rows[index]?.segmentSeconds??null,closestDistance:rows[index]?.minimumCenterDistance??null,nearMisses:rows[index]?.missCount??0,passedAtSeconds:rows[index]?.passedAtSeconds??null}));
+    return withSierraSegmentLabels(selectedCourse.gates.map((gate,index)=>({id:gate.id,index,label:index===0?'開始→門1':gate.kind==='exit'?`門${index}→出口`:`門${index}→門${index+1}`,
+      seconds:rows[index]?.segmentSeconds??null,closestDistance:rows[index]?.minimumCenterDistance??null,nearMisses:rows[index]?.missCount??0,passedAtSeconds:rows[index]?.passedAtSeconds??null,afterburnerSeconds:rows[index]?.afterburnerSeconds??0,afterburnerFuel:rows[index]?.afterburnerFuel??0})),selectedCourse);
   }
   const records=approaches.snapshot(),rows=routeTiming.snapshot().map((segment,index)=>({...segment,...records[index]}));return withSierraSegmentLabels(rows,selectedCourse);
 }
@@ -118,11 +120,11 @@ function courseTimeSnapshot(){
 }
 function sonicReport(){
   const state=stage?.getStatus();if(!sonicMode()||!state?.supersonic)return null;
-  return {...supersonicSummary(state.supersonic,sonicActivity.snapshot()),configuredSettings:sonicPanel?.getSettings(),renderOrigin:state.supersonic.renderDiagnostics?.origin,renderDiagnostics:state.supersonic.renderDiagnostics,
+  return {...supersonicSummary(state.supersonic,sonicActivity.snapshot()),configuredSettings:sierra10Mode()?currentSonicProfile().effectiveSettings:sonicPanel?.getSettings(),renderOrigin:state.supersonic.renderDiagnostics?.origin,renderDiagnostics:state.supersonic.renderDiagnostics,
     activityClockMeaning:{activeSeconds:'observed-running-frame-time-excluding-terminal-remainder',interruptedSeconds:'unprocessed-active-time-not-menu-or-pause-duration'}};
 }
-function stageDimensions(){return sonicMode()?{halfExtent:20000,width:40000,depth:40000,minHeight:0,maxHeight:6000}:courseStageDimensions(selectedCourse)??{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2};}
-const flightPanel = createFlightPanel(() => ({ pitch: effectivePitchMode(), steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?(flightSteering==='wrist'?'estimated-forearm-world':'screen'):'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason,...(playMode==='flight'&&flightSteering==='wrist'?{wrist:wristRecord.snapshot()}: {})}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length,...(courseRecordMetadata(selectedCourse)?{geography:courseRecordMetadata(selectedCourse),radarRange:1000}:{})}, stageSize:stageDimensions(), ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...(sonicMode()?{supersonic:sonicReport()}:{}),...pwa.report() }));
+function stageDimensions(){return sonicMode()?{halfExtent:selectedCourse.arena.halfExtent,width:selectedCourse.arena.width,depth:selectedCourse.arena.depth,minHeight:0,maxHeight:selectedCourse.arena.maxAltitude}:courseStageDimensions(selectedCourse)??{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2};}
+const flightPanel = createFlightPanel(() => ({ pitch: effectivePitchMode(), steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?(flightSteering==='wrist'?'estimated-forearm-world':'screen'):'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason,...(playMode==='flight'&&flightSteering==='wrist'?{wrist:wristRecord.snapshot()}: {})}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length,...(courseRecordMetadata(selectedCourse)?{geography:courseRecordMetadata(selectedCourse),radarRange:courseRadarRange(selectedCourse)}:{})}, stageSize:stageDimensions(), ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...(sonicMode()?{supersonic:sonicReport()}:{}),...pwa.report() }));
 sonicPanel=createSupersonicPanel({storage:courseStorage,settingsHost:$('flight-settings-fields'),onChange:()=>{lastHudAt=0;if(stage)updateHud(performance.now(),stage.getStatus());}});
 function makeStage(){
   return sonicMode()?createSupersonicStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,supersonicSettings:sonicPanel.getSettings()})
@@ -213,11 +215,11 @@ function setPhase(next) {
   renderRadarUpgrade();
 }
 
-const modeNote = () => sonicMode()?'角度方式で操縦します。出力50%・200m/sで出発し、右端の先へ出力を動かすとAB。再開は慣性を保ちます。':playMode === 'flight'
+const modeNote = () => sierra10Mode()?'角度方式で操縦します。出力50%・150m/sで出発。ABは300m/sまで、9Gの旋回と有限の燃料ゲージを使います。':sonicMode()?'角度方式で操縦します。出力50%・200m/sで出発し、右端の先へ出力を動かすとAB。再開は慣性を保ちます。':playMode === 'flight'
   ? (effectivePitchMode() === 'angle' ? '中立で機首も水平へ戻ります。上昇で減速、下降で加速。出力50%で出発します。' : '中立でも機首の角度は残ります。逆へ倒して水平へ戻し、出力を上げて失速から復帰。')
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
 const lightColor = () => visibility === 'assisted' ? 'ピンクの' : '金色の';
-const modeIntroduction = () => sonicMode()?'40km四方の高速空域。5枚の門を順番にくぐり、最後の出口へ。ABを使って音速を超える試作です。':playMode === 'flight'
+const modeIntroduction = () => sierra10Mode()?'シエラ縦断を1/10の縮尺で。A〜Fの門を順にくぐり、Gの出口へ。地面は平らで、音速は超えません。':sonicMode()?'40km四方の高速空域。5枚の門を順番にくぐり、最後の出口へ。ABを使って音速を超える試作です。':playMode === 'flight'
   ? `${flightPanel.getSettings().flightDirector ? '白い進行方向の印を輪へ近づけます。重なると輪が緑になります。' : flightDisplay === 'fixed' ? '自機の上向きを保ち、景色が回ります。' : '自機は画面中央。右へ曲がると機体も右へ傾きます。'}${lightColor()}光を${selectedCourse.lights.length}つ集めて出口へ。`
   : `自機はスマホと一緒に傾かず、最初の上向きを保ちます。${lightColor()}光を${selectedCourse.lights.length}つ集めて出口へ。`;
 
@@ -295,6 +297,8 @@ function applyCourseUI(){
   if(!select.querySelector('option[value="sierra50"]')){const option=document.createElement('option');option.value=SIERRA_COURSE_ID;option.textContent=getCourse(SIERRA_COURSE_ID).name;select.append(option);}
   if(playMode==='flight'&&!select.querySelector('option[value="supersonic"]')){const option=document.createElement('option');option.value='supersonic';option.textContent='高速空域（試作）';select.append(option);}
   const sonicOption=select.querySelector('option[value="supersonic"]');if(sonicOption){sonicOption.hidden=playMode!=='flight';sonicOption.disabled=playMode!=='flight';}
+  if(!select.querySelector('option[value="sierra10"]')){const option=document.createElement('option');option.value=SIERRA10_COURSE_ID;option.textContent=getCourse(SIERRA10_COURSE_ID).name;select.append(option);}
+  const lowOption=select.querySelector('option[value="sierra10"]');lowOption.hidden=playMode!=='flight';lowOption.disabled=playMode!=='flight';
   const sierraOption=select.querySelector('option[value="sierra50"]');
   if(sonicOption&&sonicOption.nextElementSibling!==sierraOption)select.insertBefore(sonicOption,sierraOption);
   if(selectedCourse.id==='legacy'&&!select.querySelector('option[value="legacy"]')){
@@ -302,12 +306,12 @@ function applyCourseUI(){
   }
   select.value=selectedCourse.id;
   const range=COURSE_CRITERIA.difficulties?.[selectedCourse.id]?.cruiseTimeRange;
-  $('course-note').textContent=sonicMode()?'40km四方・門5枚＋出口・ABでM2を試す':selectedCourse.id===SIERRA_COURSE_ID?'推定座標1/50・光A〜F→出口G・レーダー1000m（コース用）':selectedCourse.id==='legacy'?'v0.1.25 比較用（旧配置）':`光${selectedCourse.lights.length}個${range?`・約${range[0]}〜${range[1]}秒`:''}`;
+  $('course-note').textContent=sierra10Mode()?'推定座標1/10・門A〜F→出口G・150〜300m/s・最大9G':sonicMode()?'40km四方・門5枚＋出口・ABでM2を試す':selectedCourse.id===SIERRA_COURSE_ID?'推定座標1/50・光A〜F→出口G・レーダー1000m（コース用）':selectedCourse.id==='legacy'?'v0.1.25 比較用（旧配置）':`光${selectedCourse.lights.length}個${range?`・約${range[0]}〜${range[1]}秒`:''}`;
 }
 function applyModeUI() {
   applyCourseUI();
   const flight = playMode === 'flight';
-  sonicPanel?.setActive(sonicMode());app.dataset.profile=sonicMode()?'supersonic':'normal';
+  sonicPanel?.setCourse(selectedCourse);sonicPanel?.setActive(sonicMode());app.dataset.profile=sonicMode()?'supersonic':'normal';
   const twistSteering = flightSteering === 'twist',wristSteering=flightSteering === 'wrist';
   const basics = $('basic-controls'), guide = $('control-guide');
   if (flight) basics.append(guide);
@@ -365,7 +369,7 @@ function applyModeUI() {
   $('guide-steer-glyph').classList.toggle('twist-glyph', flight && (twistSteering||wristSteering));
   $('guide-steer-glyph').classList.toggle('steer-glyph', !flight || !(twistSteering||wristSteering));
   $('guide-twist-title').textContent = flight ? '画面下のスロットル' : 'スマホを左右に回して保つ';
-  $('guide-twist-text').textContent = sonicMode()?'110%でAB点火・100%へ戻すと解除。燃料は設定で無制限／ゲージを選べます。':flight ? '光・低空でAB補充／110%点火・100%解除' : '右回しで上、左回しで下へ曲がる';
+  $('guide-twist-text').textContent = sierra10Mode()?'110%でAB点火・100%で解除。門の通過と低空で燃料を補充します。':sonicMode()?'110%でAB点火・100%へ戻すと解除。燃料は設定で無制限／ゲージを選べます。':flight ? '光・低空でAB補充／110%点火・100%解除' : '右回しで上、左回しで下へ曲がる';
   $('guide-third-glyph').textContent = flight ? '⇄' : '↻';
   $('guide-third-glyph').classList.toggle('twist-glyph', !flight);
   $('keyboard-guide').textContent = flight ? 'W・S 機首の上・下\nA・D 旋回 / Q・E 出力の弱・強' : 'W 加速 / S ブレーキ\nA・D 左右 / Q・E 下・上';
@@ -1006,14 +1010,14 @@ function updateHud(now, state) {
   $('cockpit-exit-notice').textContent=hudText(language,'exitOpen')+(state.pointName?` · ${state.pointName}`:'');
   const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive,language,inlineParent:$('flight-essential-height')});
   updateEssentialHud({...state,inputHeld},{phase,mode:playMode,camera:cameraMode,language});
-  updateRadar(state, { phase, visibility, range: state.supersonic?sonicPanel.getSettings().radarRange:courseRadarRange(selectedCourse,settings.radarRange),language,extraObstacles:state.supersonic?sonicPanel.getObstacleRects():[] });
-  if(selectedCourse.id===SIERRA_COURSE_ID)app.dataset.courseRadar=JSON.stringify({effectiveRange:1000,savedRange:settings.radarRange,source:'course-profile'});else delete app.dataset.courseRadar;
+  updateRadar(state, { phase, visibility, range: state.supersonic?courseRadarRange(selectedCourse,sonicPanel.getSettings().radarRange):courseRadarRange(selectedCourse,settings.radarRange),language,extraObstacles:state.supersonic?sonicPanel.getObstacleRects():[] });
+  if([SIERRA_COURSE_ID,SIERRA10_COURSE_ID].includes(selectedCourse.id))app.dataset.courseRadar=JSON.stringify({effectiveRange:courseRadarRange(selectedCourse,settings.radarRange),savedRange:settings.radarRange,source:'course-profile'});else delete app.dataset.courseRadar;
   const cockpitLayout = layoutCockpitHud(cockpitActive);
   if(state.supersonic){
     updateCockpitHud({...state,inputHeld},cockpitActive,cockpitLayout,{...settings,hudLanguage:language},heightGuide);
     sonicPanel.updateState(state,{phase,camera:cameraMode,now,hudLanguage:language});
     const sonicObstacles=sonicPanel.getObstacleRects();
-    updateRadar(state,{phase,visibility,range:sonicPanel.getSettings().radarRange,language,extraObstacles:sonicObstacles});
+    updateRadar(state,{phase,visibility,range:courseRadarRange(selectedCourse,sonicPanel.getSettings().radarRange),language,extraObstacles:sonicObstacles});
     updateEdgeMarker(state,language,sonicObstacles);layoutCockpitObjective(cockpitLayout,sonicObstacles);
   }else{
     updateEdgeMarker(state,language);
@@ -1103,7 +1107,7 @@ function frame(now) {
       halt();
       setPhase('complete');
       feedback.event('clear');
-      dialog({ title: '出口に到着しました', description: sonicMode()?'5枚の門と出口を通過しました。高速空域クリア。':playMode === 'flight' ? `${state.total}つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？` : `${state.total}つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？`, note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
+      dialog({ title: '出口に到着しました', description: sierra10Mode()?'A〜Fの門とGの出口を通過しました。シエラ1/10クリア。':sonicMode()?'5枚の門と出口を通過しました。高速空域クリア。':playMode === 'flight' ? `${state.total}つの光を集めて飛行クリア。傾きとスロットルは操作しやすかったですか？` : `${state.total}つの光を集めて、探索クリア。傾きと回転は操作しやすかったですか？`, note: '楽な持ち方に戻してから、もう一度試せます。', action: 'もう一度遊ぶ' });
       flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'clear', flightSession.lastLegSnapshot()));
       flowCoordinator?.result({newBest:courseTime?.newBest===true});
     }
@@ -1117,12 +1121,12 @@ function frame(now) {
           : `${s.inputPitch < 0 ? '前倒し' : '手前へ起こし'}${Math.round(Math.abs(s.inputPitch))}°`;
         description = `接地直前：出力${Math.round(s.throttle * 100)}%・${noseText}・下降${Math.max(0, -s.verticalSpeed).toFixed(1)}m/s。前後操作：${operation}。`;
       }
-      if(sonicMode())description=`機体の一部が海面に接触しました。中心高度${state.altitude.toFixed(2)}m／最下部の海面からの高さ${state.groundClearance.toFixed(2)}m。`;
-      pause(sonicMode()?'機体が海面に接触して停止しました。最初から飛び直せます。':'地面に接触して停止しました。最初から飛び直せます。');
+      if(sonicMode())description=`機体の一部が${sierra10Mode()?'地面':'海面'}に接触しました。中心高度${state.altitude.toFixed(2)}m／最下部の${sierra10Mode()?'地面':'海面'}からの高さ${state.groundClearance.toFixed(2)}m。`;
+      pause(sonicMode()?`機体が${sierra10Mode()?'地面':'海面'}に接触して停止しました。最初から飛び直せます。`:'地面に接触して停止しました。最初から飛び直せます。');
       feedback.event('crash');
-      dialog({ title: sonicMode()?'海面に接触して停止':'地面に接触して停止', description, note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
+      dialog({ title: sonicMode()?`${sierra10Mode()?'地面':'海面'}に接触して停止`:'地面に接触して停止', description, note: '飛び直すと出発地点から出力50%で始まります。', action: '最初から飛び直す' });
       flightPanel.showResult(flightPanel.report(flightSession.snapshot(), 'grounded', flightSession.lastLegSnapshot()));
-      flowCoordinator?.result(sonicMode()?{title:'海面に接触しました',description}:undefined);
+      flowCoordinator?.result(sonicMode()?{title:sierra10Mode()?'地面に接触しました':'海面に接触しました',description}:undefined);
     }
     updateHud(now, state);
     updateCockpitObjective(state,playMode==='flight'&&cameraMode==='cockpit'&&phase==='running',{language:phase==='running'?flightPanel.getSettings().hudLanguage:'ja'});
@@ -1146,10 +1150,10 @@ function prepareFlowFresh({preserveSession=false}={}){
 }
 function courseCard(id){
   const course=getCourse(id),range=COURSE_CRITERIA.difficulties[id]?.cruiseTimeRange;
-  const bestSeconds=id==='supersonic'?sonicBests.best(supersonicBestKey(createSupersonicProfile(sonicPanel.getSettings()),course)):courseBests.best(course,playMode);
-  return {id,name:course.name,targetCount:course.lights.length,timeHint:range?'目安 '+range[0]+'〜'+range[1]+'秒':'',bestSeconds,bestLabel:formatCourseTime(bestSeconds),previewSvg:createCoursePreviewSVG(course),
+  const bestSeconds=isSupersonicCourse(course)?sonicBests.best(supersonicBestKey(createSupersonicProfile(sonicPanel.getSettings(),course),course)):courseBests.best(course,playMode);
+  return {id,name:course.name,choiceLabel:course.choiceLabel,choiceDetail:course.choiceDetail,targetCount:course.lights.length,timeHint:range?'目安 '+range[0]+'〜'+range[1]+'秒':'',bestSeconds,bestLabel:formatCourseTime(bestSeconds),previewSvg:createCoursePreviewSVG(course),
     createPreviewSVG:({width,height})=>createCoursePreviewSVG(course,{width,height,featured:true}),
-    ...(id==='supersonic'?{detail:'門5枚＋出口 · 40km四方 · ABでM2'}:id===SIERRA_COURSE_ID?{detail:'光A〜F→出口G · 推定地理1/50 · 約3.9km',timeHint:'巡航の直線目安 約6分49秒（旋回を含まない）'}:{})};
+    ...(id===SIERRA10_COURSE_ID?{detail:'門A〜F→出口G · 推定地理1/10 · 約19.9km · 亜音速',timeHint:'150〜300m/s・高度60〜139m・最大9G'}:id==='supersonic'?{detail:'門5枚＋出口 · 40km四方 · ABでM2'}:id===SIERRA_COURSE_ID?{detail:'光A〜F→出口G · 推定地理1/50 · 約3.9km',timeHint:'巡航の直線目安 約6分49秒（旋回を含まない）'}:{})};
 }
 function cancelFlowPending(fresh){
   permissionAttempt++;flowPermissionAwaiting=false;pendingCalibration=false;clearTimeout(waitingTimer);pwa.cancelEntry();halt();reference=null;

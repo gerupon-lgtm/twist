@@ -71,7 +71,7 @@ async function inspectBriefing(page,course,size,reduced){
   await page.locator('#briefing-skip').click();await step(page,'pose');await page.locator('#start-flow-pose-back').click();await step(page,'courses');
 }
 
-for(const size of sizes)test(`real title, selected five routes and briefing remain readable ${size.width}x${size.height}`,async({page})=>{
+for(const size of sizes)test(`real title, selected six routes and briefing remain readable ${size.width}x${size.height}`,async({page})=>{
   test.setTimeout(60000);const reduced=size.width===390,errors=await boot(page,{size,oldBest:80,map:'every',android:true,reduced});
   await expect(page.locator('.flow-title-copy>p')).toHaveText('Tilt to Play.');
   await expect(page.locator('.flow-author-signature')).toHaveText('SIKUMI LAB');await expect(page.locator('#start-flow-version')).toHaveText('v'+APP_VERSION);
@@ -102,7 +102,7 @@ for(const size of sizes)test(`real title, selected five routes and briefing rema
   await expect(page.locator('canvas')).toHaveCount(1);await expect(page.locator('canvas#world')).toHaveCount(1);await uniqueIds(page);await proof(page,`title-${size.width}x${size.height}`,{aircraft,reduced});
   await page.locator('#start-flow-title-settings').click();await step(page,'settings');await page.keyboard.press('Escape');await step(page,'title');
   await page.locator('#start-flow-start').focus();await page.keyboard.press('Enter');await step(page,'courses');
-  const cards=page.locator('#start-flow-course-cards [data-course-id]');await expect(cards).toHaveCount(5);expect(await cards.evaluateAll(elements=>elements.map(e=>e.dataset.courseId))).toEqual(['easy','normal','hard','supersonic','sierra50']);
+  const cards=page.locator('#start-flow-course-cards [data-course-id]');await expect(cards).toHaveCount(6);expect(await cards.evaluateAll(elements=>elements.map(e=>e.dataset.courseId))).toEqual(['easy','normal','hard','supersonic','sierra50','sierra10']);
   const shapes=new Set();
   for(const id of PLAYABLE_COURSE_IDS){
     const course=getCourse(id),card=page.locator(`#start-flow-course-cards [data-course-id="${id}"]`);await card.click();await expect(card).toHaveAttribute('aria-pressed','true');
@@ -120,7 +120,7 @@ for(const size of sizes)test(`real title, selected five routes and briefing rema
     await noScroll(page);const frozen=await read(page);expect(frozen.phase).toBe('intro');expect(frozen.session.elapsedSeconds).toBe(0);expect(frozen.startup.flightStartedAt).toBeNull();await proof(page,`course-${id}-${size.width}x${size.height}`,{geometry});
     await inspectBriefing(page,course,size,reduced);
   }
-  expect(shapes.size).toBe(5);const easy=page.locator('#start-flow-course-cards [data-course-id=easy]');await easy.focus();await page.keyboard.press('Space');await expect(easy).toBeFocused();await expect(page.locator('#start-flow-selected-course')).toHaveAttribute('data-selected-course-id','easy');
+  expect(shapes.size).toBe(6);const easy=page.locator('#start-flow-course-cards [data-course-id=easy]');await easy.focus();await page.keyboard.press('Space');await expect(easy).toBeFocused();await expect(page.locator('#start-flow-selected-course')).toHaveAttribute('data-selected-course-id','easy');
   if(reduced)expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
   expect(await page.evaluate(()=>[menuAudioContexts,menuVibrations])).toEqual([0,0]);await uniqueIds(page);expect(errors).toEqual([]);
 });

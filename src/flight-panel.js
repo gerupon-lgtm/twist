@@ -170,8 +170,8 @@ export function createFlightPanel(getModes) {
       if(sonic){
         const number=(value,digits=1,unit='')=>Number.isFinite(value)?value.toFixed(digits)+unit:'未到達';
         sonicSummaryValue.textContent=`最高 M ${number(sonic.maximumMach,2)} · 最大 ${number(sonic.maximumG,1,'G')}\nM1 ${number(sonic.firstMach1ActiveSeconds,1,'秒')} / M2 ${number(sonic.firstMach2ActiveSeconds,1,'秒')}`;
-        const heading=document.createElement('h3');heading.textContent='高速空域（最後の1回）';const list=document.createElement('dl');list.className='result-readings';
-        for(const [name,value] of [['最高マッハ数',number(sonic.maximumMach,2)],['M1まで（活動時間）',number(sonic.firstMach1ActiveSeconds,3,'秒')],['M2まで（活動時間）',number(sonic.firstMach2ActiveSeconds,3,'秒')],['最大G',number(sonic.maximumG,2,'G')],['最低の中心高度',number(sonic.minimumSeaAltitude,2,'m')],['機体最下部の最低高さ',number(sonic.minimumSeaClearance,2,'m')],['燃料方式',sonic.fuelMode==='unlimited'?'無制限':'ゲージ']]){
+        const heading=document.createElement('h3');heading.textContent=report.course?.id==='sierra10'?'シエラ1/10（最後の1回）':'高速空域（最後の1回）';const list=document.createElement('dl');list.className='result-readings';
+        for(const [name,value] of [['最高速度',number(sonic.maximumSpeed,1,'m/s')],['最高マッハ数',number(sonic.maximumMach,2)],['M1まで（活動時間）',number(sonic.firstMach1ActiveSeconds,3,'秒')],['M2まで（活動時間）',number(sonic.firstMach2ActiveSeconds,3,'秒')],['最大G',number(sonic.maximumG,2,'G')],['最低の中心高度',number(sonic.minimumSeaAltitude,2,'m')],['機体最下部の最低高さ',number(sonic.minimumSeaClearance,2,'m')],['燃料方式',sonic.fuelMode==='unlimited'?'無制限':'ゲージ']]){
           const row=document.createElement('div'),label=document.createElement('dt'),valueElement=document.createElement('dd');label.textContent=name;valueElement.textContent=value;row.append(label,valueElement);list.append(row);
         }
         sonicDetails.replaceChildren(heading,list);
@@ -226,7 +226,7 @@ export function createFlightPanel(getModes) {
     setPhase(phase, mode) {
       $('flight-adjustments').hidden = phase !== 'paused';
       const inactiveSteering = inactiveSteeringSettings(getModes().steer);
-      const sonic=getModes().course?.id==='supersonic';
+      const sonic=['supersonic','sierra10'].includes(getModes().course?.id);
       wristPresets.hidden=mode!=='flight'||getModes().steer!=='wrist';
       for (const label of $('flight-settings-fields').querySelectorAll('label[data-setting-key]')) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','speedUnit','streakAmount','groundPatternStrength'].includes(label.dataset.settingKey))
         || inactiveSteering.includes(label.dataset.settingKey)||(sonic&&['maxPitch','timeConstant','maxBank','turnGravity','radarRange','groundPatternStrength'].includes(label.dataset.settingKey));

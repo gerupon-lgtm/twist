@@ -51,11 +51,12 @@ test('the new trilogy advances on retry and keeps the same score on pause/resume
 });
 
 test('a missing new track falls back without silencing the other two or existing songs',async({page})=>{
-  await page.route('**/music/horizon.mid?*',route=>route.fulfill({status:404,body:''}));
+  let missingRequests=0;await page.route('**/music/horizon.mid?*',route=>{missingRequests++;return route.fulfill({status:404,body:''});});
   await page.goto('/?mode=flight&course=legacy&music=newrock');await page.locator('#practice-button').click();
-  await expect.poll(async()=>(await music(page)).flightTracks).toEqual(['鋼翼の鼓動','嵐を越えて']);
+  await expect.poll(async()=>(await music(page)).flightTracks).toEqual(songs.map(([,title])=>title));expect(missingRequests).toBe(0);
   await crashAndRetry(page);
   await expect.poll(async()=>(await music(page)).trackId).toBe('storm');
+  expect(missingRequests).toBeGreaterThan(0);await expect.poll(async()=>(await music(page)).flightTracks).toEqual(['鋼翼の鼓動','嵐を越えて']);
   await page.goto('/?mode=explore&music=horizon');await page.locator('#practice-button').click();
   await expect.poll(async()=>(await music(page)).trackId).toBe('rock');
 });

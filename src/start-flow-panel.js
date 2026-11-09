@@ -149,7 +149,7 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     for(const card of cards){
       const element=document.createElement('button');element.type='button';element.className='flow-course-card';element.dataset.flowAction='course-select';element.dataset.courseId=card.id;element.setAttribute('aria-pressed',String(card.id===selectedCourseId));
       const description=document.createElement('span');description.className='flow-course-description';
-      const [label,...remainder]=String(card.name).split('・'),title=document.createElement('strong');title.textContent=label;
+      const [label,...remainder]=card.choiceLabel?[card.choiceLabel,card.choiceDetail??'']:String(card.name).split('・'),title=document.createElement('strong');title.textContent=label;
       const hint=document.createElement('span');hint.textContent=remainder.join('・')||(card.detail?String(card.detail).split(' · ')[0]:`${card.targetCount??''}個の目標`);
       element.setAttribute('aria-label',`${card.name}。${courseDetail(card)}。${courseBest(card)}`);description.append(title,hint);element.append(description);list.append(element);
       if(card.id===focusedCourse)replacementFocus=element;

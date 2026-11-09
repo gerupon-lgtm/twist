@@ -5,6 +5,27 @@ import {createMusicPlayer} from '../src/music/player.js';
 const config=JSON.parse(await readFile(new URL('../public/music/tracks.json',import.meta.url),'utf8'));
 const midi=new Map(await Promise.all(config.catalog.preview.map(async id=>[config[id].file,new Uint8Array(await readFile(new URL('../public/music/'+config[id].file,import.meta.url)))])));
 const flush=async()=>{for(let i=0;i<160;i++)await Promise.resolve();};
+test('an unrequested song stays unknown and cannot delay a fresh third-leg selection',async t=>{
+  const requests=[],clock={now:()=>0,setScheduleTime(){},write(){},event(){}};
+  const audio={musicClock:clock,stopMusic(){},setMusicGain(){},configure(){},suspendIfIdle(){},waitForReady:async()=>true,resume:async()=>{}};
+  const fetchFile=async url=>{const file=new URL(url).pathname.split('/').pop();requests.push(file);if(file==='tracks.json')return {ok:true,json:async()=>config};return {ok:file!=='advance.mid',arrayBuffer:async()=>midi.get(file).slice().buffer};};
+  const player=createMusicPlayer(audio,{fetchFile,base:new URL('https://example.test/music/')});t.after(()=>player.stop());
+  player.setSettings({sound:true,bgm:true,sfx:true,musicSet:'proposals',musicEngine:'scc'});player.setFlightNumber(3);
+  assert.equal(await player.play('flight'),'played');assert.equal(player.snapshot().trackId,'overdrive');assert.ok(!requests.includes('advance.mid'));
+  assert.deepEqual(player.snapshot().flightTracks,['Ignition Sky','Steel Advance','Overdrive Horizon']);
+});
+test('a lazily discovered missing second song preserves the filtered playlist leg order',async t=>{
+  const requests=[],clock={now:()=>0,setScheduleTime(){},write(){},event(){}};
+  const audio={musicClock:clock,stopMusic(){},setMusicGain(){},configure(){},suspendIfIdle(){},waitForReady:async()=>true,resume:async()=>{}};
+  const fetchFile=async url=>{const file=new URL(url).pathname.split('/').pop();requests.push(file);if(file==='tracks.json')return {ok:true,json:async()=>config};return {ok:file!=='advance.mid',arrayBuffer:async()=>midi.get(file).slice().buffer};};
+  const player=createMusicPlayer(audio,{fetchFile,base:new URL('https://example.test/music/')});t.after(()=>player.stop());
+  player.setSettings({sound:true,bgm:true,sfx:true,musicSet:'proposals',musicEngine:'scc'});
+  assert.equal(await player.play('flight'),'played');assert.equal(player.snapshot().trackId,'ignition');assert.ok(!requests.includes('advance.mid'));
+  player.stop();player.setFlightNumber(2);assert.equal(await player.play('flight'),'played');assert.equal(player.snapshot().trackId,'overdrive');
+  assert.deepEqual(player.snapshot().flightTracks,['Ignition Sky','Overdrive Horizon']);assert.equal(requests.filter(file=>file==='advance.mid').length,1);
+  player.stop();assert.equal(await player.play('flight'),'played');assert.equal(player.snapshot().trackId,'overdrive');
+  player.stop();player.setFlightNumber(3);assert.equal(await player.play('flight'),'played');assert.equal(player.snapshot().trackId,'ignition');
+});
 test('first SCC flight does not wait for an unrelated MIDI stalled during warmup',async t=>{
   let release;const blocked=new Promise(resolve=>{release=resolve;}),requests=[],writes=[];
   const clock={now:()=>0,setScheduleTime(){},write:(...args)=>writes.push(args),event(){}};

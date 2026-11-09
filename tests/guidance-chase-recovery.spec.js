@@ -59,8 +59,16 @@ async function read(page,settings){
   return state;
 }
 async function launch(page,camera){
-  await page.setViewportSize({width:390,height:844});await page.clock.install();
+  await page.setViewportSize({width:390,height:844});
+  // Pause before navigation at one absolute instant. Pausing relative to the
+  // variable page-load time changed the first flight frame by up to one RAF.
+  const clockStart=new Date('2026-11-09T00:00:00.000Z');
+  await page.clock.install({time:clockStart});await page.clock.pauseAt(new Date(+clockStart+1000));
   await page.addInitScript(camera=>{
+    // Compare input tapes on one timer-based 16ms frame grid, rather than each
+    // navigation's independently phased browser rAF grid. Rendering stays real.
+    window.requestAnimationFrame=callback=>setTimeout(()=>callback(performance.now()),16);
+    window.cancelAnimationFrame=handle=>clearTimeout(handle);
     localStorage.setItem('twist.start-flow.v1',JSON.stringify({tutorialSeen:true,inputMethod:'practice',camera}));
     localStorage.setItem('twist.briefing.v1',JSON.stringify({version:1,mode:'off',seen:[]}));
     localStorage.removeItem('twist.flight-settings.v1');
@@ -68,7 +76,7 @@ async function launch(page,camera){
     Object.defineProperty(Element.prototype,'requestFullscreen',{value:undefined,writable:true,configurable:true});
   },camera);
   await page.goto(`/?course=easy&camera=${camera}&mode=flight&view=assisted&steer=tilt&pitch=angle&display=bank`);
-  await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));await page.clock.runFor(100);await phase(page,'title');
+  await page.clock.runFor(100);await phase(page,'title');
   await page.locator('#start-flow-start').click();await phase(page,'courses');await page.locator('#start-flow-course-start').click();await phase(page,'pose');
   await page.locator('#start-flow-hold').click();await phase(page,'countdown');await waitForCountdownThree(page);await expect(page.locator('#start-flow-countdown')).toHaveText('3');
   await page.clock.runFor(3040);await expect(page.locator('#app')).toHaveAttribute('data-phase','running');
@@ -101,6 +109,7 @@ async function seed(page,settings,trace){
   const state=await read(page,settings);
   expect(seedMatches(state),'Real-control seed did not reach ALT19/TGT24/near-right corner; preserve trace instead of injecting a pose: '+JSON.stringify(state)).toBe(true);
   if(sharedSeedState){
+    expect(Math.abs(state.session.elapsedSeconds-sharedSeedState.session.elapsedSeconds),'The same input tape must cover the same physical duration').toBeLessThan(1e-8);
     expect(Math.hypot(state.position.x-sharedSeedState.position.x,state.position.y-sharedSeedState.position.y,state.position.z-sharedSeedState.position.z),'Same input tape must reach a matching physical seed').toBeLessThan(.15);
     expect(Math.abs(state.speed-sharedSeedState.speed)).toBeLessThan(.01);
     expect(Math.abs(state.pitch-sharedSeedState.pitch)).toBeLessThan(.01);
@@ -115,7 +124,8 @@ function followDisplayedFd({ready,direction,velocity,pitch,speed,turnGravity},se
   if(!ready||!direction)return {pitch:0,steer:0,twist:0};
   const track=Math.atan2(velocity.x,-velocity.z),climb=Math.atan2(velocity.y,Math.hypot(velocity.x,velocity.z));
   const fdTrack=Math.atan2(direction.x,-direction.z),fdClimb=Math.atan2(direction.y,Math.hypot(direction.x,direction.z));
-  return controlAngles(clamp(pitch+1.5*(fdClimb-climb),-15*rad,15*rad),clamp(Math.atan(wrap(fdTrack-track)*1.5*Math.max(speed,6)/turnGravity),-30*rad,30*rad),settings);
+  // Respond within roughly half a second while retaining the original 30° cap.
+  return controlAngles(clamp(pitch+1.5*(fdClimb-climb),-15*rad,15*rad),clamp(Math.atan(wrap(fdTrack-track)*2*Math.max(speed,6)/turnGravity),-30*rad,30*rad),settings);
 }
 
 for(const camera of ['chase','cockpit'])for(const throttle of [50,65])test(`normal easy FD-only near-height recovery ${camera} fixed THR${throttle}`,async({page})=>{

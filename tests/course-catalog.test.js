@@ -10,7 +10,7 @@ test('additional courses preserve the exact three normal and comparison objects 
  assert.equal(getCourse('legacy'),LEGACY_COURSE);assert.equal(getCourse('__proto__'),COURSES.easy);
  assert.deepEqual(NORMAL_COURSE_IDS,['easy','normal','hard']);
  assert.deepEqual(ORDINARY_COURSE_IDS,['easy','normal','hard','sierra50']);
- assert.deepEqual(PLAYABLE_COURSE_IDS,['easy','normal','hard','supersonic','sierra50']);
+ assert.deepEqual(PLAYABLE_COURSE_IDS,['easy','normal','hard','supersonic','sierra50','sierra10']);
 });
 test('high-speed URL selection and persistence use the existing explicit course preference boundary',()=>{
  const values=new Map([[COURSE_STORAGE_KEY,'normal']]);
