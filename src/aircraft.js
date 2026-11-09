@@ -39,17 +39,45 @@ export function createAircraft() {
     const item = mesh(new THREE.ConeGeometry(.2,1,10),flame,side*.42,-.16,2.25);
     item.rotation.x = Math.PI / 2; return item;
   });
+  // Supersonic presentation only. Ordinary-course exhaust stays unchanged.
+  const sonicPlume=new THREE.Group();sonicPlume.name='supersonic-engine-plumes';group.add(sonicPlume);
+  const outerFlame=new THREE.MeshBasicMaterial({color:0xff9e45,transparent:true,opacity:.6,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
+  const coreFlame=new THREE.MeshBasicMaterial({color:0xd8f0ff,transparent:true,opacity:.9,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
+  const blueFlame=new THREE.MeshBasicMaterial({color:0x688fff,transparent:true,opacity:.65,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
+  const plumeGeometry=new THREE.ConeGeometry(1,1,16),diamondGeometry=new THREE.OctahedronGeometry(1,0);
+  const plumeParts=[];
+  for(const side of [-1,1]){
+    const engine=new THREE.Group();engine.position.set(side*.42,-.16,2.2);sonicPlume.add(engine);
+    for(const [material,radius,length]of [[outerFlame,.4,1],[blueFlame,.24,.8],[coreFlame,.11,.5]]){
+      const plume=new THREE.Mesh(plumeGeometry,material);plume.rotation.x=Math.PI/2;plume.scale.set(radius,length,radius);plume.position.z=length/2;engine.add(plume);
+    }
+    for(let i=0;i<4;i++){
+      const diamond=new THREE.Mesh(diamondGeometry,coreFlame);diamond.scale.set(.11-i*.012,.11-i*.012,.12);diamond.position.z=.22+i*.18;engine.add(diamond);
+    }
+    plumeParts.push(engine);
+  }
   let power = 0, afterburnerActive=false;
-  function setPower(value,afterburner=false) {
+  let sonicAmount=0,sonicLength=0;
+  function setPower(value,afterburner=false,sonic={}) {
     power = THREE.MathUtils.clamp(Number.isFinite(value) ? value : 0,0,1);
     afterburnerActive=afterburner===true&&power>0;
     flame.opacity = afterburnerActive ? .82+.18*power : .3 + .65 * power;
     flame.color.setHex(afterburnerActive?0xfff0b0:0x93e5ff);
     exhaust.forEach(item => { item.visible = power > 0; item.scale.set(afterburnerActive?1.55:1,(.15 + 1.35*power)*(afterburnerActive?2.1:1),afterburnerActive?1.55:1);
       item.position.z = 2.2 + item.scale.y / 2; });
+    sonicAmount=THREE.MathUtils.clamp(((sonic.mach??0)-1)/.06,0,1);
+    sonicPlume.visible=sonicAmount>0&&power>0;
+    const time=Number.isFinite(sonic.timeSeconds)?sonic.timeSeconds:0;
+    const flicker=1+.035*Math.sin(time*37)+.02*Math.sin(time*61);
+    sonicLength=(1.5+3.8*power)*(afterburnerActive?1.3:1)*flicker;
+    for(const engine of plumeParts)engine.scale.set(1+.12*Math.sin(time*29),1,sonicLength);
+    outerFlame.opacity=.6*sonicAmount;blueFlame.opacity=.65*sonicAmount;coreFlame.opacity=.9*sonicAmount;
+    if(sonicPlume.visible)exhaust.forEach(item=>{item.visible=false;});
   }
   setPower(0);
   return { group, setPower, diagnostics: () => ({ engines: 2, power, exhaustVisible: power > 0,
     exhaustLength: power > 0 ? (.15+1.35*power)*(afterburnerActive?2.1:1) : 0,
-    exhaustOpacity: power > 0 ? flame.opacity : 0, afterburner:afterburnerActive }) };
+    exhaustOpacity: power > 0 ? flame.opacity : 0, afterburner:afterburnerActive,
+    sonicExhaust:sonicPlume.visible,sonicExhaustLength:sonicPlume.visible?sonicLength:0,
+    sonicExhaustColors:{core:coreFlame.color.getHex(),outer:outerFlame.color.getHex(),blue:blueFlame.color.getHex()} }) };
 }

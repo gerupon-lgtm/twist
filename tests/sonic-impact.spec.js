@@ -1,0 +1,35 @@
+import {test,expect} from '@playwright/test';
+import {writeFile} from 'node:fs/promises';
+import {APP_VERSION} from '../src/version.js';
+for(const camera of ['overlay','chase','cockpit'])test(`actual Mach crossing has a pressure wave and powered plumes in ${camera}`,async({page})=>{
+  test.setTimeout(45000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.addInitScript(camera=>{
+    localStorage.setItem('twist.start-flow.v1',JSON.stringify({tutorialSeen:true,inputMethod:'practice',camera}));
+    localStorage.setItem('twist.briefing.v1',JSON.stringify({version:1,mode:'off',seen:[]}));
+    localStorage.setItem('twist.feedback-settings.v1',JSON.stringify({sound:true,bgm:false,sfx:true,vibration:false}));
+    Object.defineProperty(Element.prototype,'requestFullscreen',{value:undefined,writable:true,configurable:true});
+  },camera);
+  await page.goto(`/?course=supersonic&camera=${camera}&v=${APP_VERSION}`);
+  await page.locator('#start-flow-start').click();await page.locator('#start-flow-course-start').click();await page.locator('#start-flow-hold').click();
+  await expect(page.locator('#app')).toHaveAttribute('data-phase','running',{timeout:12000});
+  const status=()=>page.locator('#app').evaluate(el=>JSON.parse(el.dataset.supersonic));
+  await page.locator('#throttle-input').press('End');
+  await expect.poll(async()=>(await status()).renderDiagnostics.speedEffects.sonicBurst,{timeout:18000,intervals:[30]}).toBeGreaterThan(.15);
+  const burst=await status();
+  expect(burst.renderDiagnostics.speedEffects.shockVisible).toBe(true);
+  expect(burst.renderDiagnostics.cameraMode).toBe(camera);
+  expect(burst.renderDiagnostics.speedEffects.wakeVisible).toBe(camera==='chase');
+  await page.screenshot({path:`.cache/v${APP_VERSION.replaceAll('.','')}-sonic-${camera}.png`});
+  await expect.poll(async()=>(await status()).mach,{timeout:10000}).toBeGreaterThan(1.15);
+  const sustained=await status();
+  expect(sustained.renderDiagnostics.aircraft.sonicExhaust).toBe(true);
+  expect(sustained.renderDiagnostics.aircraft.sonicExhaustLength).toBeGreaterThan(5);
+  await page.waitForTimeout(1000);
+  expect((await status()).renderDiagnostics.speedEffects.shockVisible).toBe(false);
+  await page.screenshot({path:`.cache/v${APP_VERSION.replaceAll('.','')}-plumes-${camera}.png`});
+  const audio=await page.locator('#feedback-diagnostics').evaluate(el=>JSON.parse(el.dataset.audio));
+  expect(audio.sonic.accepted).toBe(1);expect(audio.peak).toBeLessThanOrEqual(1);
+  await page.locator('#pause-button').click();expect((await status()).renderDiagnostics.speedEffects.shockVisible).toBe(false);
+  expect(errors).toEqual([]);
+  await writeFile(`.cache/v${APP_VERSION.replaceAll('.','')}-impact-${camera}.json`,JSON.stringify({camera,burst,sustained,audio,errors},null,2));
+});

@@ -22,7 +22,7 @@ for(const base of ['/','/twist/']) test(`${base} loads manifest, icons, 3D and n
     return {manifestURL,manifest,icons,appleSize,scope:reg.scope,scriptURL:reg.active.scriptURL,caches:await caches.keys()};
   });
   expect(new URL(info.manifestURL).pathname).toBe(`${base}manifest.webmanifest`);
-  expect(info.manifest).toMatchObject({name:'twist',short_name:'twist',display:'fullscreen',orientation:'any',scope:'./',theme_color:'#dcebf1',background_color:'#dcebf1'});
+  expect(info.manifest).toMatchObject({name:'TWIST VECTOR',short_name:'TWIST VECTOR',display:'fullscreen',orientation:'any',scope:'./',theme_color:'#dcebf1',background_color:'#dcebf1'});
   const start=new URL(info.manifest.start_url,info.manifestURL);
   expect(start.pathname).toBe(base);expect(Object.fromEntries(start.searchParams)).toMatchObject({mode:'flight',view:'assisted',pitch:'angle',v:'0.1.43'});expect(start.searchParams.get('steer')).toBeNull();
   expect(info.icons.map(x=>[x.width,x.height,x.purpose])).toEqual([[192,192,'any'],[512,512,'any'],[512,512,'maskable']]);

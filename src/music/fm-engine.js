@@ -59,6 +59,7 @@ export class FmEngine{
         const sustain=p.indexSustain??.2,index=Math.min(maxIndex,p.index*(sustain+(1-sustain)*Math.exp(-v.age/(p.modDecay*rate))));
         v.modulator=wrap(v.modulator+modFrequency/rate);v.carrier=wrap(v.carrier+(frequency+modFrequency*index*sine(v.modulator))/rate);
         let sample=sine(v.carrier);
+        if(p.body)sample=sample*(1-p.body)+sine(v.modulator)*p.body;
         if(p.drive){const x=clamp(sample*p.drive,-3,3),square=x*x;sample=x*(27+square)/(27+9*square);v.filtered+=filter*(sample-v.filtered);sample=v.filtered;}
         out[i]+=sample*v.level*gain;v.age++;
       }

@@ -59,10 +59,11 @@ export function createSupersonicRenderer(canvas,{course,visibility='assisted',di
     world.sync(origin,time,state);relativeToOrigin(state.position,origin,worldJet.group.position);worldJet.group.quaternion.copy(body);
     // The actual external solid stays scale1 and uses the same pose as the contact hull.
     worldJet.group.visible=mode==='chase';craft.visible=mode==='overlay';
-    worldJet.setPower(state.throttle,state.afterburner?.active);overlayJet.setPower(state.throttle,state.afterburner?.active);
+    const exhaustState={mach:phase==='running'&&!state.grounded&&!state.complete?state.mach:0,timeSeconds:time};
+    worldJet.setPower(state.throttle,state.afterburner?.active,exhaustState);overlayJet.setPower(state.throttle,state.afterburner?.active,exhaustState);
     const effectParent=mode==='overlay'?overlayJet.group:worldJet.group;if(effects.craftGroup.parent!==effectParent)effectParent.add(effects.craftGroup);
-    effects.update({state:{...state,supersonic:state.supersonic??{mach:state.mach}},camera:mode,phase:state.grounded||state.complete?'terminal':phase,
-      verticalFov:camera.fov,aspect:width/height,timeSeconds:time,settings});
+    effects.update({state:{...state,supersonic:{mach:state.mach,attemptId:state.attemptId,events:options.events??[]}},camera:mode,phase:state.grounded||state.complete?'terminal':phase,
+      verticalFov:camera.fov,aspect:width/height,timeSeconds:time,settings:{...settings,reducedMotion:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches??false}});
     root.updateMatrixWorld(true);camera.updateMatrixWorld(true);render();
   }
   function resize(w,h,pixelRatio=1){if(disposed)return;width=Math.max(1,finite(w,1));height=Math.max(1,finite(h,1));ratio=THREE.MathUtils.clamp(finite(pixelRatio,1),.5,1.6);renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);

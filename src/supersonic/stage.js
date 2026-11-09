@@ -45,7 +45,7 @@ export function createSupersonicStageAdapter(renderer,{course=SUPERSONIC_COURSE,
   const clearFrame=()=>{events=EMPTY;afterburnerMotion=EMPTY;timing={requestedSeconds:0,advancedSeconds:0,
     carriedInSeconds:state.pendingSeconds,carriedOutSeconds:state.pendingSeconds,
     terminalRemainder:0,remainingSeconds:0,windowCount:0,reason:null};};
-  function draw(dt=0){renderer.sync(state,lastInput,dt,{phase:running?'running':'paused'});}
+  function draw(dt=0){renderer.sync(state,lastInput,dt,{phase:running?'running':'paused',events});}
   function update(dt,input={}){
     if(disposed)return;lastInput={...lastInput,...input};clearFrame();
     const canonical={...(input.supersonic??{}),paused:input.paused===true||input.supersonic?.paused===true};

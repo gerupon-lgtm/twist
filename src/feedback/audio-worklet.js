@@ -2,9 +2,10 @@ import { ChipMixer } from './chip-mixer.js';
 import { flightFeedback, sfxRegisters, pulseAt, EVENT_FEEDBACK,varioMaySound,afterburnerPhase,FEEDBACK_TUNING } from './model.js';
 import { advanceVarioPhase } from '../cockpit-aids.js';
 import { NAVIGATION_BURST_MS,navigationCue,navigationBlockReason } from './navigation-audio.js';
-import {SONIC_TRANSITION,sonicWarning,validSonicTransition} from './supersonic-model.js';
+import {sonicWarning,validSonicTransition} from './supersonic-model.js';
 import {countdownTone as toneForCountdown,applyCountdownRegisters,validCountdownSession,validCountdownCue} from './countdown-audio.js';
 import {FmEngine} from '../music/fm-engine.js';
+import {SONIC_BOOM_SECONDS,sonicBoomSample} from './sonic-boom.js';
 import {briefingCue,applyBriefingRegisters} from './briefing-audio.js';
 
 class TwistAudioProcessor extends AudioWorkletProcessor {
@@ -18,6 +19,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
     this.musicScheduleMetrics={layerWrites:0,layerCancellations:0,lastLayerAt:null,lastLayerTag:null};
     this.passbyMetrics={accepted:0,suppressed:0,reason:'inactive',id:null};
     this.sonic=null;this.sonicAt=0;this.sonicAttempt=null;this.sonicSerial=-1;
+    this.sonicBuffer=new Float32Array(128);
     this.sonicMetrics={accepted:0,suppressed:0,reason:'inactive',id:null,direction:null};
     this.countdownSession=null;this.countdownCancelled=0;this.countdownSeen=new Set();this.countdown=null;this.countdownAt=0;
     this.countdownMetrics={accepted:0,suppressed:0,reason:'inactive',history:[]};
@@ -261,7 +263,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
     if(this.event&&(currentTime-this.eventAt)*1000>=EVENT_FEEDBACK[this.event].duration)this.event=null;
     this.stepBriefing();const briefingActive=Boolean(this.briefing&&!this.briefing.closed&&(this.briefing.motif||this.briefing.point));
     this.blockCountdown();if(this.countdown&&(currentTime-this.countdownAt)*1000>=this.countdown.durationMs)this.endCountdown('finished');
-    this.blockSonic();if(this.sonic&&(currentTime-this.sonicAt)*1000>=SONIC_TRANSITION.duration)this.endSonic('finished');
+    this.blockSonic();if(this.sonic&&(currentTime-this.sonicAt)>=SONIC_BOOM_SECONDS)this.endSonic('finished');
     this.blockPassby();if(this.passby&&(currentTime-this.passbyAt)*1000>=140)this.endPassby('finished');
     const varioEnabled=this.active&&this.settings.sound&&this.settings.sfx&&varioMaySound(this.model,Boolean(this.event||this.sonic||this.countdown));
     if(!varioEnabled){this.varioPhase=0;this.varioRunning=false;}
@@ -289,7 +291,13 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       this.mixer.musicGain=this.musicPlaying?this.musicVolume:0;
       this.mixer.sfxGain=this.settings.sfx?1:0;
       let fm=null;if(this.fmEnabled){if(this.fmBuffer.length!==left.length)this.fmBuffer=new Float32Array(left.length);this.fm.render(this.fmBuffer);fm=this.fmBuffer;}
-      this.untilUpdate-=left.length;this.mixer.render(left,right,this.navigationBurst?.pan??null,fm);
+      let impact=null;
+      if(this.sonic){
+        if(this.sonicBuffer.length!==left.length)this.sonicBuffer=new Float32Array(left.length);
+        for(let i=0;i<left.length;i++)this.sonicBuffer[i]=sonicBoomSample(currentTime-this.sonicAt+i/sampleRate,this.sonic.direction);
+        impact=this.sonicBuffer;
+      }
+      this.untilUpdate-=left.length;this.mixer.render(left,right,this.navigationBurst?.pan??null,fm,impact);
     }else {left.fill(0);right?.fill(0);}
     if(varioEnabled)this.varioPhase=advanceVarioPhase(this.varioPhase,left.length/sampleRate*1000,this.model.vario.periodMs);
     for(let i=2;i<outputs[0].length;i++)outputs[0][i].set(left);

@@ -1,3 +1,4 @@
+import {APP_VERSION} from '../src/version.js';
 import {test,expect} from '@playwright/test';import {mkdir,writeFile} from 'node:fs/promises';
 test('low-land GPU projection and ground pixels remain stable across origins and all views',async({page})=>{
  test.setTimeout(90000);const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('response',r=>{if(r.status()>=400)errors.push(`${r.status()} ${r.url()}`);});await page.setViewportSize({width:390,height:844});
@@ -15,7 +16,7 @@ test('low-land GPU projection and ground pixels remain stable across origins and
    results.push({camera,position:p,a,b,changedFraction:changed/(390*844),meanDifference:total/(390*844*3),snapshot:r.snapshot()});
   }}finally{r.dispose();}return results;
  });
- await mkdir('.cache',{recursive:true});await writeFile('.cache/v0142-sierra10-gpu-origin.json',JSON.stringify({result,errors},null,2));
+ await mkdir('.cache',{recursive:true});await writeFile(`.cache/v${APP_VERSION.replaceAll('.','')}-sierra10-gpu-origin.json`,JSON.stringify({result,errors},null,2));
  for(const row of result){expect(row.a.pixels).toBeGreaterThan(0);expect(row.b.pixels).toBeGreaterThan(0);expect(Math.hypot(row.a.centroid.x-row.b.centroid.x,row.a.centroid.y-row.b.centroid.y)).toBeLessThan(1);expect(row.changedFraction).toBeLessThan(.015);expect(row.meanDifference).toBeLessThan(.5);expect(row.snapshot.world.ground.kind).toBe('land');expect(row.snapshot.gpu.calls).toBeGreaterThan(0);}
  expect(errors).toEqual([]);
 });

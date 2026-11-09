@@ -23,7 +23,7 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
   root.innerHTML=`
     <section class="flow-screen flow-title" data-flow-screen="title" aria-labelledby="start-flow-title-heading" hidden>
       <div class="flow-title-art" aria-hidden="true"><svg class="flow-title-route" viewBox="0 0 420 320"><path class="flow-route" d="M-12 291 102 225 78 134 239 73 361 113 431 21"/><circle cx="102" cy="225" r="8"/><circle cx="78" cy="134" r="8"/><circle cx="239" cy="73" r="8"/><path class="flow-exit" d="M347 129V99h28v30"/></svg><img class="flow-title-aircraft" src="${aircraftImage.href}" alt="" width="768" height="768" decoding="async" draggable="false"></div>
-      <div class="flow-title-copy"><h1 id="start-flow-title-heading">twist</h1><p>Tilt to Play.</p></div>
+      <div class="flow-title-copy"><h1 id="start-flow-title-heading">TWIST <span>VECTOR</span></h1><p>Tilt to Play.</p></div>
       <div class="flow-title-actions">${button('start-flow-start','start','はじめる','primary')}<div class="flow-inline-actions">${button('start-flow-title-settings','settings','設定','text')}${button('start-flow-title-help','help','遊び方','text')}</div></div>
       <footer class="flow-title-credit"><span class="flow-author-signature">SIKUMI LAB</span><small id="start-flow-version"></small></footer>
       <div id="start-flow-title-platform" class="flow-platform"></div>

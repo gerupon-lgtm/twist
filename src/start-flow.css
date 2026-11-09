@@ -29,7 +29,7 @@
 .app[data-start-flow=on] .flow-title-art .flow-route{fill:none;stroke:var(--flow-action);stroke-opacity:.45;stroke-width:2;stroke-dasharray:5 6}
 .app[data-start-flow=on] .flow-title-art .flow-exit{fill:none;stroke:var(--flow-exit);stroke-width:5}
 .app[data-start-flow=on] .flow-title-aircraft{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;user-select:none}
-.app[data-start-flow=on] .flow-title-copy h1{font-size:clamp(68px,18vw,88px);font-weight:800;line-height:.95;letter-spacing:-.065em;color:var(--flow-ink)}
+.app[data-start-flow=on] .flow-title-copy h1{font-size:clamp(48px,13.5vw,76px);font-weight:800;line-height:.9;letter-spacing:-.055em;color:var(--flow-ink)}
 .app[data-start-flow=on] .flow-title-copy>p{margin-top:12px;font-size:15px;letter-spacing:.015em}
 .app[data-start-flow=on] .flow-title-credit{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:11px;color:#557785}
 .app[data-start-flow=on] .flow-author-signature{font-size:11px;font-weight:650;letter-spacing:.035em}
@@ -197,7 +197,7 @@
  .app[data-start-flow=on] .flow-title{width:min(900px,100%);grid-template-columns:minmax(0,1.2fr) minmax(260px,1fr);grid-template-rows:minmax(0,1fr) auto auto;gap:12px 28px}
  .app[data-start-flow=on] .flow-title-art{grid-column:1;grid-row:1/3;align-self:stretch}
  .app[data-start-flow=on] .flow-title-copy{grid-column:2;grid-row:1;align-self:end}
- .app[data-start-flow=on] .flow-title-copy h1{font-size:80px}
+ .app[data-start-flow=on] .flow-title-copy h1{font-size:clamp(42px,8vw,68px)}
  .app[data-start-flow=on] .flow-title-actions{grid-column:2;grid-row:2;align-self:start;width:100%}
  .app[data-start-flow=on] .flow-title-credit{grid-column:1/-1;grid-row:3}
  .app[data-start-flow=on] #start-flow-title-platform{grid-column:1/-1;grid-row:4;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 18px}
@@ -264,3 +264,7 @@
 #wrist-sensitivity-presets button{min-height:44px;padding:6px 12px;border:1px solid #b9cdd1;border-radius:7px;background:#f7fbf9;color:#25485a;font:inherit}
 #wrist-sensitivity-presets button[aria-pressed="true"]{background:#117f97;border-color:#117f97;color:#fff;box-shadow:inset 0 0 0 1px #fff5}
 #wrist-sensitivity-status{width:100%;font-size:12px;font-weight:650;color:#117f97}
+
+.app[data-start-flow=on] .flow-title-copy h1 span{display:block;color:var(--flow-action);letter-spacing:.015em;font-size:.73em;margin-top:.12em}
+.app .brand .brand-name{display:flex;flex-direction:column;font-size:13px;line-height:1.05;letter-spacing:.01em;font-weight:800}
+.app .brand .brand-name small{font-size:9px;letter-spacing:.075em}
