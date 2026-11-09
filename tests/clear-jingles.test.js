@@ -106,7 +106,7 @@ test('all sixteen public files have complete role mappings and balanced actual n
   const song=parseSmf(await readFile(new URL('../public/music/'+track.file,import.meta.url)));const audit=noteAudit(song);assert.ok(audit.ons>0,id);assert.ok(audit.peakMelodic<=5,id);
   for(const event of song.events.filter(event=>event.type==='noteOn')){
    const part=track.parts[event.channel+1];assert.ok(part,id+' channel '+(event.channel+1));
-   assert.ok(['lead','chords','bass','drums'].includes(part.role));assert.equal(part.fmPreset,part.role==='drums'?null:part.sccTimbre==='distortion-guitar-v1'?'distortion-guitar':part.role);
+   assert.ok(['lead','chords','bass','drums'].includes(part.role));assert.equal(part.fmPreset,id==='overdrive'&&event.channel===1?'sequence':part.role==='drums'?null:part.sccTimbre==='distortion-guitar-v1'?'distortion-guitar':part.role);
    assert.equal(part.role==='drums',event.channel===9);
   }
  }
@@ -130,6 +130,7 @@ test('role augmentation preserves every legacy field and uses the actual song-sp
  const guitarIds=new Set(['rock','steel','horizon','storm','ignition','overdrive']);
  for(const [id,track]of Object.entries(config).filter(([,track])=>track?.file))for(const [channel,part]of Object.entries(track.parts)){
   if(part.sccTimbre!==undefined){assert.ok(guitarIds.has(id)&&channel==='1');assert.equal(part.sccTimbre,'distortion-guitar-v1');delete part.sccTimbre;}
+  if(part.fmVolume!==undefined){assert.equal(id,'overdrive');assert.equal(channel,'2');assert.equal(part.fmVolume,90);delete part.fmVolume;}
   delete part.role;delete part.fmPreset;
  }
  assert.equal(hash(JSON.stringify(config)),'dc574a85d916ee3684a0e62a39cee3690bde97306bdbb495bdcb3bebb3833c66');

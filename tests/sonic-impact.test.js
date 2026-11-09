@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSupersonicEffects} from '../src/supersonic-effects.js';
 import {createAircraft} from '../src/aircraft.js';
-import {sonicBoomSample,SONIC_BOOM_SECONDS} from '../src/feedback/sonic-boom.js';
+import {sonicBoomSample,sonicBoomDucking,SONIC_BOOM_SECONDS} from '../src/feedback/sonic-boom.js';
 
 const crossing={type:'sonic-transition',attemptId:1,serial:1,id:1,direction:'up',atSeconds:10,mach:1.01};
 const frame=(t,camera='chase',extra={})=>({state:{speed:360,supersonic:{mach:1.06,attemptId:1,events:[crossing]}},timeSeconds:t,phase:'running',camera,...extra});
@@ -42,13 +42,13 @@ test('powered supersonic plumes have blue-white cores, amber outer flame, greate
   jet.setPower(1,false,{mach:.99});assert.equal(jet.diagnostics().sonicExhaust,false);
   jet.group.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});
 });
-test('double crack has a longer audible tail, bounded samples and a quieter downward crossing',()=>{
+test('double crack has a longer audible tail, finite samples and a quieter downward crossing',()=>{
   let energy=0,tail=0,peak=0;
   for(let i=0;i<48000;i++){
     const t=i/48000,v=sonicBoomSample(t);assert.ok(Number.isFinite(v));energy+=v*v;if(t>.275)tail+=v*v;peak=Math.max(peak,Math.abs(v));
-    assert.equal(sonicBoomSample(t,'down'),v*.55);
+    assert.ok(sonicBoomDucking(t)>0&&sonicBoomDucking(t)<=1);
   }
-  assert.ok(energy>100);assert.ok(tail>1);assert.ok(peak<.8);
+  assert.ok(energy>100);assert.ok(tail>1);assert.ok(peak>1&&peak<3);let down=0;for(let i=0;i<48000;i++)down+=sonicBoomSample(i/48000,'down')**2;assert.ok(energy>down*3);assert.ok(sonicBoomDucking(.06)<.5);assert.equal(sonicBoomDucking(.06,'down'),1);
   for(const t of [-1,NaN,Infinity,SONIC_BOOM_SECONDS,2])assert.equal(sonicBoomSample(t),0);
 });
 test('production worklet keeps the explosion tail, then cancels immediately on mute and never queues it',async()=>{

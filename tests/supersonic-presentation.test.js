@@ -33,7 +33,7 @@ test('cosmetic cone and cockpit haze are isolated to sonic running state, with s
     const positions=fx.cameraGroup.children[1].geometry.attributes.position.array;
     for(const [width,height]of [[390,844],[360,640],[844,390]])for(const fov of [64,100]){
       fx.update({state:{speed:680,supersonic:{mach:2}},phase:'running',camera:'cockpit',aspect:width/height,verticalFov:fov,timeSeconds:.37,settings:{speedLines:2}});
-      const snapshot=fx.snapshot(),halfH=Math.tan(fov*Math.PI/360)*2;
+      const snapshot=fx.snapshot(),halfH=Math.tan(fov*Math.PI/360)*snapshot.effectDepth;
       assert.equal(snapshot.lineCount,snapshot.capacity);assert.equal(fx.cameraGroup.children[1].geometry.attributes.position.array,positions);
       for(let i=0;i<snapshot.lineCount*2;i++)assert.ok(Math.max(Math.abs(positions[i*3]/(halfH*width/height)),Math.abs(positions[i*3+1]/halfH))>=snapshot.centralClear-1e-6);
     }

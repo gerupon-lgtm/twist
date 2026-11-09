@@ -4,7 +4,7 @@ import {createSonicEventConsumer} from './feedback/supersonic-model.js';
 import {createSupersonicWind} from './supersonic-wind.js';
 export {supersonicSpeedPresentation} from './supersonic-presentation.js';
 
-const CAPACITY=80,CLEAR=.78,DEPTH=2,DEG=Math.PI/180;
+const CAPACITY=80,CLEAR=.78,DEPTH=2.2,DEG=Math.PI/180;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number.isFinite(v)?v:a));
 
 /** Owns only cosmetic meshes. Both groups inherit the stage's final camera/craft transform. */
@@ -28,8 +28,18 @@ export function createSupersonicEffects(){
   const lineMaterial=new THREE.LineBasicMaterial({color:0xd7edff,transparent:true,opacity:.25,depthTest:false,depthWrite:false,toneMapped:false});
   const lines=new THREE.LineSegments(geometry,lineMaterial);lines.name='supersonic-streaks';lines.frustumCulled=false;lines.renderOrder=8;cameraGroup.add(lines);
   const shockMaterial=new THREE.MeshBasicMaterial({color:0xe9f8ff,transparent:true,opacity:0,side:THREE.DoubleSide,depthTest:false,depthWrite:false,toneMapped:false});
-  const shockGeometry=new THREE.RingGeometry(.96,1,96);
+  const shockGeometry=new THREE.RingGeometry(.88,1,96);
   const shock=new THREE.Mesh(shockGeometry,shockMaterial);shock.name='sonic-pressure-wave';shock.frustumCulled=false;shock.renderOrder=9;cameraGroup.add(shock);
+  const echoMaterial=shockMaterial.clone(),echo=new THREE.Mesh(shockGeometry,echoMaterial);
+  echo.name='sonic-second-pressure-wave';echo.frustumCulled=false;echo.renderOrder=9;cameraGroup.add(echo);
+  // A soft annular cloud, rather than a full-screen flash: the centre stays clear
+  // for the flight director, and the screen edge briefly fills with pressure mist.
+  const cloudMaterial=new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,
+    uniforms:{strength:{value:0}},vertexShader:'varying vec2 uvCloud;void main(){uvCloud=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader:'varying vec2 uvCloud;uniform float strength;void main(){vec2 p=uvCloud*2.0-1.0;float r=length(p);float edge=smoothstep(0.32,0.72,r)*(1.0-smoothstep(1.1,1.5,r));float mist=0.78+0.22*sin(atan(p.y,p.x)*13.0+r*21.0);gl_FragColor=vec4(0.9,0.97,1.0,strength*edge*mist);}'
+  });
+  const cloudGeometry=new THREE.PlaneGeometry(2,2),cloud=new THREE.Mesh(cloudGeometry,cloudMaterial);
+  cloud.name='sonic-pressure-mist';cloud.frustumCulled=false;cloud.renderOrder=8;cameraGroup.add(cloud);
   const wind=createSupersonicWind();cameraGroup.add(wind.mesh);
   const wakeGeometry=new THREE.TorusGeometry(2.4,.075,8,64);
   const wakeMaterial=shockMaterial.clone();wakeMaterial.depthTest=true;
@@ -59,6 +69,9 @@ export function createSupersonicEffects(){
     const windHaze=windStrength*(settings.reducedMotion ? .045 : .045+.015*Math.sin(t*2.3));
     hazeMaterial.opacity=Math.min(.48,(camera==='cockpit'?intensity*.22+burst*.3:0)+windHaze);
     shock.visible=burst>0;shockMaterial.opacity=burst*.72;
+    const reduced=Boolean(settings.reducedMotion),echoProgress=clamp((age-.11)/.84,0,1);
+    echo.visible=burst>0&&age>=.11&&!reduced;echoMaterial.opacity=(1-echoProgress)*.65;
+    cloud.visible=burst>0&&camera==='cockpit';cloudMaterial.uniforms.strength.value=reduced?burst*.18:Math.min(.72,burst*.85);
     wake.visible=burst>0&&camera==='chase';wakeMaterial.opacity=burst*.65;
     wake.scale.setScalar(input.settings?.reducedMotion?3:1+progress*5);wake.position.z=input.settings?.reducedMotion?8:2+progress*18;
     lineMaterial.opacity=.25+burst*.45;
@@ -68,6 +81,8 @@ export function createSupersonicEffects(){
     const halfH=Math.tan(fov*DEG/2)*DEPTH,halfW=halfH*aspect;
     shockRadius=input.settings?.reducedMotion?1.05:.35+progress*1.45;
     shock.position.z=-DEPTH;shock.scale.setScalar(shockRadius*Math.max(halfW,halfH));
+    echo.position.z=-DEPTH;echo.scale.setScalar((.32+echoProgress*1.65)*Math.max(halfW,halfH));
+    cloud.position.z=-DEPTH;cloud.scale.set(halfW*1.05,halfH*1.05,1);
     for(let i=0;i<lineCount;i++){
       const phase=(phases[i]+t*(.6+flow*3.2))%1,inner=CLEAR+phase*.3,outer=inner+lineLength,o=i*6;
       positions[o]=rays[i*2]*inner*halfW;positions[o+1]=rays[i*2+1]*inner*halfH;positions[o+2]=-DEPTH;
@@ -81,7 +96,7 @@ export function createSupersonicEffects(){
   }
   return {craftGroup,cameraGroup,update,
     snapshot:()=>({speed,mach,coneIntensity:intensity,coneVisible:craftGroup.visible,hazeVisible:haze.visible&&cameraGroup.visible,lineCount,lineLength,capacity:CAPACITY,centralClear:CLEAR,camera,running,disposed,
-      sonicBurst:burst,shockVisible:shock.visible&&cameraGroup.visible,shockRadius,wakeVisible:wake.visible&&craftGroup.visible,sonicEvents:events.snapshot(),...wind.snapshot()}),
-    dispose(){if(disposed)return;disposed=true;wind.dispose();craftGroup.visible=false;cameraGroup.visible=false;craftGroup.removeFromParent();cameraGroup.removeFromParent();for(const g of [coneGeometry,hazeGeometry,geometry,shockGeometry,wakeGeometry])g.dispose();for(const m of [coneMaterial,hazeMaterial,lineMaterial,shockMaterial,wakeMaterial])m.dispose();},
+      sonicBurst:burst,shockVisible:shock.visible&&cameraGroup.visible,shockRadius,echoVisible:echo.visible&&cameraGroup.visible,mistOpacity:cloud.visible&&cameraGroup.visible?cloudMaterial.uniforms.strength.value:0,effectDepth:DEPTH,wakeVisible:wake.visible&&craftGroup.visible,sonicEvents:events.snapshot(),...wind.snapshot()}),
+    dispose(){if(disposed)return;disposed=true;wind.dispose();craftGroup.visible=false;cameraGroup.visible=false;craftGroup.removeFromParent();cameraGroup.removeFromParent();for(const g of [coneGeometry,hazeGeometry,geometry,shockGeometry,wakeGeometry,cloudGeometry])g.dispose();for(const m of [coneMaterial,hazeMaterial,lineMaterial,shockMaterial,wakeMaterial,echoMaterial,cloudMaterial])m.dispose();},
   };
 }

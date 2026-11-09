@@ -480,7 +480,8 @@
         "waveform": 4,
         "volume": 46,
         "role": "chords",
-        "fmPreset": "chords"
+        "fmPreset": "sequence",
+        "fmVolume": 90
       },
       "4": {
         "waveform": 1,

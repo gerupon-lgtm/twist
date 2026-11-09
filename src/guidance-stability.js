@@ -18,14 +18,16 @@ export function advanceGuidanceTurn(raw,previous,{now=0,dt=0,targetChanged=false
   let mode=previous.mode==='go-around'?'go-around':'target',changedAt=previous.changedAt;
   let turnSign=previous.turnSign??sign;
   const mayChange=clock-changedAt>=600;
-  if(targetChanged||previous.mode==='recover'){
+  if(raw?.captureCorridor){
+    mode='target';changedAt=clock;turnSign=sign;
+  }else if(targetChanged||previous.mode==='recover'){
     mode=rawMode==='go-around'?'go-around':'target';changedAt=clock;turnSign=sign;
   }else if(mode==='target'&&mayChange&&((ratio!==null&&ratio<.9)||Math.abs(bearing)>95)){
     mode='go-around';changedAt=clock;turnSign=sign;
   }else if(mode==='go-around'&&mayChange&&(ratio===null||ratio>1.1)&&Math.abs(bearing)<85){
     mode='target';changedAt=clock;
   }
-  const desired=mode==='go-around'?turnSign*15:clamp(bearing,-15,15);
+  const desired=raw?.captureCorridor?0:mode==='go-around'?turnSign*15:clamp(bearing,-15,15);
   const before=Number.isFinite(previous.yawDegrees)?previous.yawDegrees:0;
   const yawDegrees=before+Math.sign(desired-before)*Math.min(Math.abs(desired-before),150*seconds);
   return {mode,yawDegrees:clamp(yawDegrees,-15,15),climbDegrees,turnSign,changedAt};

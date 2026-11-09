@@ -1,0 +1,20 @@
+/* Shared flight-panel controls: sky #dcebf1, face #eef8f7, ink #25485a,
+   action #117f97, edge #5d8795, focus #9c7220. Keep each control's geometry. */
+.app#app{--button-face:#eef8f7;--button-ink:#25485a;--button-line:#5d8795}
+.app#app button{
+  background:var(--button-face);color:var(--button-ink);border-color:var(--button-line);
+  font-weight:650;box-shadow:inset 0 1px 0 #ffffffb3,0 2px 0 #25485a18;
+  transition:background-color 120ms,border-color 120ms,box-shadow 120ms;
+}
+.app#app button[aria-pressed=true]{--button-face:#d6eeed;--button-ink:#0c657a;--button-line:#117f97;box-shadow:inset 0 0 0 1px #117f97}
+.app#app :is(.flow-button-primary,.primary-button,#briefing-skip){--button-face:#117f97;--button-ink:#fff;--button-line:#0d6e84;box-shadow:inset 0 1px 0 #ffffff38,0 3px 0 #0d64771f}
+.app#app :is(.flow-button-text,#result-copy){border:1px solid var(--button-line);border-radius:8px;text-decoration:none}
+.app#app button:focus-visible{outline:3px solid #9c7220;outline-offset:3px}
+.app#app button:active:not(:disabled){box-shadow:inset 0 2px 3px #25485a2e}
+.app#app button:disabled{opacity:.42;box-shadow:none}
+.app#app .flow-title-actions .flow-inline-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.app#app .flow-title-actions .flow-button-text{display:flex;align-items:center;justify-content:center;gap:10px;min-height:48px;font-size:15px;font-weight:700}
+.app#app .flow-title-actions svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.app#app .flow-title-actions svg circle{fill:var(--button-face)}
+@media(hover:hover){.app#app button:hover:not(:disabled){border-color:#117f97;box-shadow:inset 0 0 0 1px #117f9755,0 2px 0 #25485a18}}
+@media(prefers-reduced-motion:reduce){.app#app button{transition:none}}

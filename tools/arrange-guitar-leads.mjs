@@ -38,16 +38,20 @@ function transformedLead(events,allTracks,plan){
  const responseWindows=['steel','horizon','storm'].includes(plan.id)?allTracks.flatMap(t=>notePairs(t.events.filter(e=>(e.data[0]&15)===4&&e.data[0]<240),4)).map(n=>({startTick:Math.max(0,n.startTick-tick(.04)),endTick:n.endTick+tick(.04)})):[];
  let bendHook=null;
  if(plan.bendHook){const h=plan.bendHook,a=notes.find(n=>n.startTick===tick(h.startBeat)&&n.pitch===h.fromNote),b=notes.find(n=>n.startTick===tick(h.toBeat)&&n.pitch===h.toNote);if(!a||!b||b.endTick!==tick(h.endBeat))throw Error('Original bar18 hook does not match');
-  notes.splice(notes.indexOf(b),1);notes.splice(notes.indexOf(a),1,{...a,pitch:h.baseNote,endTick:b.endTick,bendHook:true});bendHook=h;
+  notes.splice(notes.indexOf(a),1,{...a,endTick:tick(69.75),bendHook:true,hookPart:'pickup',velocity:110});
+  notes.splice(notes.indexOf(b),1,{...b,pitch:75,bendHook:true,hookPart:'half-step',velocity:120});bendHook=h;
  }
  notes.sort((a,b)=>a.startTick-b.startTick);const fills=[],reserved=new Set();
- for(const phrase of plan.fills){let chosen=null;
-  const {fromNote,toNote}=phrase.bendFinal??{};if(!Number.isInteger(fromNote)||!Number.isInteger(toNote)||fromNote<0||toNote>127||toNote-fromNote!==2||toNote!==phrase.pitches.at(-1))throw Error('Expected explicit whole-tone answer endpoints');
+ const restWindows=[];
+ const phrases=[...plan.fills,...(plan.restoredRests??[]).map(after=>({after,minimumGap:.75,restoreRest:true}))].sort((a,b)=>a.after-b.after);
+ for(const phrase of phrases){let chosen=null;
+  const {fromNote,toNote}=phrase.bendFinal??{};if(!phrase.restoreRest&&(!Number.isInteger(fromNote)||!Number.isInteger(toNote)||fromNote<0||toNote>127||toNote-fromNote!==2||toNote!==phrase.pitches.at(-1)))throw Error('Expected explicit whole-tone answer endpoints');
   for(let i=0;i<notes.length-1&&!chosen;i++){if(reserved.has(i))continue;const n=notes[i],next=notes[i+1];for(const gap of subtractWindows(n.endTick,next.startTick,responseWindows)){
     const start=Math.max(gap.start,tick(phrase.after));if(start>tick(phrase.after+24)||gap.end-start<tick(phrase.minimumGap))continue;
     chosen={index:i,start:start+tick(.025),end:Math.min(gap.end-tick(.025),start+tick(1.25))};break;
    }}
   if(!chosen)throw Error('No original rest for authored answer '+plan.id+'/'+phrase.after);reserved.add(chosen.index);
+  if(phrase.restoreRest){restWindows.push({startTick:notes[chosen.index].endTick,endTick:notes[chosen.index+1].startTick});continue;}
   const span=chosen.end-chosen.start,sum=phrase.weights.reduce((a,b)=>a+b,0);let position=chosen.start;
   const added=phrase.pitches.map((pitch,i)=>{const slot=span*phrase.weights[i]/sum,startTick=Math.round(position),answerBend=i===phrase.pitches.length-1?{fromNote,toNote}:null;position+=slot;return {startTick,endTick:Math.max(startTick+4,Math.round(position-slot*.18)),pitch:answerBend?toNote-1:pitch,velocity:Math.min(104,notes[chosen.index].velocity),original:false,answerBend};});
   fills.push({startTick:added[0].startTick,endTick:added.at(-1).endTick,pitches:[...phrase.pitches],bendFinal:{fromNote,toNote},notes:added});
@@ -62,10 +66,18 @@ function transformedLead(events,allTracks,plan){
  const bend=(t,value)=>{const signed=Math.max(-8192,Math.min(8191,Math.round(value))),wire=signed+8192;add(t,[224,wire&127,(wire>>7)&127]);bends++;};
  notes.forEach(n=>{
   const duration=(n.endTick-n.startTick)/ticksPerSecond,start=n.startTick,end=n.endTick;
-  if(n.bendHook){const h=bendHook; // One held D# base covers C#(-2) through E(+1).
-   bend(start,h.startBend);add(start,[144,n.pitch,n.velocity]);add(start,[176,7,118]);add(start+ticksPerSecond*.04,[176,7,101]);
-   bend(tick(h.rampStartBeat),h.startBend);for(let i=1;i<=24;i++){const f=i/24,smooth=f*f*(3-2*f);bend(tick(h.rampStartBeat+(h.toBeat-h.rampStartBeat)*f),h.startBend+(h.endBend-h.startBend)*smooth);}
-   for(let t=tick(h.toBeat)+ticksPerSecond*.15;t<end-ticksPerSecond*.035;t+=ticksPerSecond/40)bend(t,h.endBend+Math.sin((t-tick(h.toBeat))/ticksPerSecond*2*Math.PI*plan.vibratoHz)*650);
+  if(n.bendHook){
+   const beat=start/ppq,span=(end-start)/ppq;
+   const curve=(offset,semitones)=>bend(tick(beat+offset),semitones*4096);
+   if(n.hookPart==='pickup'){
+    for(let i=0;i<6;i++)curve(i/24,-2+i/3);
+    for(let offset=.375;offset<span-1e-8;offset+=.0625)curve(offset,.42*Math.sin((offset-.375)*4*Math.PI));
+   }else{
+    curve(0,0);for(let i=0;i<=8;i++)curve(.125+i*.0625,i/8);
+    for(let offset=.6875;offset<span-1e-8;offset+=.0625)curve(offset,1+.42*Math.sin((offset-.6875)*4*Math.PI));
+   }
+   add(start,[144,n.pitch,n.velocity]);add(start,[176,7,92]);add(start+tick(.05),[176,7,120]);
+   add(start+tick(span*.5),[176,7,101]);add(end-tick(n.hookPart==='pickup'?.0791666667:.15),[176,7,80]);
    add(end,[128,n.pitch,0]);bend(end,0);return;
   }
   if(n.answerBend){ // Only authored answer endings carry a whole-tone bend.
@@ -83,7 +95,7 @@ function transformedLead(events,allTracks,plan){
   if(duration>.4)for(let t=start+ticksPerSecond*.29;t<end-ticksPerSecond*.035;t+=ticksPerSecond/(plan.vibratoHz*8))bend(t,Math.sin((t-start)/ticksPerSecond*2*Math.PI*plan.vibratoHz)*plan.vibratoCents/100/2*8192);
   add(end,[128,n.pitch,0]);bend(end,0);
  });
- return {events:output,fills:fills.map(({notes,...row})=>row),responseWindows,extendedNotes,bends,bendHook,originalCount};
+ return {events:output,fills:fills.map(({notes,...row})=>row),responseWindows,restoredRests:restWindows,extendedNotes,bends,bendHook,originalCount};
 }
 export function arrangeGuitarLead(input,id){
  const plan=GUITAR_ARRANGEMENTS.find(row=>row.id===id);if(!plan)throw Error('Track not in guitar allowlist');if(hash(input)!==plan.sha256)throw Error('Original33 baseline SHA mismatch: '+id);

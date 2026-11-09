@@ -9,6 +9,7 @@ const slides=[
   {title:'出力を上げて、直線を飛ぶ',text:'下の出力を横に動かして加速。ゲージがあれば、右端の先の110%でABが使えます。100%に戻すと解除します。',kind:'throttle'},
 ];
 const button=(id,action,label,kind='secondary')=>`<button id="${id}" class="flow-button flow-button-${kind}" type="button" data-flow-action="${action}">${label}</button>`;
+const titleIcon=kind=>`<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${kind==='settings'?'<path d="M5 6h14M5 12h14M5 18h14"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="10" cy="18" r="2"/>':'<path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Zm0 0v14"/>'}</svg>`;
 const cameraPicker=id=>`<div id="${id}" class="flow-camera-picker" role="group" aria-label="視点">${Object.entries(cameraNames).map(([value,label])=>`<button type="button" data-flow-action="camera-select" data-flow-value="${value}" aria-pressed="false">${label}</button>`).join('')}</div>`;
 const phoneDiagram=kind=>`<svg class="flow-tutorial-diagram" viewBox="0 0 260 160" aria-hidden="true"><path class="flow-diagram-horizon" d="M22 120H238"/><g class="flow-phone flow-phone-${kind}"><rect x="91" y="24" width="78" height="116" rx="12"/><rect x="99" y="37" width="62" height="82" rx="4"/><path d="M119 30H141M123 130H137"/></g>${kind==='pitch'?'<path class="flow-diagram-arrow" d="M52 105V52m-13 15 13-15 13 15M208 55v53m-13-15 13 15 13-15"/>':kind==='bank'?'<path class="flow-diagram-arrow" d="M39 50v56m-12-15 12 15 12-15M221 108V52m-12 15 12-15 12 15"/>':'<path class="flow-diagram-arrow" d="M39 76H221m-15-12 15 12-15 12"/><circle class="flow-diagram-knob" cx="192" cy="76" r="12"/>'}</svg>`;
 
@@ -24,7 +25,7 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     <section class="flow-screen flow-title" data-flow-screen="title" aria-labelledby="start-flow-title-heading" hidden>
       <div class="flow-title-art" aria-hidden="true"><svg class="flow-title-route" viewBox="0 0 420 320"><path class="flow-route" d="M-12 291 102 225 78 134 239 73 361 113 431 21"/><circle cx="102" cy="225" r="8"/><circle cx="78" cy="134" r="8"/><circle cx="239" cy="73" r="8"/><path class="flow-exit" d="M347 129V99h28v30"/></svg><img class="flow-title-aircraft" src="${aircraftImage.href}" alt="" width="768" height="768" decoding="async" draggable="false"></div>
       <div class="flow-title-copy"><h1 id="start-flow-title-heading">TWIST <span>VECTOR</span></h1><p>Tilt to Play.</p></div>
-      <div class="flow-title-actions">${button('start-flow-start','start','はじめる','primary')}<div class="flow-inline-actions">${button('start-flow-title-settings','settings','設定','text')}${button('start-flow-title-help','help','遊び方','text')}</div></div>
+      <div class="flow-title-actions">${button('start-flow-start','start','はじめる','primary')}<div class="flow-inline-actions">${button('start-flow-title-settings','settings',titleIcon('settings')+'<span>設定</span>','text')}${button('start-flow-title-help','help',titleIcon('help')+'<span>遊び方</span>','text')}</div></div>
       <footer class="flow-title-credit"><span class="flow-author-signature">SIKUMI LAB</span><small id="start-flow-version"></small></footer>
       <div id="start-flow-title-platform" class="flow-platform"></div>
     </section>

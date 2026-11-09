@@ -12,8 +12,9 @@ export const GUITAR_ARRANGEMENTS=freeze([
  {id:'overdrive',sha256:'5a9d73ad7113fc79b0453326c7d6ac4ae63b381864d912171e1ecdd7be34ac69',bpm:175,description:'A-minor bridge replies end with explicit whole-tone bends; the supplied chorus hook remains intact.',vibratoHz:5.9,vibratoCents:27,extendBeats:.3,
   fills:[{after:172,pitches:[76,79,81],weights:[1,1,3],minimumGap:.75,bendFinal:{fromNote:79,toNote:81}},{after:184,pitches:[84,83,81],weights:[1,1,4],minimumGap:.75,bendFinal:{fromNote:79,toNote:81}},{after:200,pitches:[79,76,81],weights:[1,2,4],minimumGap:.75,bendFinal:{fromNote:79,toNote:81}}]},
  // The user explicitly requested this brass-to-guitar exception for part1 only.
- {id:'ignition',sha256:'24278c137bab189d01a0fe55d82379ff47634f30b85502bd8ebf1bee79c20c60',bpm:165,description:'User-authorized guitar melody, explicit whole-tone answer endings and the unbroken bar18 C#5-to-E5 bend.',vibratoHz:5.3,vibratoCents:24,extendBeats:.35,
-  bendHook:{bar:18,startBeat:68.5,fromNote:73,toBeat:70,toNote:76,endBeat:71.5,baseNote:75,startBend:-8192,endBend:4096,rampStartBeat:69.55},
-  fills:[{after:22,pitches:[74,77,81],weights:[1,1,3],minimumGap:.75,bendFinal:{fromNote:79,toNote:81}},{after:166,pitches:[74,72,69],weights:[1,1,4],minimumGap:.75,bendFinal:{fromNote:67,toNote:69}},{after:182,pitches:[69,72,74],weights:[1,2,4],minimumGap:.75,bendFinal:{fromNote:72,toNote:74}}]},
+ {id:'ignition',sha256:'24278c137bab189d01a0fe55d82379ff47634f30b85502bd8ebf1bee79c20c60',bpm:165,description:'User-corrected bar6/bar42 rests; bar18 follows the reference two attacks, pickup scoop and half-step bend.',vibratoHz:5.3,vibratoCents:24,extendBeats:.35,
+  bendHook:{bar:18,startBeat:68.5,fromNote:73,toBeat:70,toNote:76,endBeat:71.5,style:'sample-two-attacks'},
+  restoredRests:[22,166],
+  fills:[{after:182,pitches:[69,72,74],weights:[1,2,4],minimumGap:.75,bendFinal:{fromNote:72,toNote:74}}]},
 ]);
 export const GUITAR_IDS=Object.freeze(GUITAR_ARRANGEMENTS.map(song=>song.id));

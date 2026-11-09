@@ -1,0 +1,248 @@
+{
+  "sourceSha256": "93605ec1571b985764ac4afbf5faf0a58258d085063c6b998aef6528b5c900c9",
+  "description": "User bar18 reference: only two lead attacks and pitch gestures, normalized from the declared 12-semitone range.",
+  "events": [
+    {
+      "type": "pitchBend",
+      "beat": 68.5,
+      "semitones": -1.99951171875
+    },
+    {
+      "type": "noteOn",
+      "note": 73,
+      "velocity": 110,
+      "beat": 68.5
+    },
+    {
+      "type": "pitchBend",
+      "beat": 68.54166666666667,
+      "semitones": -1.6669921875
+    },
+    {
+      "type": "pitchBend",
+      "beat": 68.58333333333333,
+      "semitones": -1.3330078125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 68.625,
+      "semitones": -1.00048828125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 68.66666666666667,
+      "semitones": -0.66650390625
+    },
+    {
+      "type": "pitchBend",
+      "beat": 68.70833333333333,
+      "semitones": -0.333984375
+    },
+    {
+      "type": "pitchBend",
+      "beat": 68.875,
+      "semitones": 0
+    },
+    {
+      "type": "pitchBend",
+      "beat": 68.9375,
+      "semitones": 0.29736328125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69,
+      "semitones": 0.42041015625
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.0625,
+      "semitones": 0.29736328125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.125,
+      "semitones": 0
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.1875,
+      "semitones": -0.29736328125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.25,
+      "semitones": -0.42041015625
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.3125,
+      "semitones": -0.29736328125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.375,
+      "semitones": 0
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.4375,
+      "semitones": 0.29736328125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.5,
+      "semitones": 0.42041015625
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.5625,
+      "semitones": 0.29736328125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.625,
+      "semitones": 0
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.6875,
+      "semitones": -0.29736328125
+    },
+    {
+      "type": "noteOff",
+      "note": 73,
+      "beat": 69.75
+    },
+    {
+      "type": "pitchBend",
+      "beat": 69.75,
+      "semitones": 0
+    },
+    {
+      "type": "noteOn",
+      "note": 75,
+      "velocity": 120,
+      "beat": 70
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.125,
+      "semitones": 0
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.1875,
+      "semitones": 0.12451171875
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.25,
+      "semitones": 0.25048828125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.3125,
+      "semitones": 0.375
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.375,
+      "semitones": 0.49951171875
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.4375,
+      "semitones": 0.62548828125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.5,
+      "semitones": 0.75
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.5625,
+      "semitones": 0.87451171875
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.625,
+      "semitones": 1.00048828125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.6875,
+      "semitones": 1.00048828125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.75,
+      "semitones": 1.29638671875
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.8125,
+      "semitones": 1.41943359375
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.875,
+      "semitones": 1.29638671875
+    },
+    {
+      "type": "pitchBend",
+      "beat": 70.9375,
+      "semitones": 1.00048828125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 71,
+      "semitones": 0.703125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 71.0625,
+      "semitones": 0.580078125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 71.125,
+      "semitones": 0.703125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 71.1875,
+      "semitones": 1.00048828125
+    },
+    {
+      "type": "pitchBend",
+      "beat": 71.25,
+      "semitones": 1.29638671875
+    },
+    {
+      "type": "pitchBend",
+      "beat": 71.3125,
+      "semitones": 1.41943359375
+    },
+    {
+      "type": "pitchBend",
+      "beat": 71.375,
+      "semitones": 1.29638671875
+    },
+    {
+      "type": "pitchBend",
+      "beat": 71.4375,
+      "semitones": 1.00048828125
+    },
+    {
+      "type": "noteOff",
+      "note": 75,
+      "beat": 71.5
+    },
+    {
+      "type": "pitchBend",
+      "beat": 71.5,
+      "semitones": 0
+    }
+  ]
+}

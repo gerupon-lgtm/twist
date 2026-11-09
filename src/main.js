@@ -63,6 +63,7 @@ import { layoutCockpitObjective,updateCockpitObjective } from './cockpit-objecti
 import { createFeedbackController } from './feedback/controller.js';
 import { createPwaController } from './pwa.js';
 import { normalizeHudLanguage, hudText, hudTargetLabel, hudHeightDelta, hudDirectionText, hudGroundWarning, hudStatusLabel, hudObjectiveText, hudCollectedNotice } from './hud-text.js';
+import './button-theme.css';
 
 const $ = (id) => document.getElementById(id);
 const app = $('app');

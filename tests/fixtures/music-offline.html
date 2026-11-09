@@ -4,8 +4,9 @@ import {PRESET_NAMES} from '/src/vendor/scc/core/presets.js';
 import {validateTrack,prepareScore} from '/src/music/score.js';
 import {createMusicSynth} from '/src/music/music-synth.js';
 import {fmPartStatus} from '/src/music/fm-presets.js';
+import {flightFeedback} from '/src/feedback/model.js';
 
-window.renderWholeTrack=async({id,engine,rate,volume=25,bgmVolume=50})=>{
+window.renderWholeTrack=async({id,engine,rate,volume=25,bgmVolume=50,sonic=false,durationSeconds=null})=>{
   const config=await fetch('/music/tracks.json').then(r=>r.json()),track=validateTrack(config[id]);
   const bytes=new Uint8Array(await fetch('/music/'+track.file).then(r=>r.arrayBuffer()));
   const score=prepareScore(bytes,track),writes=[];let at=0;
@@ -17,12 +18,15 @@ window.renderWholeTrack=async({id,engine,rate,volume=25,bgmVolume=50})=>{
   const synth=createMusicSynth({scc,clock,track,trackId:id,engine,score});synth.resetControllers();
   for(const event of score.events){clock.setScheduleTime(.1+event.time);synth.handle(event);}
   clock.setScheduleTime(.1+score.duration);synth.allNotesOff();
-  const context=new OfflineAudioContext(2,Math.ceil((score.duration+.7)*rate),rate);
+  const context=new OfflineAudioContext(2,Math.ceil((durationSeconds??score.duration+.7)*rate),rate);
   await context.audioWorklet.addModule('/src/feedback/audio-worklet.js');
   const node=new AudioWorkletNode(context,'twist-audio',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});
   let metrics=null;const messages=[];node.port.onmessage=({data})=>{if(data.type==='metrics')metrics=data;else if(messages.length<10)messages.push(data);};
   node.connect(context.destination);
-  node.port.postMessage({type:'settings',settings:{sound:true,bgm:true,sfx:false,volume,bgmVolume,abMusic:false}});
+  const settings={sound:true,bgm:true,sfx:sonic,volume,bgmVolume,abMusic:false};
+  node.port.postMessage({type:'settings',settings});
+  if(sonic){node.port.postMessage({type:'state',model:flightFeedback({mode:'flight',speed:350,altitude:1500,groundClearance:1499,throttle:1,supersonic:{mach:1.03}},settings),settings});
+    node.port.postMessage({type:'sonic',event:{type:'sonic-transition',attemptId:1,serial:1,id:1,direction:'up',atSeconds:0,mach:1.03}});}
   node.port.postMessage({type:'musicGain',gain:bgmVolume/100});
   node.port.postMessage({type:'musicReg',writes});
   // Offline rendering may outrun main-thread MessagePort delivery for a short

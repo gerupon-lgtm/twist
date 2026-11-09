@@ -48,7 +48,25 @@ export class ChipMixer {
     }
     return this.backgroundSample;
   }
-  renderNavigation(out,right,pan,fm=null,impact=null){
+  mixImpact(out,impact,duck){
+    if(!impact)return;
+    for(let i=0;i<out.length;i++){
+      out[i]=out[i]*(duck?.[i]??1)+impact[i]*this.sfxGain;
+    }
+  }
+  processImpact(out){
+    // Use the same DC filter and gain state as the normal path. Limit after
+    // filtering: limiting before this filter can still overshoot and clip.
+    const post=this.post;let {x1,y1,gain,peak}=post;
+    for(let i=0;i<out.length;i++){
+      const x=out[i],y=x-x1+post.r*y1;x1=x;y1=y;gain+=(post.target-gain)*post.smooth;
+      const v=y*gain*post.headroom,a=Math.abs(v);
+      out[i]=a<=.68?v:Math.sign(v)*(.68+.22*(1-Math.exp(-(a-.68)/.22)));
+      peak=Math.max(peak,Math.abs(out[i]));
+    }
+    post.x1=x1;post.y1=y1;post.gain=gain;post.peak=peak;
+  }
+  renderNavigation(out,right,pan,fm=null,impact=null,duck=null){
     if(this.navigationBuffer.length!==out.length)this.navigationBuffer=new Float32Array(out.length);
     const navigation=this.navigationBuffer;
     for(let i=0;i<out.length;i++){
@@ -59,13 +77,13 @@ export class ChipMixer {
       else out[i]=this.musicGain===0?background:(this.chip.sumTicks(L)/(L*1024)+this.musicPsg.sample(L))*this.musicGain+background;
       if(fm)this.fmPrePostPeak=Math.max(this.fmPrePostPeak,Math.abs(out[i]));
     }
-    if(impact)for(let i=0;i<out.length;i++)out[i]+=impact[i]*this.sfxGain;
-    this.drums.tick(out.length/this.rate);this.post.process(out);this.navigationPost.process(navigation);
+    this.mixImpact(out,impact,duck);
+    this.drums.tick(out.length/this.rate);if(impact)this.processImpact(out);else this.post.process(out);this.navigationPost.process(navigation);
     const p=Math.max(-1,Math.min(1,pan)),gainLeft=(1-p)/2,gainRight=(1+p)/2;
     for(let i=0;i<out.length;i++){
       // Limit the added cue uniformly for every pan; the existing common signal
       // stays untouched and the left+right cue sum remains constant at high levels.
-      const common=out[i],cue=Math.max(-1-common,Math.min(1-common,navigation[i]));
+      const common=out[i],limit=impact?.95:1,cue=Math.max(-limit-common,Math.min(limit-common,navigation[i]));
       if(right){
         out[i]=common+cue*gainLeft;
         right[i]=common+cue*gainRight;
@@ -75,8 +93,8 @@ export class ChipMixer {
       }
     }
   }
-  render(out,right=null,navigationPan=null,fm=null,impact=null){
-    if(Number.isFinite(navigationPan)){this.renderNavigation(out,right,navigationPan,fm,impact);return;}
+  render(out,right=null,navigationPan=null,fm=null,impact=null,duck=null){
+    if(Number.isFinite(navigationPan)){this.renderNavigation(out,right,navigationPan,fm,impact,duck);return;}
     this.cancelNavigation();
     // SCC stays silent in v0.1.17, reserved for the later MIDI player.
     if(this.musicGain===0) {
@@ -93,9 +111,9 @@ export class ChipMixer {
         out[i]=(this.chip.sumTicks(L)/(L*1024)+this.musicPsg.sample(L))*this.musicGain+this.sfxPsg.sample(L)*this.sfxGain;
       }
     }
-    if(impact)for(let i=0;i<out.length;i++)out[i]+=impact[i]*this.sfxGain;
+    this.mixImpact(out,impact,duck);
     this.drums.tick(out.length/this.rate);
-    this.post.process(out);
+    if(impact)this.processImpact(out);else this.post.process(out);
     if(right)right.set(out);
   }
 }

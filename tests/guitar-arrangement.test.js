@@ -17,20 +17,33 @@ test('six explicit part-one arrangements preserve original hook anchors and ever
   assert.equal(result.fills.length,plan.fills.length);assert.ok(result.extendedNotes>0);assert.equal(result.metadataUnchanged,true);assert.ok(result.bends>0);assert.ok(after.events.some(e=>e.channel===0&&e.type==='pitchBend'&&e.value>=4096));
  }
 });
-test('Ignition bar18 is one continuous C#5-to-E5 three-semitone bend within the unchanged two-semitone engine range',async()=>{
- const plan=GUITAR_ARRANGEMENTS.find(p=>p.id==='ignition'),result=arrangeGuitarLead(await readFile(new URL('ignition.mid',source)),'ignition'),song=parseSmf(result.bytes),spb=Math.round(60e6/165)/1e6;
- const events=song.events.filter(e=>e.channel===0&&e.time/spb>=68.5-1e-8&&e.time/spb<=71.5+1e-8),ons=events.filter(e=>e.type==='noteOn'),offs=events.filter(e=>e.type==='noteOff');
- assert.equal(ons.length,1);assert.equal(ons[0].note,75);assert.equal(offs.length,1);assert.equal(offs[0].note,75);assert.ok(Math.abs(ons[0].time/spb-68.5)<1e-8);assert.ok(Math.abs(offs[0].time/spb-71.5)<1e-8);
- const first=events.find(e=>e.type==='pitchBend'&&Math.abs(e.time/spb-68.5)<1e-8),end=events.find(e=>e.type==='pitchBend'&&Math.abs(e.time/spb-70)<1e-8);assert.equal(first.value,-8192);assert.equal(end.value,4096);assert.equal(events.at(-1).type,'pitchBend');assert.equal(events.at(-1).value,0);
- const frequency=(note,bend=0)=>440*2**((note-69+bend*2/8192)/12);assert.equal(frequency(75,first.value),frequency(73));assert.equal(frequency(75,end.value),frequency(76));assert.equal(noteToPeriod(75+first.value*2/8192),noteToPeriod(73));assert.equal(noteToPeriod(75+end.value*2/8192),noteToPeriod(76));assert.deepEqual(result.bendHook,plan.bendHook);
+test('Ignition bar18 matches the user reference attacks, brief rest, scoop, half-step bend and vibrato',async()=>{
+ const result=arrangeGuitarLead(await readFile(new URL('ignition.mid',source)),'ignition'),song=parseSmf(result.bytes),spb=Math.round(60e6/165)/1e6;
+ const reference=JSON.parse(await readFile(new URL('fixtures/ignition-bar18-reference.json',import.meta.url),'utf8'));
+ const actual=song.events.filter(e=>e.channel===0&&e.time/spb>=68.5-1e-8&&e.time/spb<=71.5+1e-8);
+ for(const expected of reference.events){
+  const match=actual.find(e=>e.type===expected.type&&Math.abs(e.time/spb-expected.beat)<1/480+.000001&&(expected.note===undefined||e.note===expected.note));
+  assert.ok(match,'missing reference event '+JSON.stringify(expected));
+  if(expected.velocity!==undefined)assert.equal(match.velocity,expected.velocity);
+  if(expected.semitones!==undefined)assert.ok(Math.abs(match.value/4096-expected.semitones)<.002,'bend trajectory '+expected.beat);
+ }
+ assert.deepEqual(actual.filter(e=>e.type==='noteOn').map(e=>e.note),[73,75]);
+ assert.deepEqual(actual.filter(e=>e.type==='noteOff').map(e=>Math.round(e.time/spb*480)),[69.75*480,71.5*480]);
+ assert.equal(actual.at(-1).type,'pitchBend');assert.equal(actual.at(-1).value,0);
 });
+test('Ignition removes only the two identified decorative fills and leaves their original rests',async()=>{
+ const result=arrangeGuitarLead(await readFile(new URL('ignition.mid',source)),'ignition'),events=parseSmf(result.bytes).events,spb=Math.round(60e6/165)/1e6;
+ assert.equal(result.restoredRests.length,2);assert.equal(result.fills.length,1);
+ for(const gap of result.restoredRests)assert.ok(!events.some(e=>e.channel===0&&e.type==='noteOn'&&e.time/spb*480>=gap.startTick&&e.time/spb*480<gap.endTick));
+});
+
 test('guitar leads are monophonic, reset their bounded bends and preserve deliberate response rests',async()=>{
  for(const id of GUITAR_IDS){const result=arrangeGuitarLead(await readFile(new URL(id+'.mid',source)),id),song=parseSmf(result.bytes);let held=null,lastBend=0,notes=0;
   for(const e of song.events.filter(e=>e.channel===0)){if(e.type==='noteOn'){assert.equal(held,null,id+' overlapping lead');held=e.note;notes++;}if(e.type==='noteOff'){assert.equal(held,e.note);held=null;}if(e.type==='pitchBend'){assert.ok(Number.isInteger(e.value)&&e.value>=-8192&&e.value<=8191);lastBend=e.value;}}
   assert.equal(held,null);assert.equal(lastBend,0);assert.ok(notes>0);for(const fill of result.fills)for(const window of result.responseWindows)assert.ok(fill.endTick<=window.startTick||fill.startTick>=window.endTick,id+' fills synth response');
  }
 });
-test('every original hook attack retains its audible pitch, with only the explicit bar18 merged-bend exception',async()=>{
+test('every original hook attack retains its audible pitch, with only the explicit bar18 reference-gesture exception',async()=>{
  for(const plan of GUITAR_ARRANGEMENTS){const original=await readFile(new URL(plan.id+'.mid',source)),before=parseSmf(original),after=parseSmf(arrangeGuitarLead(original,plan.id).bytes),spb=Math.round(60e6/plan.bpm)/1e6,attacks=new Map();let bend=0;
   for(const event of after.events.filter(e=>e.channel===0)){if(event.type==='pitchBend')bend=event.value;if(event.type==='noteOn')attacks.set(event.time.toFixed(9)+':'+event.note,event.note+bend*2/8192);}
   for(const note of before.events.filter(e=>e.channel===0&&e.type==='noteOn')){const beat=note.time/spb,exception=plan.bendHook&&((note.note===73&&Math.abs(beat-68.5)<1e-8)||(note.note===76&&Math.abs(beat-70)<1e-8));if(!exception)assert.equal(attacks.get(note.time.toFixed(9)+':'+note.note),note.note,plan.id+' hook attack at '+beat);}

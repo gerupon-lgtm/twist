@@ -31,7 +31,8 @@ export function createMusicSynth({scc,clock,track,trackId,engine='scc',score}){
   }
   if(fm.size)clock.event({kind:'fm',event:{type:'configure',capacity:Math.max(1,requiredVoices)}});
   function handle(event){
-    const volume=track.parts[(event.channel??0)+1]?.volume??127;
+    const part=track.parts[(event.channel??0)+1];
+    const volume=fm.has(event.channel)?part?.fmVolume??part?.volume??127:part?.volume??127;
     const scaled=event.type==='cc'&&event.controller===7?{...event,value:Math.round(event.value*volume/127)}:event;
     if(fm.has(event.channel))clock.event({kind:'fm',event:scaled,presetId:fm.get(event.channel)});
     else if(guitar)guitar.handle(scaled,event=>scc.handle(event));
@@ -39,7 +40,7 @@ export function createMusicSynth({scc,clock,track,trackId,engine='scc',score}){
   }
   return {handle,
     resetControllers(){scc.resetControllers();for(const [channel,part]of Object.entries(track.parts)){
-      const event={type:'cc',channel:Number(channel)-1,controller:7,value:part.volume};
+      const index=Number(channel)-1,event={type:'cc',channel:index,controller:7,value:fm.has(index)?part.fmVolume??part.volume:part.volume};
       if(fm.has(event.channel)){clock.event({kind:'fm',event:{type:'pitchBend',channel:event.channel,value:0},presetId:fm.get(event.channel)});clock.event({kind:'fm',event,presetId:fm.get(event.channel)});}
       else scc.handle(event);
     }},
