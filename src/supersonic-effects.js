@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {vaporConeIntensity} from './supersonic-presentation.js';
 import {createSonicEventConsumer} from './feedback/supersonic-model.js';
+import {createSupersonicWind} from './supersonic-wind.js';
 export {supersonicSpeedPresentation} from './supersonic-presentation.js';
 
 const CAPACITY=80,CLEAR=.78,DEPTH=2,DEG=Math.PI/180;
@@ -29,6 +30,7 @@ export function createSupersonicEffects(){
   const shockMaterial=new THREE.MeshBasicMaterial({color:0xe9f8ff,transparent:true,opacity:0,side:THREE.DoubleSide,depthTest:false,depthWrite:false,toneMapped:false});
   const shockGeometry=new THREE.RingGeometry(.96,1,96);
   const shock=new THREE.Mesh(shockGeometry,shockMaterial);shock.name='sonic-pressure-wave';shock.frustumCulled=false;shock.renderOrder=9;cameraGroup.add(shock);
+  const wind=createSupersonicWind();cameraGroup.add(wind.mesh);
   const wakeGeometry=new THREE.TorusGeometry(2.4,.075,8,64);
   const wakeMaterial=shockMaterial.clone();wakeMaterial.depthTest=true;
   const wake=new THREE.Mesh(wakeGeometry,wakeMaterial);wake.name='sonic-expanding-wake';craftGroup.add(wake);
@@ -51,13 +53,16 @@ export function createSupersonicEffects(){
     craftGroup.visible=(intensity>0||burst>0)&&camera!=='cockpit';coneMaterial.opacity=Math.min(.6,intensity*.4+burst*.24);
     const settings=input.settings??{},amount=clamp(settings.speedLines??1,0,2),flow=clamp(speed/(settings.presentationReferenceSpeed??680),0,1);
     lineCount=running?Math.min(CAPACITY,Math.floor((10+58*flow)*Math.min(1,speed/80)*amount)):0;
-    lineLength=.025+.11*flow;geometry.setDrawRange(0,lineCount*2);
-    haze.visible=camera==='cockpit'&&(intensity>0||burst>0);hazeMaterial.opacity=Math.min(.48,intensity*.22+burst*.3);
+    lineLength=.025+.22*flow;geometry.setDrawRange(0,lineCount*2);
+    const windStrength=wind.update({speed,reference:settings.presentationReferenceSpeed??680,amount,visible:running,timeSeconds:t,verticalFov:input.verticalFov,aspect:input.aspect,reducedMotion:settings.reducedMotion});
+    haze.visible=(camera==='cockpit'&&(intensity>0||burst>0))||windStrength>0;
+    const windHaze=windStrength*(settings.reducedMotion ? .045 : .045+.015*Math.sin(t*2.3));
+    hazeMaterial.opacity=Math.min(.48,(camera==='cockpit'?intensity*.22+burst*.3:0)+windHaze);
     shock.visible=burst>0;shockMaterial.opacity=burst*.72;
     wake.visible=burst>0&&camera==='chase';wakeMaterial.opacity=burst*.65;
     wake.scale.setScalar(input.settings?.reducedMotion?3:1+progress*5);wake.position.z=input.settings?.reducedMotion?8:2+progress*18;
     lineMaterial.opacity=.25+burst*.45;
-    cameraGroup.visible=running&&(lineCount>0||haze.visible||shock.visible);
+    cameraGroup.visible=running&&(lineCount>0||haze.visible||shock.visible||wind.mesh.visible);
     if(!running)return;
     const fov=clamp(input.verticalFov??64,20,115),aspect=clamp(input.aspect??1,.1,10);
     const halfH=Math.tan(fov*DEG/2)*DEPTH,halfW=halfH*aspect;
@@ -76,7 +81,7 @@ export function createSupersonicEffects(){
   }
   return {craftGroup,cameraGroup,update,
     snapshot:()=>({speed,mach,coneIntensity:intensity,coneVisible:craftGroup.visible,hazeVisible:haze.visible&&cameraGroup.visible,lineCount,lineLength,capacity:CAPACITY,centralClear:CLEAR,camera,running,disposed,
-      sonicBurst:burst,shockVisible:shock.visible&&cameraGroup.visible,shockRadius,wakeVisible:wake.visible&&craftGroup.visible,sonicEvents:events.snapshot()}),
-    dispose(){if(disposed)return;disposed=true;craftGroup.visible=false;cameraGroup.visible=false;craftGroup.removeFromParent();cameraGroup.removeFromParent();for(const g of [coneGeometry,hazeGeometry,geometry,shockGeometry,wakeGeometry])g.dispose();for(const m of [coneMaterial,hazeMaterial,lineMaterial,shockMaterial,wakeMaterial])m.dispose();},
+      sonicBurst:burst,shockVisible:shock.visible&&cameraGroup.visible,shockRadius,wakeVisible:wake.visible&&craftGroup.visible,sonicEvents:events.snapshot(),...wind.snapshot()}),
+    dispose(){if(disposed)return;disposed=true;wind.dispose();craftGroup.visible=false;cameraGroup.visible=false;craftGroup.removeFromParent();cameraGroup.removeFromParent();for(const g of [coneGeometry,hazeGeometry,geometry,shockGeometry,wakeGeometry])g.dispose();for(const m of [coneMaterial,hazeMaterial,lineMaterial,shockMaterial,wakeMaterial])m.dispose();},
   };
 }

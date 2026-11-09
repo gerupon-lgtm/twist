@@ -32,6 +32,7 @@ export function createSupersonicRenderer(canvas,{course,visibility='assisted',di
   craftScene.add(new THREE.HemisphereLight(0xf4fcff,0x7896a2,2.4));const craftSun=sun.clone();craftScene.add(craftSun);
   const craft=new THREE.Group(),overlayJet=createAircraft();overlayJet.group.rotation.x=Math.PI/2;overlayJet.group.scale.setScalar(13);craft.add(overlayJet.group);craftScene.add(craft);
   const effects=createSupersonicEffects();camera.add(effects.cameraGroup);
+  const motionQuery=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
   let width=1,height=1,ratio=1,origin=null,originSerial=0,frame=null,lastState=null,lastInput={},disposed=false,phase='ready';
   let mode=normalizeCameraMode(cameraMode),view=normalizeVisibility(visibility),displayMode=display==='fixed'?'fixed':'bank';
   let chaseAngles=null,phoneRoll=0,fieldOfView={vertical:64,horizontal:64},baseVerticalFov=64,extraFov=0;
@@ -63,7 +64,7 @@ export function createSupersonicRenderer(canvas,{course,visibility='assisted',di
     worldJet.setPower(state.throttle,state.afterburner?.active,exhaustState);overlayJet.setPower(state.throttle,state.afterburner?.active,exhaustState);
     const effectParent=mode==='overlay'?overlayJet.group:worldJet.group;if(effects.craftGroup.parent!==effectParent)effectParent.add(effects.craftGroup);
     effects.update({state:{...state,supersonic:{mach:state.mach,attemptId:state.attemptId,events:options.events??[]}},camera:mode,phase:state.grounded||state.complete?'terminal':phase,
-      verticalFov:camera.fov,aspect:width/height,timeSeconds:time,settings:{...settings,reducedMotion:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches??false}});
+      verticalFov:camera.fov,aspect:width/height,timeSeconds:time,settings:{...settings,reducedMotion:motionQuery?.matches??false}});
     root.updateMatrixWorld(true);camera.updateMatrixWorld(true);render();
   }
   function resize(w,h,pixelRatio=1){if(disposed)return;width=Math.max(1,finite(w,1));height=Math.max(1,finite(h,1));ratio=THREE.MathUtils.clamp(finite(pixelRatio,1),.5,1.6);renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);

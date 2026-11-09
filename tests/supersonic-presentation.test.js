@@ -28,7 +28,7 @@ test('sonic visual speed keeps changing from 200 through 680 while preserving se
 test('cosmetic cone and cockpit haze are isolated to sonic running state, with shared bounded geometry',()=>{
   const fx=createSupersonicEffects(),state={speed:340,supersonic:{mach:1}};
   try{
-    fx.update({state,phase:'running',camera:'overlay'});assert.equal(fx.snapshot().coneVisible,true);assert.equal(fx.snapshot().hazeVisible,false);
+    fx.update({state,phase:'running',camera:'overlay'});assert.equal(fx.snapshot().coneVisible,true);assert.equal(fx.snapshot().hazeVisible,true);
     fx.update({state,phase:'running',camera:'cockpit'});assert.equal(fx.snapshot().coneVisible,false);assert.equal(fx.snapshot().hazeVisible,true);
     const positions=fx.cameraGroup.children[1].geometry.attributes.position.array;
     for(const [width,height]of [[390,844],[360,640],[844,390]])for(const fov of [64,100]){
