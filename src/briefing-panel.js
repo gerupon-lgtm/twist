@@ -69,7 +69,10 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
         routeTip.dataset.nextPoint=to.id;
       }
     }
-    for(const gate of gateNodes)gate.node.dataset.passed=String(!staticMap()&&value>=gate.progress);
+    for(const gate of gateNodes){
+      const passed=!staticMap()&&value>=gate.progress;
+      gate.node.dataset.passed=String(passed);gate.label.classList.toggle('is-passed',passed);
+    }
     element.dataset.progress=String(value);element.dataset.drawComplete=String(value>=1);
     closeButton.textContent=value>=1?'CONTINUE':'SKIP';
     if(!active.signalOpened&&active.signalPoints){active.signalOpened=true;notify('open',{visibleSeconds:seconds,progress:value});}
@@ -113,13 +116,17 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
     const start=svgNode('g',{transform:`translate(${map.start.x} ${map.start.y})`,'data-map-point':'start',class:'briefing-start'});
     start.append(svgNode('path',{d:'M0 -8L5.5 6L0 3L-5.5 6Z',transform:`rotate(${Math.atan2(-.22,.72)*180/Math.PI})`}),svgNode('text',{x:0,y:22,'text-anchor':'middle'},'START'));mapElement.append(start);
     gateNodes=[];
+    const labels=svgNode('g',{class:'briefing-target-labels'});
     for(const target of map.targets){
       const group=svgNode('g',{transform:`translate(${target.x} ${target.y})`,class:'briefing-target','data-map-point':target.id,'data-collected':target.completed});
-      group.append(svgNode('circle',{r:12}),svgNode('text',{'text-anchor':'middle',y:4},String(target.pointName??target.number)));mapElement.append(group);
-      gateNodes.push({node:group,progress:active.signalPoints.find(point=>point.id===target.id).progress});
+      group.append(svgNode('circle',{r:18}));mapElement.append(group);
+      const label=svgNode('g',{transform:`translate(${target.x} ${target.y})`,class:'briefing-target-label','data-collected':target.completed});
+      label.append(svgNode('text',{'text-anchor':'middle',y:5.5},String(target.pointName??target.number)));labels.append(label);
+      gateNodes.push({node:group,label,progress:active.signalPoints.find(point=>point.id===target.id).progress});
     }
     const exit=svgNode('g',{transform:`translate(${map.exit.x} ${map.exit.y})`,class:'briefing-exit','data-map-point':'exit','data-collected':map.exit.completed});
-    exit.append(svgNode('path',{d:'M-7 -7H7V7H-7Z'}),svgNode('text',{x:0,y:-14,'text-anchor':'middle'},active.model.exit.pointName?`EXIT · ${active.model.exit.pointName}`:'EXIT'));mapElement.append(exit);
+    exit.append(svgNode('path',{d:'M-16 -16H16V16H-16Z'}),svgNode('text',{x:0,y:-24,'text-anchor':'middle'},active.model.exit.pointName?`EXIT · ${active.model.exit.pointName}`:'EXIT'));mapElement.append(exit);
+    mapElement.append(labels);
     if(map.current){
       const ahead=map.project({...map.current.position,x:map.current.position.x+Math.sin(map.current.heading),z:map.current.position.z-Math.cos(map.current.heading)});
       const direction=Math.atan2(ahead.y-map.current.y,ahead.x-map.current.x)*180/Math.PI+90;

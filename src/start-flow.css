@@ -180,7 +180,10 @@
  .app[data-start-flow=on] .flow-selected-course h3{font-size:18px}
  .app[data-start-flow=on] .flow-course-card{padding:6px 8px}
  .app[data-start-flow=on] .flow-course-description strong{font-size:15px}
- .app[data-start-flow=on] .flow-course-cards{gap:8px}
+ .app[data-start-flow=on] .flow-course-cards{gap:6px;grid-auto-rows:minmax(44px,auto)}
+ .app[data-start-flow=on] .flow-course-cards[data-course-count="5"]{grid-template-rows:repeat(3,minmax(44px,auto))}
+ .app[data-start-flow=on] .flow-course-card{min-height:44px}
+ .app[data-start-flow=on] .flow-course-description>span{display:none}
  .app[data-start-flow=on] .flow-description{font-size:13px;line-height:1.65}
  .app[data-start-flow=on] .flow-pose-symbol{height:100px}
  .app[data-start-flow=on] .flow-pose .flow-button-text{min-height:38px}
