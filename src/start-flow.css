@@ -266,5 +266,5 @@
 #wrist-sensitivity-status{width:100%;font-size:12px;font-weight:650;color:#117f97}
 
 .app[data-start-flow=on] .flow-title-copy h1 span{display:block;color:var(--flow-action);letter-spacing:.015em;font-size:.73em;margin-top:.12em}
-.app .brand .brand-name{display:flex;flex-direction:column;font-size:13px;line-height:1.05;letter-spacing:.01em;font-weight:800}
+.app .brand .brand-name{display:flex;flex-direction:column;font-size:13px;line-height:1;letter-spacing:.01em;font-weight:800}
 .app .brand .brand-name small{font-size:9px;letter-spacing:.075em}
