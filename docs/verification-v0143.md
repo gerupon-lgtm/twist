@@ -1,4 +1,4 @@
-# v0.1.43 検証記録（ローカル検証完了・公開確認中）
+# v0.1.43 検証記録（公開・配信確認済み）
 
 条件は[実装資料](implementation-v0143.md)。PCの疑似センサー/実GPUとPixel 9aの実センサーは分ける。
 
@@ -11,7 +11,11 @@
 - [x] 全ブラウザー68ファイル488件、14組・最大5ファイル・1ワーカー。最終の各組は失敗/skip/自動再試行0。個別ケースの成功、重複なし、全ファイルを`.cache/v0143-source-audit.json`で照合した。途中の失敗組と修正後の再実行は以下へ区別して記録し、未完了の途中成功を合格数へ混ぜない。
 - [x] 最終ビルド146 modules、482ファイル（本編33＋保存版449）、24,716,375 bytes。`.cache/v0143-release-dist-manifest.json`へ全ファイルの長さとSHAを固定した。
 - [x] 最終ビルド本編25件（高速入力18・連続AB1・初回SCC/FM2・縦横配置3・1/50実完走1）、PWA3ファイル13件、曲欠落時2件、説明地図4条件、新保存版42の実起動1件が成功。`.cache/v0143-built-product-report.json`、`v0143-built-pwa-report.json`、`v0143-built-fallback-report.json`、`v0143-built-briefing-preview.json`、`v0143-built-new-archive-entry.json`。最大5ファイル/同時1組を守り、欠落曲の故障注入だけはSWを無効にして実404を確認、通常のPWAは別13件で実SWを確認した。全68ファイルの詳細な確認は開発版、配信版は変更部分と実起動・1通し飛行を重点にしている。
-- [ ] GitHub Pages公開処理、公開482ファイルと画面/本編、旧保存版15個の確認。
+- [x] アプリ`8e864fc8c97d43f3d284af31b1cd66102a7ae6af`を公開。[Actions 42616404167](https://github.com/gerupon-lgtm/twist/actions/runs/42616404167)は再テスト・ビルド・公開を含む全12工程とrunが成功。`.cache/v0143-actions-final.json`、`v0143-actions-run.json`。
+- [x] 公開482/482ファイルの種類・長さ・SHAと21画面項目が成功。実行/console/HTTP/要求エラー0。`.cache/v0143-public-verification.json`。
+- [x] 公開URLで本編25件、欠落曲2件、説明地図4条件が成功。`.cache/v0143-public-product-report.json`、`v0143-public-fallback-report.json`、`v0143-public-briefing-preview.json`。連続ABと初回音声の個別結果は`v0143-public-sierra50-constant-ab.json`、`v0143-public-music-start-native-{scc,fm}.json`にも確保した。
+- [x] 旧保存版15個の449ファイルと各4項目、計60項目が成功。再取得による救済0・失敗0。`.cache/archives-v0143-verification.json`。公開確認後の本編33ファイル、1,736,173 bytesを`.cache/v0143-published-root/receipt.json`付きで確保し、次版での保存に備えた。
+- [x] 旧試験の固定ファイル名で出力された19点は今回分をv43名へ確保し、保全しておいたv42の原本を戻してSHA一致を確認。公開ファイル/証跡の書き換えではなく、検証資料の世代を混ぜない処置。`.cache/v0143-restored-v42-test-artifacts.json`。
 
 ## Pixel 9aで確認してほしい点（未確認）
 
