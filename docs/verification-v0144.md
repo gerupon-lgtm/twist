@@ -1,13 +1,17 @@
 # v0.1.44 検証記録
 
-実装済み、全体検証と公開確認を進行中。公開完了時に結果とURLを記載する。
+実装・開発版・公開用ファイルの確認が完了。公開先の確認を進行中。公開完了時に結果とURLを記載する。
 
 - [x] 追加後の単体121ファイル829件が成功。5ファイル以下・同時1組・Node384MBで完了。`.cache/v0144-unit-results.json`。
-- [x] 最終ビルド515ファイル（本編直下33、過去16版482）を長さとSHA-256で固定。147 modules、26,458,593 bytes。`.cache/v0144-release-dist-manifest.json`。
-- [x] 最終ビルドの追加12件が成功。3視点の実際の音速突破・炎、2コース×3視点の継続風、縦横3サイズの正式名称。`.cache/v0144-built-impact-report.json`。
+- [x] 開発版の全71ファイル502件が成功。全15組を各5ファイル以下で完了し、全件の成功・重複なし・未実行/再試行なしを監査した。`.cache/v0144-browser-results.json`、`v0144-source-audit.json`。
+- [x] 最終ビルド515ファイル（本編直下33、過去16版482）を長さとSHA-256で固定。147 modules、26,458,590 bytes。`.cache/v0144-release-dist-manifest.json`。
+- [x] 全16曲×44.1/48kHz×SCC/FMの実AudioWorkletによる全曲計算が成功。前版v43とのSCC左右64本の音声SHAが一致。FMは同設定の混合信号RMSが全曲で1.41024倍以上、最大設定での最大出力0.521785・フルスケール到達0。音色の好みや実スピーカーでの音量感とは分ける。`.cache/v0144-audio-comparison.json`、`v0144-native-whole-*.json`。
+- [x] 最終ビルドの本編25件、追加12件、PWA13件、曲欠落時2件、説明地図4条件、新保存版43の起動1件が成功。追加12件は3視点の実際の音速突破・炎、2コース×3視点の継続風、縦横3サイズの正式名称。最終の行間修正を含む同一515ファイルで完了し、確認後も長さ/SHAが一致。通常PWAは実SWを確認し、SWを無効にしたのは欠落曲の故障注入だけ。`.cache/v0144-built-checks.json`、`v0144-built-product-report.json`、`v0144-built-impact-report.json`、`v0144-built-pwa-report.json`、`v0144-built-fallback-report.json`、`v0144-built-briefing-preview.json`、`v0144-built-new-archive-entry.json`。
 - [x] 仕様レビューの名称残り1件、風の描画範囲・透明度・検証の混同を修正し、再レビューで指摘解消を確認。
 
 風の回帰検証では、帯だけを描いて変更画素0の失敗を再現した。配置だけを修正すると暗い画素1,589の失敗を再現し、白い色と透明度を分離して修正。最終は変更3,783画素・暗転0・中央侵入0・透明化後の差分0。実際の両コース×追尾/操縦席でも中央の画素差0、周辺の差分あり。既存の細い直線が出るだけで合格できる試験とは分けた。`.cache/v0144-wind-near-red-report.json`、`v0144-wind-alpha-red-repeat-report.json`、`v0144-wind-green-repeat-report.json`、`v0144-wind-isolated-gpu.json`、`v0144-wind-gpu.json`。依存ファイルの初回再生成で画面が再読込された試行は合格に数えず、変更なしの再実行で2件成功。
+
+全体試験で二段ロゴの高さ23.1pxと版番号の上端23pxが重なる不具合を発見し、行高を1へ変えて22pxにした。縦横3サイズと全体の該当組が成功。横画面の練習欄については、測定では速度欄の上端169.75px、直後の画像では139.75pxで正しく退避していた。既に真だった準備完了属性では新しい配置を待てないため、入力欄を開いた後に実際の描画更新を2回待ち、同じ全要素・同じ厳密な重なり判定で6回成功。位置や時刻は書き換えていない。再レビューでも待機方法が妥当と確認。コピーやPWAの試験に残っていた43の固定期待値もAPP_VERSION参照へ変更した。失敗組の途中分は成功数へ混ぜず同じ組を再実行し、最終502件を監査した。`.cache/v0144-brand-cockpit-fix-report.json`、`v0144-practice-layout-frames-report.json`、`v0144-copy-version-fix-report.json`、`v0144-pre-brand-fix/`、`v0144-pre-layout-frames/`、`v0144-pre-version-expectation/`。
 
 Pixel 9aで確認してほしい点：
 
