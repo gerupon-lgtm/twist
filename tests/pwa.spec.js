@@ -1,3 +1,4 @@
+import {APP_VERSION} from '../src/version.js';
 import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test, expect } from './helpers/legacy-ui.js';
 const iphone='Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 Version/18.7 Mobile/15E148 Safari/604.1';
@@ -55,7 +56,7 @@ test('iPhone toast and install advice are visible without covering version or co
     await page.setViewportSize(size);await page.goto('/?mode=flight&camera=cockpit');
     await expect(page.locator('#orientation-notice')).toBeVisible();
     await expect(page.locator('#orientation-notice')).toContainText(size.width>size.height ? '縦向き用' : '画面縦向きのロック');
-    await expect(page.locator('#intro-version')).toContainText('v0.1.43');
+    await expect(page.locator('#intro-version')).toContainText(`v${APP_VERSION}`);
     await expect(page.locator('#intro-version')).toBeInViewport();
     await expect(page.locator('#installation-advice')).toContainText('共有メニュー');
     const overlap=await page.evaluate(()=>{

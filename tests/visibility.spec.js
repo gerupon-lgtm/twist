@@ -1,3 +1,4 @@
+import {APP_VERSION} from '../src/version.js';
 import {useLegacyCourse} from './helpers/legacy-course.js';
 import { test, expect } from './helpers/legacy-ui.js';
 // This fixture retains the Japanese/legacy display comparison. Default English guidance is covered in guidance/hud-language.spec.js.
@@ -62,7 +63,7 @@ test('view picker compares assisted and classic at the same position without res
   await page.getByRole('button', { name: '見失い対策', exact: true }).click();
   await expect.poll(() => data(page, 'horizontal-fov')).toBeCloseTo(45, 5);
   expect(await page.locator('#app').getAttribute('data-position')).toBe(position);
-  await expect(page.locator('#home-link')).toHaveAttribute('href', /view=assisted.*v=0.1.43/);
+  await expect(page.locator('#home-link')).toHaveAttribute('href', new RegExp('view=assisted.*v='+APP_VERSION.split('.').join('[.]')));
 });
 
 test('all four landmarks are distinguishable in the stage and profiles preserve the complete flight route', async ({ page }) => {
