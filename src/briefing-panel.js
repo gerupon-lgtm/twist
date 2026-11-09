@@ -180,7 +180,7 @@ export function createBriefingPanel({root=document.getElementById('app'),onClose
     if(previousFocus?.isConnected)previousFocus.focus({preventScroll:true});previousFocus=null;
     onClose(result);return result;
   }
-  function click(event){event.stopPropagation();close(event.target.closest('#briefing-skip')?(progress()<1?'skip':'continue'):'tap');}
+  function click(event){if(!event.target.closest('button'))event.stopPropagation();close(event.target.closest('#briefing-skip')?(progress()<1?'skip':'continue'):'tap');}
   function keydown(event){
     if(!active)return;
     if(event.key==='Tab'){event.preventDefault();closeButton.focus({preventScroll:true});return;}

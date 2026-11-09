@@ -1172,7 +1172,9 @@ function setupStartFlow(){
       courseCards:()=>(playMode==='flight'?PLAYABLE_COURSE_IDS:ORDINARY_COURSE_IDS).map(courseCard),
       prepareFresh:prepareFlowFresh,cancelPending:cancelFlowPending,
       selectCourse:id=>selectCourse(id),selectMode:mode=>{if(flowDev)selectMode(mode);},setCamera:value=>selectCamera(value),
-      ready:()=>setPhase('ready'),launch:(mode,reason)=>run(mode,reason),unlock:()=>feedback.unlock(),countdownAudio:signal=>feedback.countdownAudio(signal),briefingAudio:signal=>feedback.briefingAudio(signal),
+      ready:()=>setPhase('ready'),launch:(mode,reason)=>run(mode,reason),unlock:()=>feedback.unlock(),
+      countdownPaint:()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,0)))),
+      countdownAudio:signal=>feedback.countdownAudio(signal),briefingAudio:signal=>feedback.briefingAudio(signal),
       hold:mode=>{
         if(!stage){location.reload();return;}
         feedback.unlock();

@@ -21,7 +21,12 @@ export function createSupersonicEffects(){
   const quad=(left,top,right,bottom)=>{for(const [x,y]of [[left,top],[left,bottom],[right,top],[right,top],[left,bottom],[right,bottom]]){hazeCoordinates[hazeIndex++]=x;hazeCoordinates[hazeIndex++]=y;}};
   quad(-1.05,1.05,1.05,CLEAR);quad(-1.05,-CLEAR,1.05,-1.05);quad(-1.05,CLEAR,-CLEAR,-CLEAR);quad(CLEAR,CLEAR,1.05,-CLEAR);
   hazeGeometry.setAttribute('position',new THREE.BufferAttribute(hazePositions,3).setUsage(THREE.DynamicDrawUsage));
-  const hazeMaterial=new THREE.MeshBasicMaterial({color:0xf5fbff,transparent:true,opacity:0,depthTest:false,depthWrite:false,toneMapped:false});
+  hazeGeometry.setAttribute('screenEdge',new THREE.BufferAttribute(hazeCoordinates,2));
+  const hazeMaterial=new THREE.ShaderMaterial({transparent:true,opacity:0,depthTest:false,depthWrite:false,toneMapped:false,
+    uniforms:{strength:{value:0}},
+    vertexShader:'attribute vec2 screenEdge;varying vec2 edgePosition;void main(){edgePosition=screenEdge;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader:'varying vec2 edgePosition;uniform float strength;void main(){float edge=smoothstep(0.78,1.08,max(abs(edgePosition.x),abs(edgePosition.y)));gl_FragColor=vec4(0.96,0.98,1.0,strength*edge);}'
+  });
   const haze=new THREE.Mesh(hazeGeometry,hazeMaterial);haze.frustumCulled=false;haze.renderOrder=7;cameraGroup.add(haze);
   const positions=new Float32Array(CAPACITY*6),geometry=new THREE.BufferGeometry();
   geometry.setAttribute('position',new THREE.BufferAttribute(positions,3).setUsage(THREE.DynamicDrawUsage));geometry.setDrawRange(0,0);
@@ -66,8 +71,9 @@ export function createSupersonicEffects(){
     lineLength=.025+.22*flow;geometry.setDrawRange(0,lineCount*2);
     const windStrength=wind.update({speed,reference:settings.presentationReferenceSpeed??680,amount,visible:running,timeSeconds:t,verticalFov:input.verticalFov,aspect:input.aspect,reducedMotion:settings.reducedMotion});
     haze.visible=(camera==='cockpit'&&(intensity>0||burst>0))||windStrength>0;
-    const windHaze=windStrength*(settings.reducedMotion ? .045 : .045+.015*Math.sin(t*2.3));
-    hazeMaterial.opacity=Math.min(.48,(camera==='cockpit'?intensity*.22+burst*.3:0)+windHaze);
+    const windHaze=windStrength*(settings.reducedMotion ? .018 : .018+.006*Math.sin(t*2.3));
+    hazeMaterial.opacity=Math.min(.36,(camera==='cockpit'?intensity*.035+burst*.3:0)+windHaze);
+    hazeMaterial.uniforms.strength.value=hazeMaterial.opacity;
     shock.visible=burst>0;shockMaterial.opacity=burst*.72;
     const reduced=Boolean(settings.reducedMotion),echoProgress=clamp((age-.11)/.84,0,1);
     echo.visible=burst>0&&age>=.11&&!reduced;echoMaterial.opacity=(1-echoProgress)*.65;
@@ -96,6 +102,7 @@ export function createSupersonicEffects(){
   }
   return {craftGroup,cameraGroup,update,
     snapshot:()=>({speed,mach,coneIntensity:intensity,coneVisible:craftGroup.visible,hazeVisible:haze.visible&&cameraGroup.visible,lineCount,lineLength,capacity:CAPACITY,centralClear:CLEAR,camera,running,disposed,
+      hazeOpacity:haze.visible&&cameraGroup.visible?hazeMaterial.opacity:0,
       sonicBurst:burst,shockVisible:shock.visible&&cameraGroup.visible,shockRadius,echoVisible:echo.visible&&cameraGroup.visible,mistOpacity:cloud.visible&&cameraGroup.visible?cloudMaterial.uniforms.strength.value:0,effectDepth:DEPTH,wakeVisible:wake.visible&&craftGroup.visible,sonicEvents:events.snapshot(),...wind.snapshot()}),
     dispose(){if(disposed)return;disposed=true;wind.dispose();craftGroup.visible=false;cameraGroup.visible=false;craftGroup.removeFromParent();cameraGroup.removeFromParent();for(const g of [coneGeometry,hazeGeometry,geometry,shockGeometry,wakeGeometry,cloudGeometry])g.dispose();for(const m of [coneMaterial,hazeMaterial,lineMaterial,shockMaterial,wakeMaterial,echoMaterial,cloudMaterial])m.dispose();},
   };

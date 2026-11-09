@@ -2,8 +2,9 @@ import workletUrl from './audio-worklet.js?worker&url';
 import {validSonicTransition} from './supersonic-model.js';
 import {COUNTDOWN_AUDIO,validCountdownSession,validCountdownCue} from './countdown-audio.js';
 import {BRIEFING_AUDIO,briefingCue} from './briefing-audio.js';
+import {createButtonSound} from './button-sound.js';
 
-/** AudioContext construction/resume happens only through an explicit start click. */
+/** AudioContext construction/resume happens only through an explicit user action. */
 export function createGameAudio(){
   let context=null,node=null,pending=null,poll=null,status='idle',lastState=null,wanted=false,eventTimer=null,generation=0,disposed=false;
   let load=0,maxLoad=0,peak=0,musicActive=false,varioActive=false;
@@ -15,7 +16,15 @@ export function createGameAudio(){
   let briefingSession=null,briefingAcknowledged=null,lastBriefingSession=0;
   const briefingVisible=()=>typeof document==='undefined'||!document.hidden;
   const briefingNeedsSound=()=>Boolean(briefingSession&&(briefingSession.needsFuture||briefingSession.sounding));
-  const idle=()=>!wanted&&!countdownSession&&!briefingNeedsSound();
+  const idle=()=>!wanted&&!countdownSession&&!briefingNeedsSound()&&!buttons.active();
+  const buttons=createButtonSound({ensureContext,canSuspend:idle});
+  function ensureContext(){
+    if(disposed)return null;
+    const Audio=window.AudioContext||window.webkitAudioContext;
+    if(!Audio){status='unsupported';return null;}
+    if(!context||context.state==='closed')context=new Audio();
+    return context;
+  }
   const cancelledMusicTags=new Set();
   const post=m=>node?.port.postMessage(m);
   async function unlock(){
@@ -23,7 +32,7 @@ export function createGameAudio(){
     const Audio=window.AudioContext||window.webkitAudioContext;
     if(!Audio){status='unsupported';return;}
     try {
-      if(!context||context.state==='closed')context=new Audio();
+      ensureContext();
       if(!pending)pending=(async()=>{
         await context.resume();
         if(disposed)return;
@@ -70,7 +79,7 @@ export function createGameAudio(){
   const briefingPermitted=settings=>Boolean(settings?.sound&&settings?.sfx&&settings.volume>0);
   const briefingReady=record=>record===briefingSession&&!disposed&&Boolean(node)&&context?.state==='running'&&briefingVisible()
     &&!wanted&&!countdownSession&&record?.needsFuture&&briefingPermitted(record.settings);
-  function suspendBriefingIfIdle(){if(idle())context?.suspend().catch(()=>{});}
+  function suspendBriefingIfIdle(){return idle()?(context?.suspend().catch(()=>{})??Promise.resolve()):Promise.resolve();}
   function observeBriefing(ack){
     const record=briefingSession;
     if(!record||ack.session!==record.id||(ack.sequence??-1)<record.sequence)return;
@@ -157,6 +166,8 @@ export function createGameAudio(){
   }
   return {
     unlock,
+    buttonClick:(settings,keepAwake,gestureAt)=>buttons.play(settings,keepAwake,gestureAt),
+    cancelButtons:()=>buttons.cancel(),
     warmBriefing(settings){if(!disposed&&!wanted&&!countdownSession&&briefingVisible()&&briefingPermitted(settings))return unlock();return Promise.resolve();},
     beginBriefing,
     briefingReady:session=>briefingSession?.id===session&&briefingReady(briefingSession),
@@ -199,7 +210,7 @@ export function createGameAudio(){
     cancelMusicLayer(tag){cancelledMusicTags.add(tag);musicPending=musicPending.filter(w=>w.tag!==tag);post({type:'musicCancel',tag});},
     stopMusic(){musicSession++;musicPending=[];scheduleTime=null;cancelledMusicTags.clear();post({type:'musicStop',session:musicSession});},
     setMusicGain(gain){post({type:'musicGain',gain});},
-    configure(settings){if(briefingSession)briefingSession.settings={...settings};post({type:'settings',settings});if(!settings.sound||!settings.sfx||settings.volume<=0){cancelBriefing(undefined,'disabled');finishCountdownEnd(countdownSession,'disabled');}},
+    configure(settings){if(briefingSession)briefingSession.settings={...settings};post({type:'settings',settings});if(!settings.sound||!settings.sfx||settings.volume<=0){buttons.cancel();cancelBriefing(undefined,'disabled');finishCountdownEnd(countdownSession,'disabled');}},
     start(){cancelBriefing(undefined,'flight');wanted=true;if(context)context.resume().catch(()=>{});if(lastState)post(lastState);},
     update(model,settings,phase,navigation=null){lastState={type:'state',model,settings,phase,navigation};if(wanted)post(lastState);},
     event(kind,settings){
@@ -219,8 +230,9 @@ export function createGameAudio(){
       if(!node||!wanted||context?.state!=='running'||!settings.sound||!settings.sfx||!validSonicTransition(event))return false;
       post({type:'sonic',event:{...event},settings});return true;
     },
-    stop(){generation++;musicSession++;musicPending=[];wanted=false;cancelBriefing(undefined,'stop');cancelCountdown();varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop',session:musicSession});context?.suspend().catch(()=>{});},
+    stop(){buttons.cancel();generation++;musicSession++;musicPending=[];wanted=false;cancelBriefing(undefined,'stop');cancelCountdown();varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop',session:musicSession});context?.suspend().catch(()=>{});},
     snapshot:()=>({status,load,maxLoad,peak,musicActive,varioActive,lastEvent,contextState:context?.state||'none',workletReady:Boolean(node),musicSchedule:musicSchedule?{...musicSchedule}:null,
+      buttons:buttons.snapshot(),
       afterburner:{requested:lastState?.model?.afterburner?{...lastState.model.afterburner}:null,acknowledged:afterburnerAcknowledged?{...afterburnerAcknowledged}:null},
       passby:passbyAcknowledged?{...passbyAcknowledged}:null,
       sonic:sonicAcknowledged?{...sonicAcknowledged}:null,fm:fmAcknowledged?structuredClone(fmAcknowledged):null,musicSession,
@@ -228,6 +240,6 @@ export function createGameAudio(){
       briefing:{session:briefingSession?.id??null,needsFuture:briefingSession?.needsFuture??false,sounding:briefingSession?.sounding??false,acknowledged:briefingAcknowledged?structuredClone(briefingAcknowledged):null},
       navigation:{requested:lastState?.navigation?{...lastState.navigation}:null,acknowledged:navigationAcknowledged?{...navigationAcknowledged}:null}}),
     resetMetrics(){load=0;maxLoad=0;peak=0;post({type:'resetMetrics'});},
-    dispose(){disposed=true;generation++;wanted=false;cancelBriefing(undefined,'disposed');cancelCountdown();musicPending=[];clearInterval(poll);clearTimeout(eventTimer);node?.disconnect();node=null;return context?.close().catch(()=>{})??Promise.resolve();},
+    dispose(){buttons.cancel();disposed=true;generation++;wanted=false;cancelBriefing(undefined,'disposed');cancelCountdown();musicPending=[];clearInterval(poll);clearTimeout(eventTimer);node?.disconnect();node=null;return context?.close().catch(()=>{})??Promise.resolve();},
   };
 }

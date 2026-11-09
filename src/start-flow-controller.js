@@ -38,10 +38,17 @@ export function createStartFlowController({ui,map,pwa,preferences,briefingPrefer
       const plan=startCountdownPlan({now:now(),fullscreenSucceeded:snapshot.fullscreenSucceeded,fullscreenSucceededAt:snapshot.fullscreenSucceededAt});record.countdown(plan);
       const countdown=()=>{
         if(generation!==token)return;if(document.hidden){cancel();return;}
-        let number=3;show('countdown',{number});actions.countdownAudio?.({type:'tick',session:generation,number});
+        let number=3;
+        const displayBeat=()=>{
+          const beat=number;show('countdown',{number:beat});
+          const sound=()=>{if(generation===token&&step==='countdown'&&number===beat&&!document.hidden)actions.countdownAudio?.({type:'tick',session:generation,number:beat});};
+          // Render the digit first. Cancelled or missed beats are never queued.
+          if(actions.countdownPaint)void actions.countdownPaint().then(sound,()=>{});else sound();
+        };
+        displayBeat();
         const tick=()=>{
           if(generation!==token)return;if(document.hidden){cancel();return;}
-          number--;if(number>0){show('countdown',{number});actions.countdownAudio?.({type:'tick',session:generation,number});timer=setTimeout(tick,1000);}
+          number--;if(number>0){displayBeat();timer=setTimeout(tick,1000);}
           else if(pwa.canResume()){if(actions.launch(mode,reason)===false){cancel();pose('開始できませんでした。画面の向きを確認して、もう一度構えてください。');}}
           else {cancel();pose('画面の向きを確認して、もう一度構えてください。');}
         };

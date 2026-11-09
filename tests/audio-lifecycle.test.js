@@ -5,7 +5,8 @@ const source=(await readFile(new URL('../src/feedback/audio.js',import.meta.url)
   .replace(/^import workletUrl[^\n]+/,'const workletUrl="test-worklet";')
   .replace("'./supersonic-model.js'",JSON.stringify(new URL('../src/feedback/supersonic-model.js',import.meta.url).href))
   .replace("'./countdown-audio.js'",JSON.stringify(new URL('../src/feedback/countdown-audio.js',import.meta.url).href))
-  .replace("'./briefing-audio.js'",JSON.stringify(new URL('../src/feedback/briefing-audio.js',import.meta.url).href));
+  .replace("'./briefing-audio.js'",JSON.stringify(new URL('../src/feedback/briefing-audio.js',import.meta.url).href))
+  .replace("'./button-sound.js'",JSON.stringify(new URL('../src/feedback/button-sound.js',import.meta.url).href));
 const {createGameAudio}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 
 test('a post-stop crash resumes through a pending suspension even while the context still reports running',async()=>{

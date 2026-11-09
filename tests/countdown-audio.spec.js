@@ -44,7 +44,8 @@ async function boot(page,{course='easy',settings={},moduleDelay=0,resumeGate=fal
   expect(await page.evaluate(()=>countdownNative.contexts.length)).toBe(0);
   await page.locator('#start-flow-start').click();await step(page,'courses');
   await page.locator('#start-flow-course-start').click();await step(page,'pose');
-  expect(await page.evaluate(()=>countdownNative.contexts.length)).toBe(0);
+  // v47: a trusted menu button may unlock its short UI sound before flight.
+  expect(await page.evaluate(()=>countdownNative.contexts.length)).toBe(settings.sound===false||settings.sfx===false||settings.volume===0?0:1);
   expect(await soundingVibrations(page)).toBe(0);
   return errors;
 }

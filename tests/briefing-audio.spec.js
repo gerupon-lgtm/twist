@@ -140,6 +140,9 @@ test('native paused MAP is informational and cannot resume intro, BGM or vibrati
     await expect(map(page)).toHaveAttribute('data-draw-complete','true',{timeout:5000});
     expect((await introHistory(page)).length).toBe(cues);expect(await nonzeroVibrations(page)).toBe(vibes);
     expect(await page.evaluate(()=>briefingNative.posts.filter(row=>row.type==='musicReg').length)).toBe(musicPosts);
+    // v47 permits the MAP button's short UI click. The static map must then
+    // return to idle without restarting intro sounds, music or the flight.
+    await expect.poll(async()=>(await read(page)).audio.contextState).toBe('suspended');
     const after=await read(page);expect(after.position).toEqual(before.position);expect(after.session.elapsedSeconds).toBe(before.session.elapsedSeconds);expect(after.audio.contextState).toBe('suspended');
     await page.locator('#briefing-skip').click();await step(page,'pause');await evidence(page,id,errors);
   }finally{await evidence(page,id+'-diagnostic',errors);}

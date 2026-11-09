@@ -165,7 +165,8 @@ test('title and map keep explicit preview separate while countdown cues do not s
   await expect.poll(async()=>{await tick(page);return page.locator('.music-preview-controls').getAttribute('data-playing');}).toBe('true');
   const preview=await page.locator('.music-preview-controls').evaluate(e=>({audio:JSON.parse(e.dataset.audio),music:JSON.parse(e.dataset.music)}));expect(preview.audio.workletReady).toBe(true);expect(preview.audio.contextState).toBe('running');expect(preview.music.track).toBe('Ignition Sky');expect((await read(page)).session.elapsedSeconds).toBe(0);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);
   await page.locator('#start-flow-settings-close').click();await step(page,'title');await expect.poll(()=>page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length)).toBe(0);expect(await page.evaluate(()=>localStorage.getItem('twist.feedback-settings.v1'))).toBe(saved);
-  await startToCourses(page);await toPose(page,{map:true,mapWait:2000});expect(await page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length)).toBe(0);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);expect((await read(page)).session.elapsedSeconds).toBe(0);expect(errors).toEqual([]);
+  // v47 allows the map's button click, which must finish without flight/BGM.
+  await startToCourses(page);await toPose(page,{map:true,mapWait:2000});await expect.poll(()=>page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length)).toBe(0);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);expect((await read(page)).session.elapsedSeconds).toBe(0);expect(errors).toEqual([]);
   await page.locator('#start-flow-hold').click();await step(page,'countdown');
   await waitForThree(page);
   await tick(page,2900);

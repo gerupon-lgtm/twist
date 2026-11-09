@@ -5,7 +5,7 @@ import { createStartPreferences, createStartRecord } from '../src/start-flow-sta
 import { createBriefingPreferences } from '../src/briefing-preferences.js';
 import { getCourse } from '../src/course.js';
 
-function fixture(t, { prepare, autoRunning = true, launchResult = true, fullscreen = false } = {}) {
+function fixture(t, { prepare, paint, autoRunning = true, launchResult = true, fullscreen = false } = {}) {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const beforeDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const document = { hidden: false };
@@ -23,6 +23,7 @@ function fixture(t, { prepare, autoRunning = true, launchResult = true, fullscre
     begin: () => state.canResume, canResume: () => state.canResume, lockCurrentOrientation: async () => {}, showOrientationNotice() {},
   };
   const actions = {
+    countdownPaint:paint,
     courseCards: () => [], selectCourse: id => { state.course = getCourse(id); }, setCamera() {}, selectMode() {},
     prepareFresh: options => { preparations.push(options); state.phase = 'intro'; state.input = null; return true; },
     ready: () => { state.phase = 'ready'; }, hold() {},
@@ -49,6 +50,15 @@ async function fresh(f) {
 }
 const threeSeconds = f => { f.advance(1000); f.advance(1000); f.advance(1000); };
 const settle = async () => { await Promise.resolve(); await Promise.resolve(); };
+
+test('sound waits for the digit rendering opportunity and cancelled or overtaken beats are discarded',async t=>{
+  const paints=[];const f=fixture(t,{paint:()=>new Promise(resolve=>paints.push(resolve))});await fresh(f);
+  f.controller.poseReady('practice','held');f.advance(500);
+  assert.equal(f.shown.at(-1).data.number,3);assert.deepEqual(f.sounded(),[]);
+  f.advance(1000);paints.shift()();await settle();assert.deepEqual(f.sounded(),[]);
+  paints.shift()();await settle();assert.deepEqual(f.sounded(),[2]);
+  f.advance(1000);await f.controller.action('countdown-cancel');paints.shift()();await settle();assert.deepEqual(f.sounded(),[2]);
+});
 
 test('3/2/1 follow displayed numbers and GO waits for the actual onRunning boundary, exactly once', async t => {
   const f = fixture(t, { autoRunning: false }); await fresh(f);

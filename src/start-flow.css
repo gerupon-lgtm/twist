@@ -27,7 +27,12 @@
 .app[data-start-flow=on] .flow-title-art{grid-row:2;position:relative;min-height:0;isolation:isolate;pointer-events:none}
 .app[data-start-flow=on] .flow-title-route{position:absolute;inset:0;width:100%;height:100%;fill:var(--flow-surface);stroke:var(--flow-target);stroke-width:3;overflow:visible}
 .app[data-start-flow=on] .flow-title-art .flow-route{fill:none;stroke:var(--flow-action);stroke-opacity:.45;stroke-width:2;stroke-dasharray:5 6}
-.app[data-start-flow=on] .flow-title-art .flow-exit{fill:none;stroke:var(--flow-exit);stroke-width:5}
+.app[data-start-flow=on] .flow-title-target{stroke-width:2.4;stroke-linejoin:round}
+.app[data-start-flow=on] .flow-title-target .flow-target-halo{fill:none;opacity:.32;stroke-width:1.5}
+.app[data-start-flow=on] .flow-title-target .flow-target-core{fill:none;stroke-width:1.5}
+.app[data-start-flow=on] .flow-title-art .flow-exit{fill:none;stroke:var(--flow-exit);stroke-width:2.8;stroke-linejoin:round}
+.app[data-start-flow=on] .flow-exit .flow-exit-depth{fill:var(--flow-exit);fill-opacity:.14;stroke:none}
+.app[data-start-flow=on] .flow-exit .flow-exit-threshold{stroke-width:1.5;opacity:.65}
 .app[data-start-flow=on] .flow-title-aircraft{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;user-select:none}
 .app[data-start-flow=on] .flow-title-copy h1{font-size:clamp(48px,13.5vw,76px);font-weight:800;line-height:.9;letter-spacing:-.055em;color:var(--flow-ink)}
 .app[data-start-flow=on] .flow-title-copy>p{margin-top:12px;font-size:15px;letter-spacing:.015em}

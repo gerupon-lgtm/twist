@@ -43,10 +43,11 @@ function environment({query='brave',musicSet='proposals',unlockGate=null,closeGa
   if(storedPreview!==null)storageData.set(MUSIC_PREVIEW_SETTINGS_KEY,JSON.stringify({trackId:storedPreview}));
   const storage={getItem:key=>storageData.get(key)??null,setItem:(key,value)=>{writes.push({key,value});storageData.set(key,value);}};
   const unit={createRangeEditor:()=>({sync(){}}),createGameAudio:()=>{
+    // Native UI sound/lifecycle is covered by button-sound.spec.js.
     const audio={state:'none',ready:false,unlocks:0,resumes:0,configure(){},start(){this.state='running';},stop(){if(this.state!=='none')this.state='suspended';},musicReady(){return this.ready;},
       intro:[],introSession:null,warmBriefing(){this.ready=true;this.state='suspended';},beginBriefing(session){this.introSession=session;this.ready=true;this.state='running';return Promise.resolve(true);},briefingReady(session){return this.introSession===session&&this.ready;},
       briefingCue(session,cue){this.intro.push({session,...cue});return true;},finishBriefing(){},cancelBriefing(session){if(this.introSession===session){this.introSession=null;this.state='suspended';}},
-      prepareCountdown:session=>({session,ready:countdownReady}),countdownTone:(_session,_cue,value)=>Boolean(countdownReady&&value.sound&&value.sfx&&value.volume>0),cancelCountdown(){},waitForCountdownEnd:()=>goEnd??Promise.resolve({reason:'finished'}),
+      buttonClick:()=>Promise.resolve(false),cancelButtons(){},suspendIfIdle:()=>Promise.resolve(),prepareCountdown:session=>({session,ready:countdownReady}),countdownTone:(_session,_cue,value)=>Boolean(countdownReady&&value.sound&&value.sfx&&value.volume>0),cancelCountdown(){},waitForCountdownEnd:()=>goEnd??Promise.resolve({reason:'finished'}),
       unlock(){this.unlocks++;this.ready=true;this.state='running';return unlockGate??Promise.resolve();},resume(){this.resumes++;this.state='running';return Promise.resolve();},dispose(){return (closeGate??Promise.resolve()).then(()=>{this.state='closed';});},snapshot(){return {contextState:this.state,workletReady:this.ready};},resetMetrics(){}};audios.push(audio);return audio;
   },createMusicPlayer:audio=>{
     let settings={},playing=false,last=null;const player={loadCatalog:async()=>{if(catalogGate)await catalogGate;return catalog;},preload:async()=>catalog,warmup:async()=>catalog,setSettings:value=>{settings={...value};},setFlightNumber(){},setAfterburner(){},

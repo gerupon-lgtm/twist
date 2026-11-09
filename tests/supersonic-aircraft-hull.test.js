@@ -18,7 +18,7 @@ function solidVertices(){
 }
 const near=(a,b,tolerance=1e-7)=>assert.ok(Math.abs(a-b)<=tolerance,`${a} != ${b}`);
 test('supersonic hull is immutable body-space geometry at one metre per unit',()=>{
-  assert.equal(id,'twist-original-twin-jet-solid-hull-v1');assert.equal(scale,1);assert.equal(points.length,44);
+  assert.equal(id,'twist-original-twin-jet-solid-hull-v2');assert.equal(scale,1);assert.equal(points.length,44);
   assert.ok(Object.isFrozen(points)&&points.every(p=>Object.isFrozen(p)&&[p.x,p.y,p.z].every(Number.isFinite)));
   const box=new Box3().setFromPoints(points.map(p=>new Vector3(p.x,p.y,p.z)));
   near(box.min.x,-2.05);near(box.max.x,2.05);near(box.min.z,-2.9);near(box.max.z,2.24);
@@ -26,7 +26,7 @@ test('supersonic hull is immutable body-space geometry at one metre per unit',()
 });
 test('all rendered solid aircraft vertices are inside the shared convex hull, excluding powered exhaust',()=>{
   const solid=solidVertices(),hull=new ConvexHull().setFromPoints(points.map(p=>new Vector3(p.x,p.y,p.z)));
-  assert.equal(solid.length,777);
+  assert.equal(solid.length,1184);
   let outside=0,worst=0;
   for(const vertex of solid)for(const face of hull.faces){const distance=face.distanceToPoint(vertex);worst=Math.max(worst,distance);if(distance>1e-7)outside++;}
   assert.equal(outside,0,`solid vertices outside hull: ${outside}, greatest separation ${worst}`);
