@@ -1,8 +1,10 @@
+import {courseFlightMetadata} from './course-flight-profile.js';
 export const COURSE_BESTS_KEY='twist.course-bests.v1';
 const point=p=>p&&[p.x,p.y,p.z].every(Number.isFinite);
 export function courseBestKey(course,mode='flight'){
   if(!course||typeof course.id!=='string'||!/^[a-z][a-z0-9-]{0,31}$/.test(course.id)||!Array.isArray(course.lights)||![course.start,...course.lights,course.exit].every(point))return null;
-  const text=JSON.stringify([course.start,...course.lights,course.exit]);let hash=2166136261;
+  const geometry=[course.start,...course.lights,course.exit],profile=mode==='explore'?null:courseFlightMetadata(course);
+  const text=JSON.stringify(profile?[...geometry,profile.id]:geometry);let hash=2166136261;
   for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),16777619)>>>0;
   return `${mode==='explore'?'explore':'flight'}:${course.id}:${hash.toString(16).padStart(8,'0')}`;
 }

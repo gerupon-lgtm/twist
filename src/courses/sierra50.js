@@ -49,7 +49,7 @@ const start=point(A.x-150*dx/firstLength,A.y,A.z-150*dz/firstLength);
 const F=positions[5],G=positions[6],finalLength=Math.hypot(G.x-F.x,G.z-F.z);
 const atFinal=distance=>point(F.x+(G.x-F.x)*distance/finalLength,F.y+(G.y-F.y)*distance/finalLength,F.z+(G.z-F.z)*distance/finalLength);
 
-/** Ordinary physics; no new speed, force or collection-radius override. */
+/** Ordinary flight with a course-owned speed profile; geometry and pickup radii stay unchanged. */
 export const SIERRA_COURSE=freeze({id:SIERRA_COURSE_ID,name:'シエラ縦断（1/50）',category:'geographic-estimate',
  start,startHeading:Math.atan2(dx,-dz),lights:positions.slice(0,6).map(p=>({...p})),exit:{...G},
  pointNames:SIERRA_SOURCE_POINTS.map(p=>p.name),sourcePoints:SIERRA_SOURCE_POINTS,coordinateTransform:SIERRA_PROJECTION.parameters,

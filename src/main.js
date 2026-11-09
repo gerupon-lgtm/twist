@@ -1,3 +1,4 @@
+import {courseFlightMetadata} from './course-flight-profile.js';
 import './afterburner.css';
 import {createThrottleControl} from './throttle-control.js';
 import {updateAfterburnerPanel} from './afterburner-panel.js';
@@ -124,7 +125,7 @@ function sonicReport(){
     activityClockMeaning:{activeSeconds:'observed-running-frame-time-excluding-terminal-remainder',interruptedSeconds:'unprocessed-active-time-not-menu-or-pause-duration'}};
 }
 function stageDimensions(){return sonicMode()?{halfExtent:selectedCourse.arena.halfExtent,width:selectedCourse.arena.width,depth:selectedCourse.arena.depth,minHeight:0,maxHeight:selectedCourse.arena.maxAltitude}:courseStageDimensions(selectedCourse)??{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2};}
-const flightPanel = createFlightPanel(() => ({ pitch: effectivePitchMode(), steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?(flightSteering==='wrist'?'estimated-forearm-world':'screen'):'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason,...(playMode==='flight'&&flightSteering==='wrist'?{wrist:wristRecord.snapshot()}: {})}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length,...(courseRecordMetadata(selectedCourse)?{geography:courseRecordMetadata(selectedCourse),radarRange:courseRadarRange(selectedCourse)}:{})}, stageSize:stageDimensions(), ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...(sonicMode()?{supersonic:sonicReport()}:{}),...pwa.report() }));
+const flightPanel = createFlightPanel(() => ({ pitch: effectivePitchMode(), steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?(flightSteering==='wrist'?'estimated-forearm-world':'screen'):'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason,...(playMode==='flight'&&flightSteering==='wrist'?{wrist:wristRecord.snapshot()}: {})}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length,...(playMode==='flight'&&courseFlightMetadata(selectedCourse)?{flightProfile:courseFlightMetadata(selectedCourse)}:{}),...(courseRecordMetadata(selectedCourse)?{geography:courseRecordMetadata(selectedCourse),radarRange:courseRadarRange(selectedCourse)}:{})}, stageSize:stageDimensions(), ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...(sonicMode()?{supersonic:sonicReport()}:{}),...pwa.report() }));
 sonicPanel=createSupersonicPanel({storage:courseStorage,settingsHost:$('flight-settings-fields'),onChange:()=>{lastHudAt=0;if(stage)updateHud(performance.now(),stage.getStatus());}});
 function makeStage(){
   return sonicMode()?createSupersonicStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,supersonicSettings:sonicPanel.getSettings()})
@@ -974,6 +975,7 @@ function updateHud(now, state) {
   app.dataset.verticalSpeed = String(state.verticalSpeed || 0);
   app.dataset.throttle = String(state.throttle || 0);
   app.dataset.afterburner=JSON.stringify(state.afterburner??{});
+  app.dataset.flightProfile=JSON.stringify(state.flightProfile??null);
   app.dataset.speedEffects=JSON.stringify(state.speedEffects??{});
   app.dataset.recoveryAssist = String(state.recoveryAssist || 0);
   app.dataset.angleOfAttack = String(state.angleOfAttack);
@@ -1153,7 +1155,7 @@ function courseCard(id){
   const bestSeconds=isSupersonicCourse(course)?sonicBests.best(supersonicBestKey(createSupersonicProfile(sonicPanel.getSettings(),course),course)):courseBests.best(course,playMode);
   return {id,name:course.name,choiceLabel:course.choiceLabel,choiceDetail:course.choiceDetail,targetCount:course.lights.length,timeHint:range?'目安 '+range[0]+'〜'+range[1]+'秒':'',bestSeconds,bestLabel:formatCourseTime(bestSeconds),previewSvg:createCoursePreviewSVG(course),
     createPreviewSVG:({width,height})=>createCoursePreviewSVG(course,{width,height,featured:true}),
-    ...(id===SIERRA10_COURSE_ID?{detail:'門A〜F→出口G · 推定地理1/10 · 約19.9km · 亜音速',timeHint:'150〜300m/s・高度60〜139m・最大9G'}:id==='supersonic'?{detail:'門5枚＋出口 · 40km四方 · ABでM2'}:id===SIERRA_COURSE_ID?{detail:'光A〜F→出口G · 推定地理1/50 · 約3.9km',timeHint:'巡航の直線目安 約6分49秒（旋回を含まない）'}:{})};
+    ...(id===SIERRA10_COURSE_ID?{detail:'門A〜F→出口G · 推定地理1/10 · 約19.9km · 亜音速',timeHint:'150〜300m/s・高度60〜139m・最大9G'}:id==='supersonic'?{detail:'門5枚＋出口 · 40km四方 · ABでM2'}:id===SIERRA_COURSE_ID?{detail:'光A〜F→出口G · 推定地理1/50 · 約3.9km',timeHint:playMode==='flight'?'初速25m/s · 通常上限60m/s · AB無制限/上限75m/s':'6つの光とGの出口を探索'}:{})};
 }
 function cancelFlowPending(fresh){
   permissionAttempt++;flowPermissionAwaiting=false;pendingCalibration=false;clearTimeout(waitingTimer);pwa.cancelEntry();halt();reference=null;

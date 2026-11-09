@@ -35,7 +35,13 @@ for(const reducedMotion of ['no-preference','reduce'])test(`alignment entry uses
     await page.evaluate(()=>setAlignmentTarget(8));await expect(director).toHaveAttribute('data-alignment-pulse-armed','true');
     await page.evaluate(()=>setAlignmentTarget(0));await expect(director).toHaveAttribute('data-alignment-pulse','true');
   };
-  await enter();await page.waitForTimeout(45);
+  // Attribute updates can precede the first native paint. Observe a rendered
+  // animation frame rather than assuming45ms of wall time advanced CSS.
+  const pulseFrame=()=>page.waitForFunction(()=>{
+    const animation=document.querySelector('#guidance-director circle')?.getAnimations()[0];
+    return animation?.playState==='running'&&typeof animation.currentTime==='number'&&animation.currentTime>=16;
+  },null,{polling:'raf',timeout:3000});
+  await enter();await pulseFrame();
   const native=await page.evaluate(()=>{
     const g=document.getElementById('guidance-director'),circle=g.querySelector('circle'),style=getComputedStyle(circle),animation=circle.getAnimations()[0],transform=style.transform;
     return {active:g.dataset.alignmentPulse,serial:+g.dataset.alignmentPulseSerial,aligned:g.dataset.aligned,stroke:style.stroke,strokeWidth:+style.strokeWidth.replace('px',''),transform,
@@ -58,7 +64,7 @@ for(const reducedMotion of ['no-preference','reduce'])test(`alignment entry uses
   await expect(director).toHaveAttribute('data-alignment-pulse','false');
   await page.evaluate(()=>{alignmentFixture.phase='paused';});await page.waitForTimeout(60);await page.evaluate(()=>{alignmentFixture.phase='running';});await page.waitForTimeout(150);
   await expect(director).toHaveAttribute('data-alignment-pulse-serial','1');
-  await enter();await page.waitForTimeout(45);
+  await enter();await pulseFrame();
   const artifact=`.cache/v${APP_VERSION.replaceAll('.','')}-alignment-${reducedMotion}`;
   await mkdir('.cache',{recursive:true});await page.screenshot({path:artifact+'.png'});
   const final=await page.evaluate(()=>{clearTimeout(alignmentFixture.timer);return {edges:alignmentFixture.edges,calls:alignmentFixture.calls,feedback:alignmentFixture.last?.alignmentFeedback};});

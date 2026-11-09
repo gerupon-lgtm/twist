@@ -227,9 +227,10 @@ export function createFlightPanel(getModes) {
       $('flight-adjustments').hidden = phase !== 'paused';
       const inactiveSteering = inactiveSteeringSettings(getModes().steer);
       const sonic=['supersonic','sierra10'].includes(getModes().course?.id);
+      const sierra50=getModes().course?.id==='sierra50';
       wristPresets.hidden=mode!=='flight'||getModes().steer!=='wrist';
       for (const label of $('flight-settings-fields').querySelectorAll('label[data-setting-key]')) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','speedUnit','streakAmount','groundPatternStrength'].includes(label.dataset.settingKey))
-        || inactiveSteering.includes(label.dataset.settingKey)||(sonic&&['maxPitch','timeConstant','maxBank','turnGravity','radarRange','groundPatternStrength'].includes(label.dataset.settingKey));
+        || inactiveSteering.includes(label.dataset.settingKey)||(sierra50&&label.dataset.settingKey==='turnGravity')||(sonic&&['maxPitch','timeConstant','maxBank','turnGravity','radarRange','groundPatternStrength'].includes(label.dataset.settingKey));
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       refreshLayout();
       refreshTroubles();

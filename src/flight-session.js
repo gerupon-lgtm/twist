@@ -41,6 +41,7 @@ export function flightReport({ version, pitch, steer, display = 'bank', camera =
   if(mode!=='flight')inactiveSettings.push('speedFov','highSpeedShake','autoAfterburner','autoAfterburnerAngle');
   if(mode!=='flight')inactiveSettings.push('flightDirector','targetHeadingCue','edgeGuidance','nextTargetNotice','audioGuidance');
   if (mode === 'explore') for (const key of ['deadzone','maxTilt','maxPitch','timeConstant','maxBank','turnGravity','displayTimeConstant','maxSteerTilt','maxSteerTwist','maxSteerWrist','steerTiltDeadzone','steerTwistDeadzone','steerWristDeadzone','steerCurve']) if (!inactiveSettings.includes(key)) inactiveSettings.push(key);
+  if(course?.flightProfile&&!inactiveSettings.includes('turnGravity'))inactiveSettings.push('turnGravity');
   if(supersonic)for(const key of ['maxPitch','timeConstant','maxBank','turnGravity','radarRange','groundPatternStrength'])if(!inactiveSettings.includes(key))inactiveSettings.push(key);
   return { version, mode, view, pitch, steer, launch: launch === 'installed' ? 'installed' : 'browser', fullscreen: Boolean(fullscreen), camera: mode === 'flight' && ['chase','cockpit'].includes(camera) ? camera : 'overlay', display: display === 'fixed' ? 'fixed' : 'bank',
     ...(['clear', 'grounded'].includes(result) ? { result } : {}),

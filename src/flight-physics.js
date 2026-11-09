@@ -1,22 +1,5 @@
-import { AFTERBURNER_TUNING } from './afterburner.js';
-
-/** Game-scale flight approximation; values are accelerations per unit mass. */
-export const FLIGHT_MODEL = Object.freeze({
-  cruiseSpeed: 10,
-  defaultThrottle: 0.5,
-  gravity: 3,
-  maxThrust: 1.8,
-  cruiseDrag: 0.9,
-  maxSpeed: 30,
-  maxLift: 9,
-  stallStart: 20 * Math.PI / 180,
-  stallEnd: 70 * Math.PI / 180,
-  recoveryThrust: 5.4,
-  recoveryTurnRate: 2.5,
-  maxRecoveryAcceleration: 12,
-  maxTimeStep: 0.05,
-  integrationStep: 1 / 120,
-});
+import {FLIGHT_MODEL,resolveFlightProfile} from './course-flight-profile.js';
+export {FLIGHT_MODEL} from './course-flight-profile.js';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const finite = (value) => Number.isFinite(value) ? value : 0;
@@ -61,7 +44,7 @@ function flightBasis(input) {
   return { forward, up: normalized(perpendicular) };
 }
 
-function forces(velocity, forward, up, throttle, extraThrust = 0) {
+function forces(velocity, forward, up, throttle, extraThrust = 0, model=FLIGHT_MODEL) {
   const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
   const direction = speed > EPSILON
     ? { x: velocity.x / speed, y: velocity.y / speed, z: velocity.z / speed }
@@ -72,39 +55,39 @@ function forces(velocity, forward, up, throttle, extraThrust = 0) {
     z: up.z - direction.z * alongUp };
   const projectionLength = Math.hypot(projectedUp.x, projectedUp.y, projectedUp.z);
   const liftDirection = projectionLength > EPSILON ? normalized(projectedUp) : null;
-  const speedRatioSquared = (speed / FLIGHT_MODEL.cruiseSpeed) ** 2;
-  const stallProgress = clamp((Math.abs(angleOfAttack) - FLIGHT_MODEL.stallStart)
-    / (FLIGHT_MODEL.stallEnd - FLIGHT_MODEL.stallStart), 0, 1);
+  const speedRatioSquared = (speed / model.cruiseSpeed) ** 2;
+  const stallProgress = clamp((Math.abs(angleOfAttack) - model.stallStart)
+    / (model.stallEnd - model.stallStart), 0, 1);
   const stallFactor = 1 - stallProgress ** 2 * (3 - 2 * stallProgress);
   // A signed coefficient permits inverted lift; at large incidence it fades
   // smoothly instead of retaining impossible support in a vertical stall.
   const lift = liftDirection && speed > EPSILON
-    ? clamp(FLIGHT_MODEL.gravity * speedRatioSquared * (1 + 4.5 * angleOfAttack),
-      -FLIGHT_MODEL.maxLift, FLIGHT_MODEL.maxLift) * stallFactor
+    ? clamp(model.gravity * speedRatioSquared * (1 + 4.5 * angleOfAttack),
+      -model.maxLift, model.maxLift) * stallFactor
     : 0;
-  const drag = FLIGHT_MODEL.cruiseDrag * speedRatioSquared;
+  const drag = model.cruiseDrag * speedRatioSquared;
   // Powered recovery is available only after the nose/wings return upright
   // and near level. Cruise keeps its original thrust/drag balance.
   const recoveryPosture = (1 - smooth(Math.abs(forward.y), Math.sin(Math.PI / 12), Math.sin(Math.PI / 4)))
     * smooth(up.y, .3, .8);
   const lowForwardSpeed = 1 - smooth(dot(velocity, forward), 1, 4.5);
-  const stalled = smooth(angleOfAttack, FLIGHT_MODEL.stallStart, FLIGHT_MODEL.stallEnd);
+  const stalled = smooth(angleOfAttack, model.stallStart, model.stallEnd);
   const recoveryAssist = throttle * recoveryPosture * Math.max(lowForwardSpeed, stalled);
-  const thrust = throttle * (FLIGHT_MODEL.maxThrust + FLIGHT_MODEL.recoveryThrust * recoveryPosture * lowForwardSpeed)
+  const thrust = throttle * (model.maxThrust + model.recoveryThrust * recoveryPosture * lowForwardSpeed)
     + extraThrust;
   const alongForward = dot(forward, direction);
   const redirect = { x: forward.x - direction.x * alongForward,
     y: forward.y - direction.y * alongForward, z: forward.z - direction.z * alongForward };
   const redirectLength = Math.hypot(redirect.x, redirect.y, redirect.z);
   const recoveryDirection = redirectLength > EPSILON ? normalized(redirect) : null;
-  const recoveryAcceleration = recoveryDirection ? Math.min(FLIGHT_MODEL.maxRecoveryAcceleration,
-    speed * FLIGHT_MODEL.recoveryTurnRate * throttle * recoveryPosture * stalled)
+  const recoveryAcceleration = recoveryDirection ? Math.min(model.maxRecoveryAcceleration,
+    speed * model.recoveryTurnRate * throttle * recoveryPosture * stalled)
     * Math.min(1, redirectLength / .1) : 0;
   // This correction is perpendicular to velocity: it redirects existing
   // momentum continuously, rather than replacing velocity or adding lift at rest.
   return {
     x: forward.x * thrust - direction.x * drag + (liftDirection?.x ?? 0) * lift + (recoveryDirection?.x ?? 0) * recoveryAcceleration,
-    y: forward.y * thrust - direction.y * drag + (liftDirection?.y ?? 0) * lift - FLIGHT_MODEL.gravity + (recoveryDirection?.y ?? 0) * recoveryAcceleration,
+    y: forward.y * thrust - direction.y * drag + (liftDirection?.y ?? 0) * lift - model.gravity + (recoveryDirection?.y ?? 0) * recoveryAcceleration,
     z: forward.z * thrust - direction.z * drag + (liftDirection?.z ?? 0) * lift + (recoveryDirection?.z ?? 0) * recoveryAcceleration,
     angleOfAttack,
     lift,
@@ -124,27 +107,28 @@ function forces(velocity, forward, up, throttle, extraThrust = 0) {
  * permits existing momentum to decay under the same forces without a 30m/s cut.
  */
 export function stepFlightVelocity(velocity, dt, input) {
+  const profile=resolveFlightProfile(input?.profile),model=profile.model;
   const cleaned = cleanVector(velocity);
   const startSpeed = Math.hypot(cleaned.x, cleaned.y, cleaned.z);
-  const maxSpeed = input?.afterburner === true ? AFTERBURNER_TUNING.maxSpeed
+  const maxSpeed = input?.afterburner === true ? profile.afterburnerMaxSpeed
     : input?.preserveOverspeed === true && Number.isFinite(startSpeed)
-      ? Math.max(FLIGHT_MODEL.maxSpeed, startSpeed) : FLIGHT_MODEL.maxSpeed;
-  const extraThrust = input?.afterburner === true ? AFTERBURNER_TUNING.extraThrust : 0;
+      ? Math.max(model.maxSpeed, startSpeed) : model.maxSpeed;
+  const extraThrust = input?.afterburner === true ? profile.afterburnerThrust : 0;
   let state = boundedVelocity(cleaned, maxSpeed);
   const { forward, up } = flightBasis(input);
   const throttle = clamp(finite(input?.throttle), 0, 1);
-  const elapsed = clamp(finite(dt), 0, FLIGHT_MODEL.maxTimeStep);
-  const steps = Math.ceil(elapsed / FLIGHT_MODEL.integrationStep);
+  const elapsed = clamp(finite(dt), 0, model.maxTimeStep);
+  const steps = Math.ceil(elapsed / model.integrationStep);
   const step = steps > 0 ? elapsed / steps : 0;
   for (let i = 0; i < steps; i += 1) {
-    const initial = forces(state, forward, up, throttle, extraThrust);
+    const initial = forces(state, forward, up, throttle, extraThrust, model);
     const midpoint = boundedVelocity({ x: state.x + initial.x * step / 2,
       y: state.y + initial.y * step / 2, z: state.z + initial.z * step / 2 }, maxSpeed);
-    const middle = forces(midpoint, forward, up, throttle, extraThrust);
+    const middle = forces(midpoint, forward, up, throttle, extraThrust, model);
     state = boundedVelocity({ x: state.x + middle.x * step,
       y: state.y + middle.y * step, z: state.z + middle.z * step }, maxSpeed);
   }
-  const final = forces(state, forward, up, throttle, extraThrust);
+  const final = forces(state, forward, up, throttle, extraThrust, model);
   return {
     velocity: state,
     speed: Math.hypot(state.x, state.y, state.z),

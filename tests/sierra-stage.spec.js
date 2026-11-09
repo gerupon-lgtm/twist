@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {APP_VERSION} from '../src/version.js';
 import {mkdir,writeFile} from 'node:fs/promises';
 for(const cameraMode of ['overlay','chase','cockpit'])test(`Sierra stage uses true heading, flat contact and course profile in ${cameraMode}`,async({page})=>{
  await page.goto('/?dev=1&flow=legacy');const result=await page.evaluate(async cameraMode=>{
@@ -15,7 +16,7 @@ for(const cameraMode of ['overlay','chase','cockpit'])test(`Sierra stage uses tr
  expect(result.contact).toMatchObject({grounded:true,altitude:0,groundClearance:0,speed:0});expect(result.contact.position.y).toBe(result.surface);expect(result.after.position).toEqual(result.contact.position);expect(result.after.collected).toBe(result.contact.collected);
 });
 
-test('real Sierra level flight ignores the old350m boundary, warns at1850m and returns through actual bank input',async({page})=>{
+test('real Sierra level flight ignores the old350m boundary, warns before1850m at its new speed and returns through actual bank input',async({page})=>{
  test.setTimeout(180000);await page.goto('/?dev=1&flow=legacy');
  const result=await page.evaluate(async()=>{
   const {createStage}=await import('/src/stage.js'),{getCourse}=await import('/src/course-catalog.js');
@@ -39,7 +40,7 @@ test('real Sierra level flight ignores the old350m boundary, warns at1850m and r
     // Real controls follow the boundary's return heading; pitch-rate feedback
     // keeps the original10m height. No position, orientation or velocity write.
     for(let i=0;i<1200;i++){
-     const error=wrap(s.boundary.returnHeading-s.heading),bank=clamp(Math.atan(error*1.5*Math.max(s.speed,6)/9.8),-Math.PI/6,Math.PI/6);
+     const error=wrap(s.boundary.returnHeading-s.heading),bank=clamp(Math.atan(error*1.5*Math.max(s.speed,6)/s.boundary.turnGravity),-Math.PI/6,Math.PI/6);
      const desiredVerticalSpeed=clamp((10-s.position.y)*.5,-1.5,1.5),actualClimb=Math.atan2(s.velocity.y,Math.hypot(s.velocity.x,s.velocity.z)),desiredClimb=Math.atan2(desiredVerticalSpeed,Math.hypot(s.velocity.x,s.velocity.z));
      const pitchRate=clamp(2*(desiredClimb-actualClimb),-.2,.2);
      stage.update(.1,{mode:'flight',pitchRate,bankAngle:bank,throttle:.65});seconds+=.1;s=stage.getStatus();if(i%10===0)trace.push(sample(s,seconds));
@@ -50,11 +51,13 @@ test('real Sierra level flight ignores the old350m boundary, warns at1850m and r
    return {initial,oldNorthCrossing,firstWarning,outside,recovered,earlyWarnings,trace,last:sample(s,seconds)};
   }finally{stage.dispose();}
  });
- await mkdir('.cache',{recursive:true});await writeFile(`.cache/v0137-sierra-boundary-real-${Date.now()}.json`,JSON.stringify(result,null,2));
+ await mkdir('.cache',{recursive:true});await writeFile(`.cache/v${APP_VERSION.replaceAll('.','')}-sierra-boundary-real-${Date.now()}.json`,JSON.stringify(result,null,2));
+ expect(result.initial.speed).toBeCloseTo(25,8);expect(result.initial.boundary.turnGravity).toBe(15);
  expect(result.initial.position.z).toBeGreaterThan(350);expect(result.initial.boundary).toMatchObject({halfExtent:1850,near:false,outside:false});expect(result.earlyWarnings).toEqual([]);
  expect(result.oldNorthCrossing,'real flight must pass old north350 without an early warning').not.toBeNull();expect(result.oldNorthCrossing.boundary.near).toBe(false);
- expect(result.firstWarning,'must warn before actually leaving the Sierra airspace').not.toBeNull();expect(result.firstWarning.boundary.outside).toBe(false);expect(result.firstWarning.boundary.nearestEdge).toBe('north');expect(result.firstWarning.boundary.warningDistance).toBeCloseTo(60,6);expect(result.firstWarning.position.z).toBeLessThanOrEqual(-1790);expect(result.firstWarning.position.z).toBeGreaterThan(-1793);
- expect(result.outside,'the warning is visual and must not stop or clamp travel').not.toBeNull();expect(result.outside.position.z).toBeLessThan(-1850);expect(result.outside.speed).toBeGreaterThan(9);expect(result.outside.grounded).toBe(false);expect(result.outside.complete).toBe(false);
+ const warning=1.3*25**2/(15*Math.tan(40*Math.PI/180))+2*25,warningZ=-(1850-warning);
+ expect(result.firstWarning,'must warn before actually leaving the Sierra airspace').not.toBeNull();expect(result.firstWarning.boundary.outside).toBe(false);expect(result.firstWarning.boundary.nearestEdge).toBe('north');expect(result.firstWarning.boundary.warningDistance).toBeCloseTo(warning,6);expect(result.firstWarning.position.z).toBeLessThanOrEqual(warningZ);expect(result.firstWarning.position.z).toBeGreaterThan(warningZ-25*.25-1e-6);
+ expect(result.outside,'the warning is visual and must not stop or clamp travel').not.toBeNull();expect(result.outside.position.z).toBeLessThan(-1850);expect(result.outside.speed).toBeGreaterThan(24);expect(result.outside.grounded).toBe(false);expect(result.outside.complete).toBe(false);
  expect(result.recovered,JSON.stringify(result.trace.slice(-8))).not.toBeNull();expect(result.recovered.boundary).toMatchObject({halfExtent:1850,near:false,outside:false});expect(result.recovered.grounded).toBe(false);expect(result.recovered.complete).toBe(false);expect(result.trace.every(s=>s.stageSize.halfExtent===1850)).toBe(true);
  console.log(JSON.stringify({sierraBoundaryRealFlight:{oldNorthSeconds:result.oldNorthCrossing.seconds,warningSeconds:result.firstWarning.seconds,outsideSeconds:result.outside.seconds,recoveredSeconds:result.recovered.seconds}}));
 });

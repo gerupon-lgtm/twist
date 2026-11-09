@@ -129,14 +129,16 @@ test('legacy conditions retain the v0.1.13 trace and both displays retain curren
  await page.goto('/?mode=flight');const current=await capture();
  expect(current[0].initial.speed).toBe(10);expect(current[0].initial.position).toEqual(COURSE.start);
  // Supply only the approved pre-v24 constants in HTTP responses; production files stay untouched.
- const physics=(await readFile('src/flight-physics.js','utf8')).replace(/cruiseSpeed:\s*[\d.]+/,'cruiseSpeed: 6').replace(/maxSpeed:\s*[\d.]+/,'maxSpeed: 18');
+ const model=(await readFile('src/course-flight-profile.js','utf8')).replace(/cruiseSpeed:\s*[\d.]+/,'cruiseSpeed: 6').replace(/maxSpeed:\s*[\d.]+/,'maxSpeed: 18');
+ expect(model).toContain('cruiseSpeed: 6');expect(model).toContain('maxSpeed: 18');
  // Reproduce the published comparison through the retained legacy course API.
  const course=(await readFile('src/course.js','utf8')).replace(/export const LEGACY_COURSE=course\('legacy',[\s\S]*?\],point\([^;]+\)\);/,`export const LEGACY_COURSE=Object.freeze({id:'legacy',name:'v0.1.13 fixture',
   start:{x:0,y:7,z:26},lights:[{x:0,y:10,z:0},{x:16,y:18,z:-24},{x:-14,y:12,z:-44}],exit:{x:0,y:7,z:-62}
  });`);
- const routes=[[/\/src\/flight-physics\.js(?:\?|$)/,physics],[/\/src\/course\.js(?:\?|$)/,course]];
+ const routes=[[/\/src\/course-flight-profile\.js(?:\?|$)/,model],[/\/src\/course\.js(?:\?|$)/,course]];
  for(const [url,body] of routes)await page.route(url,route=>route.fulfill({contentType:'text/javascript',body}));
  await page.reload();const legacy=await capture();
+ expect(legacy[0].initial.speed).toBe(6);
  for(const [url] of routes)await page.unroute(url);
  function compare(actual,expected){for(const[key,value]of Object.entries(expected)){if(typeof value==='number')expect(actual[key]).toBeCloseTo(value,8);else if(value&&typeof value==='object')compare(actual[key],value);else expect(actual[key]).toEqual(value);}}
  for(let i=0;i<baseline.samples.length;i++){

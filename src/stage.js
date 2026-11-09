@@ -1,3 +1,4 @@
+import {courseFlightProfile,courseFlightMetadata} from './course-flight-profile.js';
 import {createAfterburnerState,advanceAfterburner,awardAfterburner,stopAfterburner,observeAfterburnerSpeed} from './afterburner.js';
 import {createSpeedEffects,speedPresentation} from './speed-effects.js';
 import * as THREE from 'three';
@@ -30,6 +31,7 @@ const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallbac
 /** Fixed camera/craft pivot; the world moves, and sensor compensation turns the craft. */
 export function createStage(canvas, { visibility = 'assisted', display = 'bank', cameraMode = 'overlay', course = COURSE, turnGravity:initialTurnGravity=FLIGHT_TURN.defaultGravity } = {}) {
   const layout=course&&Array.isArray(course.lights)&&course.lights.length>=3?course:COURSE;
+  const flightProfile=courseFlightProfile(layout),flightModel=flightProfile.model;
   const courseProfile=resolveCourseWorldProfile(layout),halfExtent=courseProfile?.halfExtent??STAGE_HALF_EXTENT;
   const surface=createCourseSurface(layout),groundAt=(x,z)=>surface.heightAt(x,z),heightCeiling=courseProfile?.maxHeight??45;
   const START=new THREE.Vector3(layout.start.x,layout.start.y,layout.start.z);
@@ -528,7 +530,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   let yawRate = 0;
   let speed = 0;
   let throttle = 0;
-  let afterburner=createAfterburnerState(),overspeedFromAB=false;
+  let afterburner=createAfterburnerState({unlimited:flightProfile.unlimitedAfterburner}),overspeedFromAB=false;
   let afterburnerMotion=Object.freeze([]);
   let speedSettings={streakAmount:0,speedFov:0,highSpeedShake:false,autoAfterburner:false,autoAfterburnerAngle:35};
   let speedExtraFov=0,baseVerticalFov=64;
@@ -656,9 +658,10 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       bank = 0;
     }
     mode = 'flight';
+    if(flightProfile.turnGravity!==null)turnGravity=flightProfile.turnGravity;
     updateProjection();
     forward.set(0, 0, -1).applyQuaternion(baseOrientation);
-    velocity.copy(forward).multiplyScalar(FLIGHT_MODEL.cruiseSpeed);
+    velocity.copy(forward).multiplyScalar(flightModel.cruiseSpeed);
     speed = velocity.length();
     throttle = FLIGHT_MODEL.defaultThrottle;
     yawRate = 0;
@@ -800,7 +803,8 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     const elapsed = Math.max(0, finite(dt));
     if(input.speedSettings&&typeof input.speedSettings==='object')speedSettings={...speedSettings,...input.speedSettings};
     arenaTime+=elapsed;boundaryVisual.update(arenaTime);
-    if(Number.isFinite(input.turnGravity))turnGravity=normalizeTurnGravity(input.turnGravity);
+    if(mode==='flight'&&flightProfile.turnGravity!==null)turnGravity=flightProfile.turnGravity;
+    else if(Number.isFinite(input.turnGravity))turnGravity=normalizeTurnGravity(input.turnGravity);
     if(Number.isFinite(input.maxBank))turnBankLimit=THREE.MathUtils.clamp(input.maxBank,5,40);
     const nextMode = input.mode === 'flight' ? 'flight' : 'explore';
     if (nextMode !== mode) {
@@ -890,10 +894,10 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
           autoEnabled:speedSettings.autoAfterburner===true,pitchInputDegrees:input.pitchInputDegrees,autoAngle:speedSettings.autoAfterburnerAngle,
           groundClearance:courseGroundClearance(surface,position),speed,grounded});afterburner=burn.state;
         const paid=Math.max(0,Math.min(step,burn.activeSeconds));
-        let next=paid>0?stepFlightVelocity(velocity,paid,{forward,up,throttle:1,afterburner:true}):null;
+        let next=paid>0?stepFlightVelocity(velocity,paid,{forward,up,throttle:1,afterburner:true,profile:flightProfile}):null;
         if(paid>0)overspeedFromAB=true;
-        if(step-paid>1e-12)next=stepFlightVelocity(next?.velocity??velocity,step-paid,{forward,up,throttle:targetThrottle,preserveOverspeed:overspeedFromAB});
-        if(next.speed<=FLIGHT_MODEL.maxSpeed+1e-8)overspeedFromAB=false;
+        if(step-paid>1e-12)next=stepFlightVelocity(next?.velocity??velocity,step-paid,{forward,up,throttle:targetThrottle,preserveOverspeed:overspeedFromAB,profile:flightProfile});
+        if(next.speed<=flightModel.maxSpeed+1e-8)overspeedFromAB=false;
         // Keep the natural bank response from the unchanged lift model. Add
         // only the requested increase in horizontal turning, without changing
         // speed or vertical velocity (and with an exact identity at strength 3).
@@ -965,6 +969,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       course:{id:layout.id??'legacy',name:layout.name??'比較用（旧配置）',targetCount:BEACONS.length,...(courseProfile?{pointNames:[...layout.pointNames]}:{})},
       stageSize:courseStageDimensions(layout)??{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2},
       turnGravity,
+      ...(mode==='flight'&&courseFlightMetadata(layout)?{flightProfile:courseFlightMetadata(layout)}:{}),
       boundary:stageBoundaryStatus(position,{halfExtent,heading:Math.atan2(forward.x,-forward.z),velocity,speed,turnGravity,maxBank:turnBankLimit}),
       boundaryAppearance:boundaryVisual.snapshot(),
       afterburner:{...afterburner},
@@ -1044,7 +1049,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
   }
 
   function reset() {
-    afterburner=createAfterburnerState();overspeedFromAB=false;
+    afterburner=createAfterburnerState({unlimited:flightProfile.unlimitedAfterburner});overspeedFromAB=false;
     afterburnerMotion=Object.freeze([]);
     position.copy(START);
     if(courseProfile)baseOrientation.setFromAxisAngle(worldUpAxis,-layout.startHeading);else baseOrientation.identity();

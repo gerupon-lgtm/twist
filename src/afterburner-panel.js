@@ -1,7 +1,7 @@
 export function updateAfterburnerPanel(state,settings={}){
  const root=document.getElementById('afterburner-hud');if(!root)return;
  const ab=state.afterburner??{},fuel=Math.max(0,Math.min(100,Number.isFinite(ab.fuel)?ab.fuel:0));
- const unlimited=Boolean(state.supersonic&&ab.unlimited===true);
+ const unlimited=ab.unlimited===true;
  const status=ab.active?'ON':ab.needsRelease?'RELEASE':fuel<=0?'EMPTY':'READY';
  root.dataset.status=status.toLowerCase();root.dataset.active=String(ab.active===true);root.dataset.fuel=String(fuel);
  root.querySelector('i').style.width=`${fuel}%`;

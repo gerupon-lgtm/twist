@@ -46,12 +46,12 @@ export function createSupersonicRenderer(canvas,{course,visibility='assisted',di
   function sync(state,input={},dt=0,options={}){
     if(disposed)return;lastState=state;lastInput=input;phase=options.phase??phase;
     const time=state.simulationSeconds??0;
-    phoneRoll=advanceDisplayRoll(phoneRoll,finite(input.displayTwist),Math.max(0,dt),finite(input.displayTimeConstant,.05));
+    phoneRoll=advanceDisplayRoll(phoneRoll,THREE.MathUtils.degToRad(finite(input.displayTwist)),Math.max(0,dt),finite(input.displayTimeConstant,.05));
     const settings={...input.speedSettings,...input,speedLines:input.speedSettings?.streakAmount??input.speedLines??input.streakAmount,...(course.flightProfile?.presentationReferenceSpeed?{presentationReferenceSpeed:course.flightProfile.presentationReferenceSpeed}:{})};
     const presentation=supersonicSpeedPresentation(state.speed,settings,state.afterburner,time,mode);extraFov=presentation.extraFov;projection(input);
     const body=bodyQuaternion(state.orientation),base=body.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),state.bank??0));
     if(mode==='chase')chaseAngles=advanceChaseAngles(chaseAngles,bodyViewAngles(base),Math.max(0,dt),finite(input.chaseTimeConstant,.15));
-    frame=supersonicCameraFrame(state,{cameraMode:mode,display:displayMode,phoneRoll,screenOffset:finite(input.displayScreenOffset),chaseAngles,shake:presentation.shake});
+    frame=supersonicCameraFrame(state,{cameraMode:mode,display:displayMode,phoneRoll,screenOffset:THREE.MathUtils.degToRad(finite(input.displayScreenOffset)),chaseAngles,shake:presentation.shake});
     const nextOrigin=options.origin??chooseRenderOrigin(state.position,origin);
     if(!origin||['x','y','z'].some(k=>nextOrigin[k]!==origin[k])){origin={...nextOrigin};originSerial++;}
     root.quaternion.copy(frame.worldQuaternion);renderRootTranslation(origin,frame,root.position);

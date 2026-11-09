@@ -25,14 +25,14 @@ const nonnegative = value => Number.isFinite(value) ? Math.max(0, value) : 0;
 const add = (a, b) => Math.min(Number.MAX_VALUE, a + b);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 
-export function createAfterburnerState() {
-  return { fuel: tuning.startFuel, active: false, needsRelease: false,
+export function createAfterburnerState({unlimited=false}={}) {
+  return { fuel: unlimited?tuning.maxFuel:tuning.startFuel, ...(unlimited?{unlimited:true}:{}), active: false, needsRelease: false,
     uses: 0, seconds: 0, earned: 0, maxSpeed: 0, burstSeconds: 0, timeSeconds: 0,
     combo: 0, lastTargetSeconds: null, autoHoldSeconds: 0, autoRequest: false };
 }
 
 function cleanState(previous) {
-  return { fuel: clamp(nonnegative(previous?.fuel), 0, tuning.maxFuel),
+  return { fuel: clamp(nonnegative(previous?.fuel), 0, tuning.maxFuel),...(previous?.unlimited===true?{unlimited:true}:{}),
     active: previous?.active === true, needsRelease: previous?.needsRelease === true,
     uses: Math.floor(nonnegative(previous?.uses)), seconds: nonnegative(previous?.seconds),
     earned: nonnegative(previous?.earned), maxSpeed: nonnegative(previous?.maxSpeed),
@@ -111,12 +111,13 @@ export function advanceAfterburner(previous, dt, input = {}) {
   // A held auto input is not a release while it is waiting for its dwell time.
   if (!manual && autoReleased) state.needsRelease = false;
   const rawAutoDemand = input.autoEnabled === true && pitch <= -angle;
-  if ((request || rawAutoDemand) && state.fuel <= 0) state.needsRelease = true;
-  const activeSeconds = request && !state.needsRelease ? Math.min(requestedSeconds, state.fuel / tuning.drainRate) : 0;
+  const unlimited=state.unlimited===true;
+  if ((request || rawAutoDemand) && !unlimited && state.fuel <= 0) state.needsRelease = true;
+  const activeSeconds = request && !state.needsRelease ? unlimited?requestedSeconds:Math.min(requestedSeconds, state.fuel / tuning.drainRate) : 0;
   const ignited = !wasActive && activeSeconds > 0;
-  const exhausted = activeSeconds > 0 && activeSeconds >= state.fuel / tuning.drainRate;
-  state.fuel = exhausted ? 0 : Math.max(0, state.fuel - activeSeconds * tuning.drainRate);
-  state.active = request && !state.needsRelease && state.fuel > 0 && (wasActive || activeSeconds > 0);
+  const exhausted = !unlimited && activeSeconds > 0 && activeSeconds >= state.fuel / tuning.drainRate;
+  if(!unlimited)state.fuel = exhausted ? 0 : Math.max(0, state.fuel - activeSeconds * tuning.drainRate);
+  state.active = request && !state.needsRelease && (unlimited||state.fuel > 0) && (wasActive || activeSeconds > 0);
   if (exhausted) state.needsRelease = true;
   if (ignited) { state.uses = add(state.uses, 1); state.burstSeconds = 0; }
   state.seconds = add(state.seconds, activeSeconds);
