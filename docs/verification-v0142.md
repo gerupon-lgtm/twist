@@ -1,4 +1,4 @@
-# v0.1.42 検証記録（ローカル検証完了・公開確認中）
+# v0.1.42 検証記録（公開・配信確認済み）
 
 対象はシエラ縦断1/10・亜音速の追加。基準`21b9720`、仕様は[instruction-sierra-subsonic.md](instruction-sierra-subsonic.md)、条件と判断は[implementation-v0142.md](implementation-v0142.md)。以下の完了印はそれぞれの実行結果であり、物理端末での確認を意味しない。
 
@@ -13,7 +13,11 @@
 - [x] 最終ビルド145 modules・449ファイル（本編33＋保存版416）、22,980,202 bytes。全ファイルの長さとSHAを`.cache/v0142-release-dist-manifest.json`へ固定。
 - [x] 最終配信版の本編12件（地図4/初回SCC・FM2/1/10の選択と3視点6）、PWA3ファイル13件、欠落曲2件が成功。`.cache/v0142-built-product-report.json`、`v0142-built-pwa-report.json`、`v0142-built-fallback-report.json`。故障注入2件だけはキャッシュが404を代替しないようSWを無効にし、実SWは別のPWA13件で確認した。
 - [x] 規約/仕様の二軸レビューと範囲内の再確認に未解決P1/P2なし。未要求の曲の可否は取得前には分からないため、既知の欠落/未読の境界を資料と試験へ固定した。最終の試験時計と表示照合は親で確認した。
-- [ ] 公開処理、配信ファイル/保存版・公開先の本編を確認。
+- [x] アプリ`dddf44e227cbd216ec4cbafb8fac12c03baeb803`を公開。[Actions 42595081633](https://github.com/gerupon-lgtm/twist/actions/runs/42595081633)の12工程が成功。公開449ファイルのMIME/長さ/SHAと21画面項目、本編12件/欠落曲2件、独立見本4条件が成功。保存版14個の416ファイルと各4項目も成功。`.cache/v0142-public-verification.json`、`v0142-public-product-report.json`、`v0142-public-fallback-report.json`、`v0142-public-briefing-preview.json`、`archives-v0142-verification.json`。
+
+保存版の初回照合ではMIDI2ファイルが一時的な503で失敗。初回を合格とせず保存し、個別再取得200/SHA一致後、503だけ最大2回の待ち付き再試行を記録する検証側で全14版を再実行して成功した。配信アプリの変更やファイル検査の省略はない。公開確認後に本編33ファイルを`.cache/v0142-published-root/receipt.json`付きで確保した。
+
+公開後の実機報告：高速空域とシエラ1/10で、ひねる・手首の両方が開始直後にきりもみ状態になるとのこと。持ち方合わせ直しは未試行。PC試験の合格をこの実機症状の解消とは扱わず、次版の調査対象にする。
 
 途中の全体試験は181件成功後、案内試験の同じ操作の開始位置比較で停止した。失敗と途中結果は`.cache/v0142-pre-corner/`と`v0142-recovery-*.log`へ保持し、最終全体成功へ加算しない。時刻だけの固定と40度への変更では全条件の成功に至らなかった。最終的には固定16ms描画時計・経過時間一致の追加、旋回応答2/秒・元の30度以内/出力50・65%/表示FDのみを追う条件で4ケース×2回が成功。`.cache/v0142-recovery-steer-report.json`。実時間のフレームばらつきの確認とは分ける。
 
