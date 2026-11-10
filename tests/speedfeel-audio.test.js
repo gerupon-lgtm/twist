@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {flightFeedback,sfxRegisters,EVENT_FEEDBACK} from '../src/feedback/model.js';
 import {normalizeFeedbackSettings} from '../src/feedback/settings.js';
 
-const settings={...normalizeFeedbackSettings(),vario:false,passbySound:true};
+// Isolate the original AB roar/release; the new continuous speed tone has its own coverage.
+const settings={...normalizeFeedbackSettings(),vario:false,passbySound:true,speedSound:false};
 const state={mode:'flight',altitude:30,verticalSpeed:0,throttle:1};
 const model=(speed=30,active=false,extra={})=>flightFeedback({...state,speed,afterburner:{active,burstSeconds:1},...extra},settings);
 

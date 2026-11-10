@@ -1,5 +1,10 @@
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number.isFinite(v)?v:a));
 export const SONIC_TRANSITION=Object.freeze({duration:275,pattern:Object.freeze([150,35,90])});
+// Haptic duration is independent from the short PSG crossing accent.
+export const SONIC_HAPTICS=Object.freeze({
+  up:Object.freeze({duration:525,pattern:Object.freeze([280,45,200])}),
+  down:SONIC_TRANSITION,
+});
 export const sonicWarning=cue=>['ground','stall','buffet'].includes(cue);
 
 /** Separate speed curve, leaving the ordinary 0..45 model byte-for-byte intact. */

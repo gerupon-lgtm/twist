@@ -7,7 +7,7 @@ import {createButtonSound} from './button-sound.js';
 /** AudioContext construction/resume happens only through an explicit user action. */
 export function createGameAudio(){
   let context=null,node=null,pending=null,poll=null,status='idle',lastState=null,wanted=false,eventTimer=null,generation=0,disposed=false;
-  let load=0,maxLoad=0,peak=0,musicActive=false,varioActive=false;
+  let load=0,maxLoad=0,peak=0,musicActive=false,varioActive=false,speedSound=null;
   let musicSchedule=null,fmAcknowledged=null,musicSession=0,musicSequence=0;
   let lastEvent=null;
   let navigationAcknowledged=null,afterburnerAcknowledged=null,passbyAcknowledged=null,sonicAcknowledged=null;
@@ -42,7 +42,7 @@ export function createGameAudio(){
           node=new AudioWorkletNode(context,'twist-audio',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});
           node.connect(context.destination);
           node.port.onmessage=({data})=>{
-            if(data.type==='metrics'){load=data.load;maxLoad=Math.max(maxLoad,load);peak=data.peak;musicActive=Boolean(data.music);varioActive=wanted&&Boolean(data.vario);musicSchedule=data.musicSchedule??null;}
+            if(data.type==='metrics'){load=data.load;maxLoad=Math.max(maxLoad,load);peak=data.peak;musicActive=Boolean(data.music);varioActive=wanted&&Boolean(data.vario);musicSchedule=data.musicSchedule??null;speedSound=data.speedSound??null;}
             if(data.navigation)navigationAcknowledged=data.navigation;
             if(data.afterburner)afterburnerAcknowledged=data.afterburner;
             if(data.passby)passbyAcknowledged=data.passby;
@@ -210,7 +210,7 @@ export function createGameAudio(){
     cancelMusicLayer(tag){cancelledMusicTags.add(tag);musicPending=musicPending.filter(w=>w.tag!==tag);post({type:'musicCancel',tag});},
     stopMusic(){musicSession++;musicPending=[];scheduleTime=null;cancelledMusicTags.clear();post({type:'musicStop',session:musicSession});},
     setMusicGain(gain){post({type:'musicGain',gain});},
-    configure(settings){if(briefingSession)briefingSession.settings={...settings};post({type:'settings',settings});if(!settings.sound||!settings.sfx||settings.volume<=0){buttons.cancel();cancelBriefing(undefined,'disabled');finishCountdownEnd(countdownSession,'disabled');}},
+    configure(settings){if(lastState)lastState={...lastState,settings:{...settings}};if(briefingSession)briefingSession.settings={...settings};post({type:'settings',settings});if(!settings.sound||!settings.sfx||settings.volume<=0){buttons.cancel();cancelBriefing(undefined,'disabled');finishCountdownEnd(countdownSession,'disabled');}},
     start(){cancelBriefing(undefined,'flight');wanted=true;if(context)context.resume().catch(()=>{});if(lastState)post(lastState);},
     update(model,settings,phase,navigation=null){lastState={type:'state',model,settings,phase,navigation};if(wanted)post(lastState);},
     event(kind,settings){
@@ -230,9 +230,9 @@ export function createGameAudio(){
       if(!node||!wanted||context?.state!=='running'||!settings.sound||!settings.sfx||!validSonicTransition(event))return false;
       post({type:'sonic',event:{...event},settings});return true;
     },
-    stop(){buttons.cancel();generation++;musicSession++;musicPending=[];wanted=false;cancelBriefing(undefined,'stop');cancelCountdown();varioActive=false;lastState=null;clearTimeout(eventTimer);post({type:'stop',session:musicSession});context?.suspend().catch(()=>{});},
+    stop(){buttons.cancel();generation++;musicSession++;musicPending=[];wanted=false;cancelBriefing(undefined,'stop');cancelCountdown();varioActive=false;speedSound=null;lastState=null;clearTimeout(eventTimer);post({type:'stop',session:musicSession});context?.suspend().catch(()=>{});},
     snapshot:()=>({status,load,maxLoad,peak,musicActive,varioActive,lastEvent,contextState:context?.state||'none',workletReady:Boolean(node),musicSchedule:musicSchedule?{...musicSchedule}:null,
-      buttons:buttons.snapshot(),
+      buttons:buttons.snapshot(),speedSound:speedSound?{...speedSound}:null,
       afterburner:{requested:lastState?.model?.afterburner?{...lastState.model.afterburner}:null,acknowledged:afterburnerAcknowledged?{...afterburnerAcknowledged}:null},
       passby:passbyAcknowledged?{...passbyAcknowledged}:null,
       sonic:sonicAcknowledged?{...sonicAcknowledged}:null,fm:fmAcknowledged?structuredClone(fmAcknowledged):null,musicSession,

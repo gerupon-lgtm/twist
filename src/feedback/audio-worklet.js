@@ -7,12 +7,14 @@ import {countdownTone as toneForCountdown,applyCountdownRegisters,validCountdown
 import {FmEngine} from '../music/fm-engine.js';
 import {sonicBoomDuration,sonicBoomSample,sonicBoomDucking} from './sonic-boom.js';
 import {briefingCue,applyBriefingRegisters} from './briefing-audio.js';
+import {createSpeedSoundClock} from './speed-sound.js';
 
 class TwistAudioProcessor extends AudioWorkletProcessor {
   constructor(){
     super();this.mixer=new ChipMixer(Math.round(sampleRate));this.active=false;this.event=null;
     this.eventAt=0;this.cueAt=0;this.cue='quiet';this.model=flightFeedback();this.stateAt=0;this.settings={};
     this.silentModel=flightFeedback();this.registers=new Uint8Array(14);
+    this.speedClock=createSpeedSoundClock();
     this.musicQueue=[];this.musicHead=0;this.musicPlaying=false;this.musicVolume=.5;
     this.musicSession=0;this.fm=new FmEngine(sampleRate);this.fmEnabled=false;this.fmBuffer=new Float32Array(128);
     this.cancelledMusicTags=new Set();this.afterburnerReleaseAt=null;this.passby=null;this.passbyAt=0;
@@ -37,7 +39,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       }
       if(m.type==='stop'||m.type==='musicStop'){this.fm.stop();this.fmEnabled=false;}
       if(m.type==='settings'&&!m.settings.sound){this.fm.stop();this.fmEnabled=false;this.musicQueue=this.musicQueue.slice(this.musicHead).filter(w=>w.kind!=='fm');this.musicHead=0;}
-      if(m.type==='stop'){this.endBriefing('stop');this.cancelCountdownBus(this.countdownSession);this.active=false;this.event=null;this.cue='quiet';this.cueAt=currentTime;this.musicQueue=[];this.musicHead=0;this.cancelledMusicTags.clear();this.musicPlaying=false;this.varioPhase=0;this.varioRunning=false;this.untilUpdate=0;this.navigation=null;this.afterburnerReleaseAt=null;this.endSonic('inactive');this.endPassby('inactive');this.endNavigation('inactive');this.mixer.stop();}
+      if(m.type==='stop'){this.speedClock.reset();this.endBriefing('stop');this.cancelCountdownBus(this.countdownSession);this.active=false;this.event=null;this.cue='quiet';this.cueAt=currentTime;this.musicQueue=[];this.musicHead=0;this.cancelledMusicTags.clear();this.musicPlaying=false;this.varioPhase=0;this.varioRunning=false;this.untilUpdate=0;this.navigation=null;this.afterburnerReleaseAt=null;this.endSonic('inactive');this.endPassby('inactive');this.endNavigation('inactive');this.mixer.stop();}
       if(m.type==='resetMetrics'){this.busyMs=0;this.frames=0;this.mixer.takePeak();this.navigationMetrics={accepted:0,suppressed:0,lastPan:null,lastIntervalMs:null,lastAt:null,reason:this.navigationMetrics.reason};this.publishNavigation();}
       if(m.type==='settings'){this.settings=m.settings;this.mixer.setVolume(m.settings.volume);this.untilUpdate=0;this.blockBriefing();this.blockCountdown();this.blockSonic();this.blockNavigation();this.blockPassby();if(!this.settings.sound||!this.settings.sfx)this.afterburnerReleaseAt=null;}
       if(m.type==='countdownBegin'&&validCountdownSession(m.session)&&m.session>this.countdownCancelled&&(this.countdownSession===null||m.session>=this.countdownSession)){
@@ -87,6 +89,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
         }
       }
       if(m.type==='state'){
+        this.speedClock.observe(m.model.speed,currentTime);
         if(this.model.afterburner?.active&&!m.model.afterburner?.active)this.afterburnerReleaseAt=currentTime;
         if(m.model.afterburner?.active||!m.settings.sound||!m.settings.sfx)this.afterburnerReleaseAt=null;
         this.active=true;this.model=m.model;this.stateAt=currentTime;this.settings=m.settings;this.mixer.setVolume(m.settings.volume);
@@ -121,7 +124,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
       }
       if(m.type==='poll'){
         this.port.postMessage({type:'metrics',load:this.frames?this.busyMs/1000/(this.frames/sampleRate):0,
-          peak:this.mixer.takePeak(),active:this.active,event:this.event,music:this.musicPlaying,
+          peak:this.mixer.takePeak(),active:this.active,event:this.event,music:this.musicPlaying,speedSound:this.speedClock.snapshot(),
           vario:this.active&&this.settings.sound&&this.settings.sfx&&varioMaySound(this.model,Boolean(this.event||this.sonic||this.countdown)),navigation:this.navigationSnapshot(),afterburner:this.afterburnerSnapshot(),passby:this.passbySnapshot(),sonic:this.sonicSnapshot(),countdown:this.countdownSnapshot(),briefing:this.briefingSnapshot(),fm:{...this.fm.snapshot(),prePostPeak:this.mixer.fmPrePostPeak??0,pending:this.musicQueue.slice(this.musicHead).filter(w=>w.kind==='fm').length},musicSchedule:{...this.musicScheduleMetrics,pending:this.musicQueue.length-this.musicHead}});this.busyMs=0;this.frames=0;
       }
     };
@@ -270,13 +273,15 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
     if(!varioEnabled){this.varioPhase=0;this.varioRunning=false;}
     else if(!this.varioRunning){this.varioPhase=0;this.varioRunning=true;this.untilUpdate=0;}
     this.stepNavigation();
+    const speedCue=this.speedClock.advance(this.active?this.model:this.silentModel,this.settings,left.length/sampleRate,
+      !this.active||Boolean(this.event||this.sonic||this.countdown||briefingActive||this.passby||this.navigationBurst)||sonicWarning(this.model.cue));
     if((this.active||this.event||this.musicPlaying||this.countdown||briefingActive)&&this.settings.sound){
       if(this.untilUpdate<=0){
         const model=this.active?this.model:this.silentModel;
         this.mixer.writeSfx(sfxRegisters(model,this.event,(currentTime-this.eventAt)*1000,
           pulseAt(model.soundPattern,(currentTime-this.cueAt)*1000),this.registers,this.varioPhase*(model.vario?.periodMs||1000),
           this.navigationBurst?{elapsedMs:(currentTime-this.navigationAt)*1000}:null,this.afterburnerSeconds(),
-          {afterburnerRelease:this.afterburnerRelease(),passby:this.passby?{...this.passby,elapsedMs:(currentTime-this.passbyAt)*1000}:null,sonic:this.sonic?{...this.sonic,elapsedMs:(currentTime-this.sonicAt)*1000}:null}));
+          {speed:speedCue,afterburnerRelease:this.afterburnerRelease(),passby:this.passby?{...this.passby,elapsedMs:(currentTime-this.passbyAt)*1000}:null,sonic:this.sonic?{...this.sonic,elapsedMs:(currentTime-this.sonicAt)*1000}:null}));
         if(this.countdown&&!this.countdownBlockReason())applyCountdownRegisters(this.registers,this.countdown.cue,(currentTime-this.countdownAt)*1000);
         if(this.countdown)this.mixer.writeSfx(this.registers);
         if(briefingActive){this.briefingRegisters.fill(0);this.briefingRegisters[7]=63;

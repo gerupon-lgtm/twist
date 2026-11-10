@@ -9,6 +9,15 @@ const source=(await readFile(new URL('../src/feedback/audio.js',import.meta.url)
   .replace("'./button-sound.js'",JSON.stringify(new URL('../src/feedback/button-sound.js',import.meta.url).href));
 const {createGameAudio}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 
+test('changing speed SE permission cannot resend an earlier enabled setting when start resumes the bus',async()=>{
+ const messages=[];globalThis.window={AudioContext:class{
+  constructor(){this.state='suspended';this.currentTime=1;this.audioWorklet={addModule:async()=>{}};}
+  resume(){this.state='running';return Promise.resolve();}suspend(){this.state='suspended';return Promise.resolve();}close(){this.state='closed';return Promise.resolve();}
+ }};globalThis.AudioWorkletNode=class{constructor(){this.port={postMessage:m=>messages.push(m)};}connect(){}disconnect(){}};
+ const audio=createGameAudio();try{audio.start();await audio.unlock();audio.update({speed:340},{sound:true,sfx:true,speedSound:true});audio.configure({sound:true,sfx:true,speedSound:false});audio.start();assert.equal(messages.findLast(m=>m.type==='state').settings.speedSound,false);}
+ finally{await audio.dispose();delete globalThis.window;delete globalThis.AudioWorkletNode;}
+});
+
 test('a post-stop crash resumes through a pending suspension even while the context still reports running',async()=>{
   let context;const messages=[];
   globalThis.window={AudioContext:class{

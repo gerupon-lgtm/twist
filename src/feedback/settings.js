@@ -5,6 +5,7 @@ export const FEEDBACK_FIELDS = Object.freeze({
   sound: { label: '音', initial: true },
   volume: { label: '全体の音量', initial: 25, min: 0, max: 100, step: 1, unit: '%' },
   sfx: { label: '効果音', initial: true },
+  speedSound: {label:'速度・加速のSE',initial:true},
   vario: { label: '上昇・下降の音（バリオ）', initial: true },
   bgm: { label: 'BGM', initial: true },
   bgmVolume: { label: 'BGMの音量', initial: 50, min: 0, max: 100, step: 1, unit: '%' },

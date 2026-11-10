@@ -59,7 +59,7 @@ test('actual native sonic flight produces both direction signals and consumes a 
   });
   const audio=()=>page.locator('#feedback-diagnostics').evaluate(el=>JSON.parse(el.dataset.audio??'null'));
   const mach=()=>page.locator('#app').evaluate(el=>JSON.parse(el.dataset.supersonic??'null')?.mach??0);
-  const pulses=()=>page.evaluate(()=>sonicFlightVibrations.filter(p=>Array.isArray(p)&&p.join(',')==='150,35,90').length);
+  const pulses=()=>page.evaluate(()=>sonicFlightVibrations.filter(p=>Array.isArray(p)&&['280,45,200','150,35,90'].includes(p.join(','))).length);
   const phase=value=>expect(page.locator('#start-flow-panel')).toHaveAttribute('data-step',value);
   const soundSettings=async()=>{const summary=page.getByText('③ 音と振動',{exact:true});if(!await summary.evaluate(el=>el.parentElement.open))await summary.click();};
   await page.goto('/?course=supersonic&camera=overlay');await phase('title');

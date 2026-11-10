@@ -43,7 +43,7 @@ test('sonic vibration requires arming, yields to current warnings/events, and st
   try{
     assert.equal(h.sonic(event(),settings,0,model()),false);h.arm();
     assert.equal(h.sonic(event(),settings,1,model(200,{groundClearance:.1})),false);
-    assert.equal(h.sonic(event(),settings,2,model()),true);assert.deepEqual(calls.at(-1),[150,35,90]);
+    assert.equal(h.sonic(event(),settings,2,model()),true);assert.deepEqual(calls.at(-1),[280,45,200]);
     const warning=model(200,{groundClearance:.1});h.update(warning,settings,3);assert.deepEqual(calls.at(-1),warning.pattern);
     h.event('collect',settings,4);assert.equal(h.sonic(event(2,'down'),settings,5,model()),false);
     h.stop();assert.equal(calls.at(-1),0);

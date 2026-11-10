@@ -61,6 +61,7 @@ export function flightFeedback(state={},settings={}) {
   const model={ cue, pattern:vibration, soundPattern:pattern, cycle:vibrationPattern.reduce((a,b)=>a+b,0),
     angleOfAttack:angle,power,speed,engineHz:55+power*120,wind:speed/45,
     vario:varioCue(state.verticalSpeed,settings.vario!==false&&state.mode==='flight'),afterburner };
+  if(settings.speedSound===true&&state.mode==='flight')model.speedSound={reference:state.supersonic?(state.supersonic.presentationReferenceSpeed??680):45};
   return state.supersonic?supersonicFeedback(state,model):model;
 }
 
@@ -113,6 +114,9 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
     mixer=voice(regs,1,900+sharpness*1500-t*700,(8+sharpness*6)*envelope,true,mixer);
     regs[6]=Math.round(14-sharpness*9+t*8);
   }
+  const speed=effects.speed;
+  if(speed?.enabled&&!eventActive&&!warning&&!sonicActive&&phase!=='ignition'
+    &&!(passby&&passby.elapsedMs>=0&&passby.elapsedMs<140))mixer=voice(regs,1,speed.hz,Math.max(regs[9],speed.volume),false,mixer);
   if(!sonicActive&&varioMaySound(model,eventActive)
     &&varioMs%model.vario.periodMs<model.vario.onMs) {
     mixer=voice(regs,2,model.vario.hz,6,false,mixer);

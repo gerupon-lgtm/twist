@@ -1,7 +1,7 @@
 import { EVENT_FEEDBACK, scaledPattern } from './model.js';
-import {SONIC_TRANSITION,sonicWarning,validSonicTransition} from './supersonic-model.js';
+import {SONIC_HAPTICS,sonicWarning,validSonicTransition} from './supersonic-model.js';
 export function createHaptics(vibrate) {
-  let armed=false,next=0,cue='',eventUntil=0,eventTimer=null,cueAt=0;
+  let armed=false,next=0,cue='',eventUntil=0,eventTimer=null,cueAt=0,impactPriority=0;
   const send=pattern=>{try {vibrate?.(pattern);}catch{/* Vibration rejection never stops flight. */}};
   return {
     arm(){armed=true;},
@@ -24,16 +24,18 @@ export function createHaptics(vibrate) {
     },
     event(kind,settings,now){
       const event=EVENT_FEEDBACK[kind];if(!armed||!vibrate||!settings.vibration||!settings.vibrationScale||!event)return;
-      if(now<eventUntil&&EVENT_FEEDBACK[cue]?.priority>event.priority)return;
+      if(now<eventUntil&&(cue==='sonic'?impactPriority:EVENT_FEEDBACK[cue]?.priority)>event.priority)return;
       send(0);send(scaledPattern(event.pattern,settings.vibrationScale));eventUntil=now+event.duration;cue=kind;next=eventUntil;
       clearTimeout(eventTimer);eventTimer=setTimeout(()=>this.stop(),event.duration);
     },
     sonic(event,settings,now,model){
-      if(!validSonicTransition(event)||!armed||!vibrate||!settings.vibration||!settings.vibrationScale||now<eventUntil||sonicWarning(model?.cue))return false;
-      send(0);send(scaledPattern(SONIC_TRANSITION.pattern,settings.vibrationScale));
-      cue='sonic';eventUntil=now+SONIC_TRANSITION.duration;next=eventUntil;
-      clearTimeout(eventTimer);eventTimer=setTimeout(()=>this.stop(),SONIC_TRANSITION.duration);return true;
+      if(!validSonicTransition(event)||!armed||!vibrate||!settings.vibration||!settings.vibrationScale||sonicWarning(model?.cue))return false;
+      if(now<eventUntil&&!(event.direction==='up'&&['collect','exitOpen'].includes(cue)))return false;
+      const impact=SONIC_HAPTICS[event.direction];
+      send(0);send(scaledPattern(impact.pattern,settings.vibrationScale));
+      cue='sonic';impactPriority=event.direction==='up'?2.5:1;eventUntil=now+impact.duration;next=eventUntil;
+      clearTimeout(eventTimer);eventTimer=setTimeout(()=>this.stop(),impact.duration);return true;
     },
-    stop(){clearTimeout(eventTimer);if(armed)send(0);next=0;cue='';eventUntil=0;},
+    stop(){clearTimeout(eventTimer);if(armed)send(0);next=0;cue='';eventUntil=0;impactPriority=0;},
   };
 }
