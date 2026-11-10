@@ -1,4 +1,5 @@
-#flight-instruments{--instrument-surface:rgba(9,43,42,.22);position:absolute;inset:0;z-index:2;pointer-events:none;color:#c5ff9f;font:11px/1.2 Consolas,"Meiryo",monospace;font-variant-numeric:tabular-nums;text-shadow:-1px -1px #163d32,1px -1px #163d32,-1px 1px #163d32,1px 1px #163d32}
+.app[data-instrument-hud=on]{--hud-readout-surface:rgba(6,26,32,.86);--hud-readout-ink:#efffe5;--hud-readout-shadow:0 1px 2px #001315}
+#flight-instruments{--instrument-surface:var(--hud-readout-surface);position:absolute;inset:0;z-index:2;pointer-events:none;color:var(--hud-readout-ink);font:11px/1.2 Consolas,"Meiryo",monospace;font-variant-numeric:tabular-nums;text-shadow:var(--hud-readout-shadow)}
 #flight-instruments .instrument-frame,#flight-instruments .instrument-slot{position:absolute;box-sizing:border-box;background:transparent;box-shadow:none}
 #flight-instruments .instrument-frame{border:1px solid #bcff99a6;border-radius:5px;background:var(--instrument-surface);outline:1px solid #123a3333}
 #flight-instruments .instrument-reading{position:relative!important;inset:auto!important;width:100%!important;height:100%!important;box-sizing:border-box;padding:0!important;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important;color:inherit!important;display:block!important;overflow:visible}
@@ -9,6 +10,7 @@
 #flight-instruments .instrument-tick{position:absolute;left:5px;right:5px;display:block;font-size:9px;line-height:12px;text-align:center;white-space:nowrap}
 #flight-instruments .instrument-tick-upper{top:25%}#flight-instruments .instrument-tick-lower{bottom:8%}
 #flight-instruments .instrument-ring{display:none;position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.2;overflow:visible}
+#flight-instruments .instrument-label,#flight-instruments .instrument-number,#flight-instruments .instrument-tick{z-index:1}
 #flight-instruments #ground-proximity{position:relative;display:block;width:100%;height:100%;padding:0;white-space:normal;color:inherit}
 #flight-instruments .instrument-reading:is([data-ground-level=low],[data-ground-level=danger],[data-ground-level=stopped]){color:#ffe09a!important}
 #flight-instruments #ground-height-meter{display:none}
@@ -36,11 +38,12 @@
 #flight-instruments[data-compact=true][data-layout=a] .instrument-tick{display:none}
 #flight-instruments[data-compact=true] #supersonic-mach-g>small{display:none}
 #flight-instruments[data-compact=true] .instrument-secondary{grid-template-rows:12px 14px;padding:1px 2px}
-.app[data-instrument-hud=on] #flight-essential-details,.app[data-instrument-hud=on] #flight-essential-alert{position:absolute;box-sizing:border-box;margin:0;padding:4px;border:1px solid #bcff9970;border-radius:4px;background:rgba(9,43,42,.18);box-shadow:none;color:#c5ff9f;text-shadow:-1px -1px #163d32,1px -1px #163d32,-1px 1px #163d32,1px 1px #163d32}
+.app[data-instrument-hud=on] #flight-essential-details,.app[data-instrument-hud=on] #flight-essential-alert{position:absolute;box-sizing:border-box;margin:0;padding:4px;border:1px solid #bcff9970;border-radius:4px;background:var(--hud-readout-surface);box-shadow:none;color:var(--hud-readout-ink);text-shadow:var(--hud-readout-shadow)}
 .app[data-instrument-hud=on] #flight-essential-alert{text-align:center;font-size:11px}
-.app[data-instrument-hud=on] #target-height-inline{color:inherit;text-shadow:0 1px 2px #163d32}
+.app[data-instrument-hud=on] #target-height-inline{color:inherit;text-shadow:inherit}
 .app[data-instrument-hud=on] #target-height-inline[data-height-state=urgent],.app[data-instrument-hud=on] #flight-essential-alert{color:#ffe09a}
 .app[data-instrument-hud=on] #flight-essential-alert #ground-warning-text{color:inherit}
-.app[data-instrument-hud=on] #cockpit-heading,.app[data-instrument-hud=on] #cockpit-target-height,.app[data-instrument-hud=on] #cockpit-power{background:rgba(9,43,42,.18)!important;box-shadow:none}
+.app[data-instrument-hud=on] :is(#cockpit-heading,#cockpit-target-height,#cockpit-power,#cockpit-exit-notice){background:var(--hud-readout-surface)!important;color:var(--hud-readout-ink)!important;text-shadow:var(--hud-readout-shadow);box-shadow:none}
+.app[data-instrument-hud=on] #cockpit-target-height[data-height-state=urgent],.app[data-instrument-hud=on] #cockpit-exit-notice{color:#ffe09a!important}
 .app:not([data-phase=running]) #flight-instruments{display:none}
 #flight-instruments[data-layout] [hidden]{display:none!important}
