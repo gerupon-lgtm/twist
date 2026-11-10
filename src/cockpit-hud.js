@@ -47,9 +47,9 @@ export function layoutCockpitHud(active) {
   box($('cockpit-heading'),headingX,compassY,180,28);
   box($('cockpit-target-height'),headingX,compassY+32,180,32);
   box($('cockpit-exit-notice'),headingX,compassY+68,180,24);
-  box($('cockpit-speed'),insets.left+12,tapeY,58,tapeHeight);
-  box($('cockpit-altitude'),w-insets.right-92,tapeY,58,tapeHeight);
-  box($('cockpit-vario'),w-insets.right-28,tapeY,16,tapeHeight);
+  box($('cockpit-speed'),insets.left+12,tapeY,72,tapeHeight);
+  box($('cockpit-altitude'),w-insets.right-120,tapeY,58,tapeHeight);
+  box($('cockpit-vario'),w-insets.right-56,tapeY,44,tapeHeight);
   box($('cockpit-power'),powerX,powerY,powerWidth,24);
   return { w,h,compassY,powerY,insets,sideControls };
 }
@@ -70,6 +70,7 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   $('cockpit-altitude').innerHTML = heightGuide
     ? `<span>${hudText(language,'altitude')} m</span><div class="height-tape-scale">${heightBandSvg(heightGuide,false,Boolean(state.supersonic))}<strong style="top:${Math.max(16,Math.min(84,heightGuide.scale.currentY))}%">${altitudeFormat(readings.altitude)}</strong></div>`
     : tape(readings.altitude,5,hudText(language,'altitude'),'m','',altitudeFormat);
+  $('cockpit-altitude').classList.toggle('cockpit-number-compact',altitudeFormat(readings.altitude).length>4);
   if(state.supersonic){$('cockpit-altitude').setAttribute('aria-label',`ALT ${readings.altitude.toFixed(1)} m`);$('cockpit-altitude').dataset.supersonic='true';}
   else if($('cockpit-altitude').dataset.supersonic){$('cockpit-altitude').removeAttribute('aria-label');delete $('cockpit-altitude').dataset.supersonic;}
   $('cockpit-altitude').dataset.heightState=heightGuide?.inside?'inside':heightGuide?.urgent?'urgent':'outside';
@@ -90,7 +91,7 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   if(power.innerHTML!==warningMarkup)power.innerHTML=warningMarkup;
   const projection = cockpitProjection(state,w,h,settings);
   const horizon = horizonSegment(projection.horizon,w,h);
-  const left = insets.left+82, right = w-insets.right-102;
+  const left = insets.left+96, right = w-insets.right-130;
   const top = compassY+(!$('cockpit-exit-notice').hidden?98:$('cockpit-target-height').hidden?38:70), low = Math.max(top+20,powerY-8);
   let clip = `M${left},${top}H${right}V${low}H${left}Z`;
   const masks=[$('start-flow-view-button'),$('target-edge-marker'),$('cockpit-objective-label'),$('practice-panel')];

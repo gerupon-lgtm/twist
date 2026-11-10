@@ -91,6 +91,10 @@ test('actual sonic climb reaches ALT2.4k and reports measured Mach/G across all 
   for(const camera of ['overlay','chase','cockpit']){
     if(camera!=='overlay'){await page.locator('#start-flow-view-button').click();await page.clock.runFor(100);}
     state=await read(page);
+    if(camera==='cockpit'){
+      const speed=await page.locator('#cockpit-speed').evaluate(e=>{const value=e.querySelector('strong'),range=document.createRange();range.selectNodeContents(value);const text=range.getBoundingClientRect(),box=e.getBoundingClientRect();return{text:value.textContent,inside:text.left>=box.left&&text.right<=box.right};});
+      expect(speed.text).toBe((state.speed*3.6).toFixed(1));expect(speed.inside).toBe(true);
+    }
     await expect(page.locator('#supersonic-mach')).toHaveText(`M ${state.sonic.mach.toFixed(2)}`);
     await expect(page.locator('#supersonic-g')).toHaveText(`G ${state.sonic.gLoad.toFixed(1)}`);
     const altitude=camera==='cockpit'?page.locator('#cockpit-altitude strong'):page.locator('#altitude-value');
