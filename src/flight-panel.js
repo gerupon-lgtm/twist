@@ -145,7 +145,7 @@ export function createFlightPanel(getModes) {
   $('settings-reset').addEventListener('click', () => {
     beforeReset={...settings};$('settings-undo-reset').hidden=false;
     settings = getModes().mode === 'explore'
-      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange, targetHeightGuide: true, hudLanguage:'en',speedUnit:DEFAULT_FLIGHT_SETTINGS.speedUnit,streakAmount:DEFAULT_FLIGHT_SETTINGS.streakAmount,groundPatternStrength:DEFAULT_FLIGHT_SETTINGS.groundPatternStrength }
+      ? { ...settings, radarRange: DEFAULT_FLIGHT_SETTINGS.radarRange, targetHeightGuide: true, hudLanguage:'en',hudLayout:DEFAULT_FLIGHT_SETTINGS.hudLayout,speedUnit:DEFAULT_FLIGHT_SETTINGS.speedUnit,streakAmount:DEFAULT_FLIGHT_SETTINGS.streakAmount,groundPatternStrength:DEFAULT_FLIGHT_SETTINGS.groundPatternStrength }
       : { ...DEFAULT_FLIGHT_SETTINGS };
     persist();
   });
@@ -229,7 +229,7 @@ export function createFlightPanel(getModes) {
       const sonic=['supersonic','sierra10'].includes(getModes().course?.id);
       const sierra50=getModes().course?.id==='sierra50';
       wristPresets.hidden=mode!=='flight'||getModes().steer!=='wrist';
-      for (const label of $('flight-settings-fields').querySelectorAll('label[data-setting-key]')) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','speedUnit','streakAmount','groundPatternStrength'].includes(label.dataset.settingKey))
+      for (const label of $('flight-settings-fields').querySelectorAll('label[data-setting-key]')) label.hidden = (mode !== 'flight' && !['radarRange','targetHeightGuide','hudLanguage','hudLayout','speedUnit','streakAmount','groundPatternStrength'].includes(label.dataset.settingKey))
         || inactiveSteering.includes(label.dataset.settingKey)||(sierra50&&label.dataset.settingKey==='turnGravity')||(sonic&&['maxPitch','timeConstant','maxBank','turnGravity','radarRange','groundPatternStrength'].includes(label.dataset.settingKey));
       $('setting-chaseTimeConstant').disabled = mode !== 'flight' || getModes().camera !== 'chase';
       refreshLayout();

@@ -47,11 +47,13 @@ export function layoutCockpitHud(active) {
   box($('cockpit-heading'),headingX,compassY,180,28);
   box($('cockpit-target-height'),headingX,compassY+32,180,32);
   box($('cockpit-exit-notice'),headingX,compassY+68,180,24);
-  box($('cockpit-speed'),insets.left+12,tapeY,72,tapeHeight);
-  box($('cockpit-altitude'),w-insets.right-120,tapeY,58,tapeHeight);
-  box($('cockpit-vario'),w-insets.right-56,tapeY,44,tapeHeight);
+  if(root.dataset.managedInstruments!=='true'){
+    box($('cockpit-speed'),insets.left+12,tapeY,72,tapeHeight);
+    box($('cockpit-altitude'),w-insets.right-120,tapeY,58,tapeHeight);
+    box($('cockpit-vario'),w-insets.right-56,tapeY,44,tapeHeight);
+  }
   box($('cockpit-power'),powerX,powerY,powerWidth,24);
-  return { w,h,compassY,powerY,insets,sideControls };
+  return { w,h,compassY,powerY,insets,sideControls,managedInstruments:root.dataset.managedInstruments==='true' };
 }
 
 export function updateCockpitHud(state, active, layout = layoutCockpitHud(active), settings={}, heightGuide=null) {
@@ -66,6 +68,7 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
     const base = Math.round(value/step)*step;
     return `<span>${label} ${unit}</span><small>${display===format?Math.max(0,base+step):display(Math.max(0,base+step))}</small><strong>${display(value)}</strong><small>${display===format?Math.max(0,base-step):display(Math.max(0,base-step))}</small>${extra}`;
   };
+  if(root.dataset.managedInstruments!=='true'){
   $('cockpit-speed').innerHTML = tape(convertSpeed(readings.speed,settings.speedUnit),normalizeSpeedUnit(settings.speedUnit)==='km/h'?10:normalizeSpeedUnit(settings.speedUnit)==='kt'?5:2,hudText(language,'speed'),normalizeSpeedUnit(settings.speedUnit));
   $('cockpit-altitude').innerHTML = heightGuide
     ? `<span>${hudText(language,'altitude')} m</span><div class="height-tape-scale">${heightBandSvg(heightGuide,false,Boolean(state.supersonic))}<strong style="top:${Math.max(16,Math.min(84,heightGuide.scale.currentY))}%">${altitudeFormat(readings.altitude)}</strong></div>`
@@ -81,6 +84,7 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   $('cockpit-vario').setAttribute('aria-label',language==='ja'
     ? `昇降速度 ${vario.direction==='up'?'上昇':vario.direction==='down'?'下降':'水平'} ${format(Math.abs(vario.speed))}m/s`
     : `V/S ${vario.speed>=0?'+':'−'}${format(Math.abs(vario.speed))}m/s`);
+  }
   const heading = Math.round(readings.heading);
   $('cockpit-heading').innerHTML = language==='ja'
     ? `<span>${(heading+350)%360} ┃ ${(heading+355)%360} ┃ <strong>${heading%360}°</strong> ┃ ${(heading+5)%360} ┃ ${(heading+10)%360}</span>`
@@ -91,10 +95,12 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   if(power.innerHTML!==warningMarkup)power.innerHTML=warningMarkup;
   const projection = cockpitProjection(state,w,h,settings);
   const horizon = horizonSegment(projection.horizon,w,h);
-  const left = insets.left+96, right = w-insets.right-130;
+  const managed=root.dataset.managedInstruments==='true';
+  const left = insets.left+(managed?12:96), right = w-insets.right-(managed?12:130);
   const top = compassY+(!$('cockpit-exit-notice').hidden?98:$('cockpit-target-height').hidden?38:70), low = Math.max(top+20,powerY-8);
   let clip = `M${left},${top}H${right}V${low}H${left}Z`;
   const masks=[$('start-flow-view-button'),$('target-edge-marker'),$('cockpit-objective-label'),$('practice-panel')];
+  if(managed)masks.push($('radar'),...document.querySelectorAll('#flight-instruments .instrument-slot'));
   if(layout.sideControls)masks.push($('bottom-panel'));
   for(const marker of masks.filter(e=>e&&!e.hidden&&e.getClientRects().length)) {
     const r=marker.getBoundingClientRect();
@@ -102,11 +108,14 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
     const holeTop=Math.max(top,r.top-4),holeBottom=Math.min(low,r.bottom+4);
     if(holeLeft<holeRight && holeTop<holeBottom) clip += `M${holeLeft},${holeTop}H${holeRight}V${holeBottom}H${holeLeft}Z`;
   }
+  const instrumentRects=managed?[...document.querySelectorAll('#flight-instruments .instrument-slot')].filter(e=>!e.hidden&&e.getClientRects().length).map(e=>e.getBoundingClientRect()):[];
   const ladder = projection.lines.map(line => {
     const start=line.points[0],end=line.points.at(-1);
     let angle=Math.atan2(end.y-start.y,end.x-start.x)*180/Math.PI;
     if(angle>90)angle-=180; if(angle< -90)angle+=180;
-    return `<g class="cockpit-ladder${line.degrees<0?' cockpit-ladder-below':''}" data-pitch-level="${line.degrees}"><path d="${path(line.points)}" ${line.degrees<0?'stroke-dasharray="4 5"':''}/><text x="${end.x}" y="${end.y-4}" transform="rotate(${angle} ${end.x} ${end.y})">${line.degrees}</text></g>`;
+    const nearInstrument=instrumentRects.some(r=>end.x-20<r.right&&end.x+22>r.left&&end.y-20<r.bottom&&end.y+8>r.top);
+    const label=nearInstrument?'':`<text x="${end.x}" y="${end.y-4}" transform="rotate(${angle} ${end.x} ${end.y})">${line.degrees}</text>`;
+    return `<g class="cockpit-ladder${line.degrees<0?' cockpit-ladder-below':''}" data-pitch-level="${line.degrees}"><path d="${path(line.points)}" ${line.degrees<0?'stroke-dasharray="4 5"':''}/>${label}</g>`;
   }).join('');
   const nose = projection.nose;
   let flightPath = '';

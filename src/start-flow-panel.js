@@ -73,6 +73,7 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
   const extra=$('start-flow-settings-extra');
   extra.innerHTML=`<label class="flow-setting-select" for="start-flow-input-method">操作の方法<select id="start-flow-input-method"><option value="sensor">スマホの傾き</option><option value="practice">画面で操縦</option></select></label><p class="flow-note">スマホの傾きが使えない場合は、「画面で操縦」を選べます。</p><label class="flow-setting-select" for="start-flow-briefing-mode">開始前の地図<select id="start-flow-briefing-mode"><option value="every">毎回表示する</option><option value="first">コースごとに初回だけ</option><option value="off">表示しない</option></select></label>`;
   const fields=$('flight-settings-fields');
+  const hudLayoutRow=$('setting-hudLayout')?.closest('label');if(hudLayoutRow){hudLayoutRow.classList.add('flow-setting-select');extra.append(hudLayoutRow);}
   const basic=document.createElement('details'),advanced=document.createElement('details'),verification=document.createElement('details');
   for(const [element,label]of [[basic,'① 基本の操縦'],[advanced,'② 詳しい設定'],[verification,'④ 検証用の表示・操作']]){element.className='flow-settings-group';const summary=document.createElement('summary');summary.textContent=label;element.append(summary);}
   basic.open=true;

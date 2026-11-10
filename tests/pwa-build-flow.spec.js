@@ -86,7 +86,9 @@ for(const [base,size] of [['/',{width:390,height:844}],['/twist/',{width:844,hei
     }),
     speedTape:(()=>{
       const element=document.getElementById('cockpit-speed'),r=element.getBoundingClientRect();
-      return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,children:[...element.children].map(child=>{
+      // The shared HUD also contains an inactive circular face. Measure only
+      // painted children; hidden SVG nodes have a zero-sized viewport box.
+      return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,children:[...element.children].filter(child=>!child.hidden&&child.getClientRects().length&&getComputedStyle(child).display!=='none').map(child=>{
         const box=child.getBoundingClientRect();return {text:child.textContent,left:box.left,right:box.right,top:box.top,bottom:box.bottom};
       })};
     })(),

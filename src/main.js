@@ -10,6 +10,8 @@ import './boundary.css';
 import './speedfeel-results.css';
 import './essential-hud.css';
 import {updateEssentialHud} from './essential-hud.js';
+import './instrument-hud.css';
+import {createInstrumentHud} from './instrument-hud.js';
 import {getCourse,COURSE_CRITERIA,NORMAL_COURSE_IDS,ORDINARY_COURSE_IDS,PLAYABLE_COURSE_IDS,isSupersonicCourse} from './course-catalog.js';
 import {courseStageDimensions,courseRecordMetadata,courseRadarRange} from './course-world-profile.js';
 import {SIERRA_COURSE_ID,withSierraSegmentLabels} from './courses/sierra50.js';
@@ -95,7 +97,7 @@ const routeTiming=createRouteTiming(selectedCourse.lights.length);
 const approaches=createApproachRecords(selectedCourse.lights.length),straights=createStraightRecords(selectedCourse.abStraights),passbys=createPassByTracker();
 const courseBests=createCourseBestStore(courseStorage);let courseTime=null,radarOffer=radarUpgradeOffer(courseStorage);
 const sonicBests=createSupersonicBestStore(courseStorage),sonicActivity=createSupersonicActivity();
-let sonicPanel=null;
+let sonicPanel=null,instrumentHud=null;
 let passScenery=null,passTargetId=null,passCandidates=[];
 const feedback = createFeedbackController();
 const pwa = createPwaController({ getPhase: () => phase, pause, showDialog: dialog,allPlatforms:flowEnabled,isCountdownActive:()=>flowEnabled&&flowCoordinator?.snapshot().step==='countdown' });
@@ -128,6 +130,7 @@ function sonicReport(){
 function stageDimensions(){return sonicMode()?{halfExtent:selectedCourse.arena.halfExtent,width:selectedCourse.arena.width,depth:selectedCourse.arena.depth,minHeight:0,maxHeight:selectedCourse.arena.maxAltitude}:courseStageDimensions(selectedCourse)??{halfExtent:STAGE_HALF_EXTENT,width:STAGE_HALF_EXTENT*2,depth:STAGE_HALF_EXTENT*2};}
 const flightPanel = createFlightPanel(() => ({ pitch: effectivePitchMode(), steer: flightSteering, display: flightDisplay, camera: cameraMode, mode: playMode, view: visibility, feedback: feedback.report(), input: {basis:playMode==='flight'?(flightSteering==='wrist'?'estimated-forearm-world':'screen'):'craft',screenAngle:inputMode==='sensor'?(screen.orientation?.angle??window.orientation??0):0,current:inputMode,transitions:inputTransitions,held:inputHeld,lastPauseReason,...(playMode==='flight'&&flightSteering==='wrist'?{wrist:wristRecord.snapshot()}: {})}, segments:recordedSegments(), approaches:approaches.snapshot(),abStraights:straights.snapshot(),passbys:passbys.snapshot(),courseTime:courseTimeSnapshot(), exitDiscovery:routeTiming.exitSnapshot(), targetViews:routeTiming.targetViewsSnapshot(), course:{id:selectedCourse.id,name:selectedCourse.name,targetCount:selectedCourse.lights.length,...(playMode==='flight'&&courseFlightMetadata(selectedCourse)?{flightProfile:courseFlightMetadata(selectedCourse)}:{}),...(courseRecordMetadata(selectedCourse)?{geography:courseRecordMetadata(selectedCourse),radarRange:courseRadarRange(selectedCourse)}:{})}, stageSize:stageDimensions(), ...(playMode==='flight'?{afterburner:{...afterburnerSession.snapshot(),remainingFuel:stage?.getStatus().afterburner?.fuel??0,lastLeg:afterburnerSession.lastLegSnapshot()}}:{}), ...(flowEnabled?{startup:startRecord.snapshot(),briefing:flowCoordinator?.snapshot().briefing}:{}),...(sonicMode()?{supersonic:sonicReport()}:{}),...pwa.report() }));
 sonicPanel=createSupersonicPanel({storage:courseStorage,settingsHost:$('flight-settings-fields'),onChange:()=>{lastHudAt=0;if(stage)updateHud(performance.now(),stage.getStatus());}});
+if(flowEnabled)instrumentHud=createInstrumentHud();
 function makeStage(){
   return sonicMode()?createSupersonicStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,supersonicSettings:sonicPanel.getSettings()})
     :createStage(canvas,{visibility,display:flightDisplay,cameraMode,course:selectedCourse,turnGravity:flightPanel.getSettings().turnGravity});
@@ -923,7 +926,7 @@ function updateHud(now, state) {
   const settings = flightPanel.getSettings();
   // Only the passive, running HUD changes language. Source state and record values stay Japanese.
   const language=phase==='running'?normalizeHudLanguage(settings.hudLanguage):'ja';
-  $('speed-value').parentElement.firstChild.textContent=language==='ja'?(playMode==='flight'?'速度 ':'移動速度 '):'SPD ';
+  $('flight-essential-speed-label').textContent=language==='ja'?(playMode==='flight'?'速度':'移動速度'):'SPD';
   $('ground-clearance').textContent=hudText(language,playMode==='flight'?'groundClearance':'altitudeShort');
   $('nose-value').parentElement.firstChild.textContent=`${hudText(language,'nose')} `;
   $('bank-value').parentElement.firstChild.textContent=`${hudText(language,'bank')} `;
@@ -1013,19 +1016,22 @@ function updateHud(now, state) {
   $('cockpit-exit-notice').textContent=hudText(language,'exitOpen')+(state.pointName?` · ${state.pointName}`:'');
   const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive,language,inlineParent:$('flight-essential-height')});
   updateEssentialHud({...state,inputHeld},{phase,mode:playMode,camera:cameraMode,language});
+  flowUI?.refreshPlayControls();
   updateRadar(state, { phase, visibility, range: state.supersonic?courseRadarRange(selectedCourse,sonicPanel.getSettings().radarRange):courseRadarRange(selectedCourse,settings.radarRange),language,extraObstacles:state.supersonic?sonicPanel.getObstacleRects():[] });
   if([SIERRA_COURSE_ID,SIERRA10_COURSE_ID].includes(selectedCourse.id))app.dataset.courseRadar=JSON.stringify({effectiveRange:courseRadarRange(selectedCourse,settings.radarRange),savedRange:settings.radarRange,source:'course-profile'});else delete app.dataset.courseRadar;
   const cockpitLayout = layoutCockpitHud(cockpitActive);
+  if(state.supersonic)sonicPanel.updateState(state,{phase,camera:cameraMode,now,hudLanguage:language});
+  instrumentHud?.update(state,{phase,mode:playMode,camera:cameraMode,settings,language,heightGuide});
+  const instrumentObstacles=instrumentHud?.obstacles()??[];
   if(state.supersonic){
     updateCockpitHud({...state,inputHeld},cockpitActive,cockpitLayout,{...settings,hudLanguage:language},heightGuide);
-    sonicPanel.updateState(state,{phase,camera:cameraMode,now,hudLanguage:language});
-    const sonicObstacles=sonicPanel.getObstacleRects();
-    updateRadar(state,{phase,visibility,range:courseRadarRange(selectedCourse,sonicPanel.getSettings().radarRange),language,extraObstacles:sonicObstacles});
+    const sonicObstacles=[...sonicPanel.getObstacleRects(),...instrumentObstacles];
+    if(!instrumentHud)updateRadar(state,{phase,visibility,range:courseRadarRange(selectedCourse,sonicPanel.getSettings().radarRange),language,extraObstacles:sonicObstacles});
     updateEdgeMarker(state,language,sonicObstacles);layoutCockpitObjective(cockpitLayout,sonicObstacles);
   }else{
-    updateEdgeMarker(state,language);
+    updateEdgeMarker(state,language,instrumentObstacles);
     updateCockpitHud({...state,inputHeld}, cockpitActive, cockpitLayout, {...settings,hudLanguage:language}, heightGuide);
-    layoutCockpitObjective(cockpitLayout);
+    layoutCockpitObjective(cockpitLayout,instrumentObstacles);
   }
   app.dataset.supersonicPanel=JSON.stringify(sonicPanel.snapshot());
   flowUI?.refreshPlayControls();
@@ -1133,7 +1139,7 @@ function frame(now) {
     }
     updateHud(now, state);
     updateCockpitObjective(state,playMode==='flight'&&cameraMode==='cockpit'&&phase==='running',{language:phase==='running'?flightPanel.getSettings().hudLanguage:'ja'});
-    const sonicObstacles=state.supersonic?sonicPanel.getObstacleRects():[];
+    const sonicObstacles=[...(state.supersonic?sonicPanel.getObstacleRects():[]),...(instrumentHud?.obstacles()??[])];
     const guidance=updateGuidancePanel(state,{phase,camera:cameraMode,settings:flightPanel.getSettings(),now,dt,extraObstacles:sonicObstacles});
     updateBoundaryPanel(state,{phase,settings:flightPanel.getSettings(),extraObstacles:sonicObstacles});
     feedback.update(state,angles,inputMode,flightSteering,now,{enabled:phase==='running'&&playMode==='flight'&&flightPanel.getSettings().audioGuidance,bearingDeg:guidance?.bearingDeg});

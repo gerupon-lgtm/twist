@@ -28,7 +28,7 @@ export function updateTargetHeightPanel(state,{phase,visibility,enabled,cockpit,
     if(state.surface?.kind==='flat'&&Number.isFinite(state.targetHeightAboveGround))el.setAttribute('aria-label',el.getAttribute('aria-label')+(ja?` 目標は地面から${number(state.targetHeightAboveGround)}m。`:` Target above ground ${number(state.targetHeightAboveGround)}m.`));
     const cue=guide.inside?hudText(language,'heightOkay'):guide.urgent?(ja?`早めに${guide.direction==='up'?'▲':'▼'}`:hudText(language,guide.direction==='up'?'climb':'descend')):'';
     const current=el===inline&&inlineParent?'':`<strong class="current-height">${ja?'現在':'ALT '}${state.supersonic?display(guide.altitude):guide.altitude.toFixed(1)}m</strong>　`;
-    const markup=`${el===inline?heightBandSvg(guide,true,Boolean(state.supersonic)):''}<span><b>${current}${hudText(language,'targetAltitude')} ${display(guide.target)}m</b><small>${delta}${cue?`　${cue}`:''}</small></span>`;
+    const markup=`${el===inline?heightBandSvg(guide,true,Boolean(state.supersonic)):''}<span><b>${current}${hudText(language,'targetAltitude')} ${display(guide.target)}m</b><small>${delta}${cue&&cue!==delta?`　${cue}`:''}</small></span>`;
     if(el._heightMarkup!==markup){el.innerHTML=markup;el._heightMarkup=markup;}
   }
   return guide;

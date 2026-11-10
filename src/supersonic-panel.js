@@ -81,7 +81,7 @@ export function createSupersonicPanel({storage,onChange=()=>{},settingsHost}={})
       if(camera==='cockpit'){left=wide?r.right+8:r.left;top=wide?r.top:r.top-66;}
       else {left=r.left;top=r.bottom+6;}
     }
-    Object.assign(card.style,{left:`${left}px`,top:`${top}px`});
+    if(card.dataset.managedHud!=='true')Object.assign(card.style,{left:`${left}px`,top:`${top}px`});
     lastState={mach:sonic.mach,gLoad:sonic.gLoad,maxG,phase,camera};
   }
   return {

@@ -18,9 +18,10 @@ export function updateRadar(state, { visibility, phase, range, language='en',ext
   const ja=normalizeHudLanguage(language)==='ja';
   panel.setAttribute('aria-label',ja?'進行方向が上のレーダー。▲は上、▼は下':'RADAR TRK UP. ▲ + ALT, ▼ − ALT');
   panel.querySelector('.radar-heading').textContent=hudText(language,'radarTrack');
-  const rects = ['start-flow-view-button','flight-essential-speed','flight-essential-altitude','bottom-panel','toast','practice-panel'].map($)
+  const managed=$('app').dataset.instrumentHud==='on';
+  const rects = ['start-flow-view-button',...(managed?['flight-essential-details']:['flight-essential-speed','flight-essential-altitude']),'bottom-panel','toast','practice-panel'].map($)
     .filter(el => el&&!el.hidden && el.getClientRects().length&&!(cockpit&&el.id==='toast')).map(el => el.getBoundingClientRect());
-  rects.push(...extraObstacles,document.querySelector('.navigation').getBoundingClientRect(), document.querySelector('.topbar').getBoundingClientRect(),
+  rects.push(...(managed?[]:extraObstacles),document.querySelector('.navigation').getBoundingClientRect(), document.querySelector('.topbar').getBoundingClientRect(),
     { left: innerWidth/2-40, right: innerWidth/2+40, top: innerHeight/2-40, bottom: innerHeight/2+40 });
   const safe=cockpit?viewportInsets():{left:0,right:0};
   const placement = placeRadar({ width: innerWidth, height: innerHeight, obstacles: rects, inset:Math.max(12,safe.left+8,safe.right+8) });

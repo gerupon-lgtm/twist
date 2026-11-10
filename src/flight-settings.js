@@ -1,4 +1,5 @@
 export const FLIGHT_SETTINGS_KEY = 'twist.flight-settings.v1';
+import {HUD_LAYOUTS} from './instrument-layout.js';
 export const FLIGHT_SETTING_FIELDS = Object.freeze({
   deadzone: { label: '機首の中立範囲', min: 0, max: 8, step: 1, initial: 3, unit: '°' },
   maxTilt: { label: '機首が最大になるスマホの傾き', min: 10, max: 30, step: 1, initial: 25, unit: '°' },
@@ -32,6 +33,7 @@ export const FLIGHT_SETTING_FIELDS = Object.freeze({
   nextTargetNotice: { label: '次の目標の合図', initial: true },
   audioGuidance: { label: '左右から聞こえる案内音', initial: true },
   hudLanguage: { label: 'HUDの表記', initial: 'en', options: {en:'英語',ja:'日本語'}, unit:'' },
+  hudLayout: {label:'HUDの配置',initial:'a',options:HUD_LAYOUTS,unit:''},
 });
 export const DEFAULT_FLIGHT_SETTINGS = Object.freeze(Object.fromEntries(
   Object.entries(FLIGHT_SETTING_FIELDS).map(([key, field]) => [key, field.initial]),
