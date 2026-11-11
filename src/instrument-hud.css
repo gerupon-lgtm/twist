@@ -62,3 +62,9 @@
 .app[data-shared-flight-hud] #target-height-inline{margin:0}
 .app[data-shared-flight-hud] #flight-essential-details :is(b,small,span){background:transparent;box-shadow:none}
 .app[data-camera=chase] .center-mark{left:var(--craft-screen-x,50%);top:var(--craft-screen-y,50%)}
+.app[data-shared-flight-hud] :is(#flight-essential-details,#cockpit-target-height){box-sizing:border-box;padding:0;border:1px solid #bcff9970;border-radius:4px}
+.app[data-shared-flight-hud] :is(#target-height-inline,#cockpit-target-height){font:600 10px/1.2 Consolas,"Meiryo",monospace;justify-content:center;text-align:center}
+.app[data-shared-flight-hud] :is(#target-height-inline,#cockpit-target-height)>span{display:flex;flex-direction:column;align-items:center;gap:1px}
+.app[data-shared-flight-hud] :is(#target-height-inline,#cockpit-target-height) b{font-size:10px;line-height:17px;font-weight:600}
+.app[data-shared-flight-hud] :is(#target-height-inline,#cockpit-target-height) .current-height{font-size:14px;font-weight:700}
+.app[data-shared-flight-hud] :is(#target-height-inline,#cockpit-target-height) small{font-size:10px;line-height:12px;font-weight:600}

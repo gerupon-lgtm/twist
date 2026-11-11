@@ -1018,10 +1018,11 @@ function updateHud(now, state) {
   const cockpitActive = playMode === 'flight' && cameraMode === 'cockpit' && phase === 'running';
   $('cockpit-exit-notice').hidden=!(cockpitActive&&visibility==='assisted'&&state.collected===state.total&&now<exitNoticeUntil);
   $('cockpit-exit-notice').textContent=hudText(language,'exitOpen')+(state.pointName?` · ${state.pointName}`:'');
-  const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive,language,inlineParent:$('flight-essential-height')});
+  const sharedHudActive=flowEnabled&&phase==='running'&&playMode==='flight'&&cameraMode!=='overlay';
+  const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive,language,inlineParent:$('flight-essential-height'),shared:sharedHudActive});
   updateEssentialHud({...state,inputHeld},{phase,mode:playMode,camera:cameraMode,language});
   flowUI?.refreshPlayControls();
-  updateSharedFlightHud({enabled:flowEnabled&&phase==='running'&&playMode==='flight'&&cameraMode!=='overlay',layout:settings.hudLayout,safe:viewportInsets()});
+  updateSharedFlightHud({enabled:sharedHudActive,layout:settings.hudLayout,safe:viewportInsets()});
   updateRadar(state, { phase, visibility, range: state.supersonic?courseRadarRange(selectedCourse,sonicPanel.getSettings().radarRange):courseRadarRange(selectedCourse,settings.radarRange),language,extraObstacles:state.supersonic?sonicPanel.getObstacleRects():[] });
   if([SIERRA_COURSE_ID,SIERRA10_COURSE_ID].includes(selectedCourse.id))app.dataset.courseRadar=JSON.stringify({effectiveRange:courseRadarRange(selectedCourse,settings.radarRange),savedRange:settings.radarRange,source:'course-profile'});else delete app.dataset.courseRadar;
   const cockpitLayout = layoutCockpitHud(cockpitActive);

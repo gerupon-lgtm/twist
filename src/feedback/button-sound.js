@@ -8,10 +8,12 @@ export function renderButtonSound(rate=48000){
   const period=Math.round(SCC_COMPAT.clock/(32*520));
   psg.psg.writeReg(0,period&255);psg.psg.writeReg(1,period>>8);
   psg.psg.writeReg(7,0x3e);psg.psg.writeReg(8,8);
-  const smoothing=1-Math.exp(-2*Math.PI*900/rate);let low=0,peak=0;
+  const smoothing=1-Math.exp(-2*Math.PI*900/rate),attack=Math.round(rate*.002),release=samples.length-1-attack;let low=0,peak=0;
   for(let i=0;i<samples.length;i++){
     low+=smoothing*(psg.sample(clock.nextL())-low);
-    samples[i]=low*Math.sin(Math.PI*i/(samples.length-1))**2;peak=Math.max(peak,Math.abs(samples[i]));
+    // A short smooth attack marks the press; the longer decay stays gentle.
+    const envelope=i<attack?Math.sin(Math.PI/2*i/attack)**2:Math.cos(Math.PI/2*(i-attack)/release)**2;
+    samples[i]=low*envelope;peak=Math.max(peak,Math.abs(samples[i]));
   }
   if(peak>0)for(let i=0;i<samples.length;i++)samples[i]*=.09/peak;
   samples[0]=samples[samples.length-1]=0;return samples;

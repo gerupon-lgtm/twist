@@ -1,7 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {targetHeightGuide} from '../src/target-height.js';
+import {updateTargetHeightPanel} from '../src/target-height-panel.js';
 const state={position:{x:0,y:6,z:26},targetPosition:{x:0,y:10,z:0},targetRadius:3.2,velocity:{x:0,y:0,z:-6}};
+
+test('shared upper guidance renders the same current altitude, target and delta in both views',()=>{
+  const previous=globalThis.document,make=()=>({dataset:{},hidden:false,innerHTML:'',setAttribute(){}}),inline=make(),badge=make(),app=make();
+  const parent={append(el){el.parentElement=this;}};inline.parentElement=parent;
+  globalThis.document={getElementById:id=>({'target-height-inline':inline,'cockpit-target-height':badge,app})[id]};
+  try{
+    for(const cockpit of [false,true]){
+      updateTargetHeightPanel({...state,mode:'flight'},{phase:'running',visibility:'assisted',enabled:true,cockpit,inlineParent:parent,shared:true});
+      assert.equal(inline.innerHTML,badge.innerHTML);assert.match(inline.innerHTML,/ALT 6\.0m/);assert.match(inline.innerHTML,/TGT ALT 10m/);assert.match(inline.innerHTML,/4\.0m/);assert.ok(!inline.innerHTML.includes('<svg'));
+      assert.equal(inline.hidden,cockpit);assert.equal(badge.hidden,!cockpit);
+    }
+  }finally{if(previous===undefined)delete globalThis.document;else globalThis.document=previous;}
+});
 test('height band, signed difference and inclusive limits match the existing collection radius',()=>{
   const g=targetHeightGuide(state);assert.equal(g.target,10);assert.equal(g.radius,3.2);assert.equal(g.delta,4);assert.equal(g.lower,6.8);assert.equal(g.upper,13.2);assert.equal(g.direction,'up');
   for(const y of [6.8,10,13.2])assert.equal(targetHeightGuide({...state,position:{...state.position,y}}).inside,true);

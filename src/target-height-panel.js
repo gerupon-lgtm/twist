@@ -8,7 +8,7 @@ export function heightBandSvg(guide,compact=false,supersonic=false) {
   const display=supersonic?formatSupersonicAltitude:number;
   return `<svg class="height-band" viewBox="0 0 58 100" preserveAspectRatio="none" aria-hidden="true"><path class="height-axis" d="M44,4V96"/><rect class="height-band-range" x="44" y="${s.upperY}" width="12" height="${s.lowerY-s.upperY}"/><path class="height-target" d="M42,${s.targetY}H58"/><path class="height-current" d="M35,${s.currentY}L43,${s.currentY-4}V${s.currentY+4}Z"/>${compact?'':`<text x="2" y="${Math.min(92,s.upperY+3)}">${display(guide.upper)}</text><text x="2" y="${Math.max(10,s.lowerY+3)}">${display(guide.lower)}</text>`}</svg>`;
 }
-export function updateTargetHeightPanel(state,{phase,visibility,enabled,cockpit,language='en',inlineParent=null}) {
+export function updateTargetHeightPanel(state,{phase,visibility,enabled,cockpit,language='en',inlineParent=null,shared=false}) {
   const guide=enabled&&visibility==='assisted'&&phase==='running'&&!state.complete?targetHeightGuide(state):null;
   const inline=$('target-height-inline'),badge=$('cockpit-target-height');
   const parent=inlineParent||(state.mode==='flight'?document.querySelector('.throttle-heading'):document.querySelector('.flight-line'));
@@ -27,8 +27,8 @@ export function updateTargetHeightPanel(state,{phase,visibility,enabled,cockpit,
       : `ALT ${guide.altitude.toFixed(1)}m, TGT ALT ${number(guide.target)}m, ALT BAND ${number(guide.lower)}–${number(guide.upper)}m, ${delta}. ${status}.`);
     if(state.surface?.kind==='flat'&&Number.isFinite(state.targetHeightAboveGround))el.setAttribute('aria-label',el.getAttribute('aria-label')+(ja?` 目標は地面から${number(state.targetHeightAboveGround)}m。`:` Target above ground ${number(state.targetHeightAboveGround)}m.`));
     const cue=guide.inside?hudText(language,'heightOkay'):guide.urgent?(ja?`早めに${guide.direction==='up'?'▲':'▼'}`:hudText(language,guide.direction==='up'?'climb':'descend')):'';
-    const current=el===inline&&inlineParent?'':`<strong class="current-height">${ja?'現在':'ALT '}${state.supersonic?display(guide.altitude):guide.altitude.toFixed(1)}m</strong>　`;
-    const markup=`${el===inline?heightBandSvg(guide,true,Boolean(state.supersonic)):''}<span><b>${current}${hudText(language,'targetAltitude')} ${display(guide.target)}m</b><small>${delta}${cue&&cue!==delta?`　${cue}`:''}</small></span>`;
+    const current=el===inline&&inlineParent&&!shared?'':`<strong class="current-height">${ja?'現在':'ALT '}${state.supersonic?display(guide.altitude):guide.altitude.toFixed(1)}m</strong>　`;
+    const markup=`${el===inline&&!shared?heightBandSvg(guide,true,Boolean(state.supersonic)):''}<span><b>${current}${hudText(language,'targetAltitude')} ${display(guide.target)}m</b><small>${delta}${cue&&cue!==delta?`　${cue}`:''}</small></span>`;
     if(el._heightMarkup!==markup){el.innerHTML=markup;el._heightMarkup=markup;}
   }
   return guide;

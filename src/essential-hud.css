@@ -9,9 +9,9 @@
 #flight-essential-height{min-width:0}
 #flight-essential-hud #target-height-inline{margin:0;min-width:0;gap:3px}
 #flight-essential-hud #target-height-inline>span{min-width:0}
-#flight-essential-hud #target-height-inline .current-height{display:none}
-#flight-essential-hud #target-height-inline b{font-size:9px;white-space:normal}
-#flight-essential-hud #target-height-inline small{font-size:9px;white-space:normal;overflow-wrap:anywhere}
+.app:not([data-shared-flight-hud]) #flight-essential-hud #target-height-inline .current-height{display:none}
+.app:not([data-shared-flight-hud]) #flight-essential-hud #target-height-inline b{font-size:9px;white-space:normal}
+.app:not([data-shared-flight-hud]) #flight-essential-hud #target-height-inline small{font-size:9px;white-space:normal;overflow-wrap:anywhere}
 #flight-essential-hud #target-height-inline .height-band{width:10px;height:28px}
 #flight-essential-vario{display:flex;align-items:baseline;justify-content:space-between;gap:3px;font-size:9px;color:#527581}
 #flight-essential-vario small{font-size:7px}

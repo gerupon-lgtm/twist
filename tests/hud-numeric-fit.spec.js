@@ -27,7 +27,7 @@ for(const size of [{width:390,height:844},{width:360,height:640},{width:844,heig
     instruments.root.style.fontFamily=font;
     const state={mode:'flight',speed:sonic?680:75,position:{x:0,y:sonic?12500:999.9,z:0},altitude:sonic?12500:999.9,groundClearance:sonic?12500:999.9,
      heading:359*Math.PI/180,controlPitch:0,verticalSpeed:direction*(sonic?680:75),throttle:1,fieldOfView:{vertical:64},targetPosition:{x:0,y:sonic?1500:30,z:-300},targetRadius:sonic?40:4,velocity:{x:0,y:0,z:-1},...(sonic?{supersonic:{mach:2}}:{})};
-    const guide=updateTargetHeightPanel(state,{phase:'running',visibility:'assisted',enabled:guided,cockpit:camera==='cockpit',language,inlineParent:$('flight-essential-height')});
+    const guide=updateTargetHeightPanel(state,{phase:'running',visibility:'assisted',enabled:guided,cockpit:camera==='cockpit',language,inlineParent:$('flight-essential-height'),shared:camera!=='overlay'});
     $('speed-value').textContent=convertSpeed(state.speed,unit).toFixed(1);$('speed-unit').textContent=unit;$('altitude-value').textContent=sonic?formatSupersonicAltitude(state.altitude):state.altitude.toFixed(1);
     $('target-distance').textContent=formatNavigationDistance(sonic?56568:999,sonic,{space:true});$('flight-essential-speed-label').textContent=language==='ja'?'速度':'SPD';$('ground-clearance').textContent=language==='ja'?'現在高度':'ALT';
     $('supersonic-mach').textContent='M 2.00';$('supersonic-g').textContent='G 12.0';$('supersonic-mach-g').querySelector('small').textContent='SUPERSONIC';$('afterburner-hud').querySelector('output').textContent=sonic?'∞':'100';$('throttle-value').textContent='120%';
