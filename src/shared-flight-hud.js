@@ -2,13 +2,16 @@
 export function sharedFlightHudLayout({width,height,navBottom=42,safe={left:0,right:0},controlsTop=height-142,layout='a'}={}){
  const wide=width>=600&&height<=500,left=12+(safe.left??0),right=width-12-(safe.right??0),center=(left+right)/2;
  const box=(left,top,width,height)=>({left,top,width,height,right:left+width,bottom:top+height});
- const heading=box(center-90,navBottom+10,180,28),targetHeight=box(center-90,heading.bottom+6,180,32);
+ const upperWidth=Math.min(300,right-left);
+ const heading=box(center-upperWidth/2,navBottom+10,upperWidth,36),targetHeight=box(center-upperWidth/2,heading.bottom+6,upperWidth,48);
+ const exitNotice=box(center-90,targetHeight.bottom+6,180,24);
  const radar=box(left,wide?heading.top:targetHeight.bottom+12,100,100);
  const cardWidth=wide?88:Math.max(78,Math.min(120,width*.215));
  const body=layout==='c'?cardWidth:wide?62:height<720?90:126,foot=wide?30:height<720?34:40;
  const legendWidth=Math.min(208,right-heading.right-12);
- const legend=wide?box(right-legendWidth,heading.top,legendWidth,24):layout==='b'&&height<720?box(radar.right+12,radar.top,right-radar.right-12,24):box(center-104,controlsTop-30,208,24);
- return {heading,targetHeight,radar,legend,legendInUpper:wide||layout==='b'&&height<720,
+ const centerLegendWidth=height<720?Math.min(208,right-left-2*cardWidth-16):208;
+ const legend=wide?box(right-legendWidth,heading.top,legendWidth,24):layout==='b'&&height<720?box(radar.right+12,radar.top,right-radar.right-12,24):box(center-centerLegendWidth/2,controlsTop-30,centerLegendWidth,24);
+ return {heading,targetHeight,exitNotice,radar,legend,legendInUpper:wide||layout==='b'&&height<720,
   focusY:wide?height/2:Math.max(height/2,controlsTop-70-foot-body/2)};
 }
 const $=id=>document.getElementById(id);

@@ -55,8 +55,8 @@ export function layoutCockpitHud(active) {
   }
   box($('cockpit-power'),powerX,powerY,powerWidth,24);
   const shared=readSharedFlightHud();
-  if(shared){placeHudBox($('cockpit-heading'),shared.heading);placeHudBox($('cockpit-target-height'),shared.targetHeight);placeHudBox($('cockpit-power'),shared.legend);placeHudBox($('cockpit-exit-notice'),{...shared.targetHeight,top:shared.targetHeight.bottom+6,height:24});}
-  return { w,h,compassY,powerY,insets,sideControls,managedInstruments:root.dataset.managedInstruments==='true' };
+  if(shared){placeHudBox($('cockpit-heading'),shared.heading);placeHudBox($('cockpit-target-height'),shared.targetHeight);placeHudBox($('cockpit-power'),shared.legend);placeHudBox($('cockpit-exit-notice'),shared.exitNotice);}
+  return { w,h,compassY,powerY,insets,sideControls,shared,managedInstruments:root.dataset.managedInstruments==='true' };
 }
 
 export function updateCockpitHud(state, active, layout = layoutCockpitHud(active), settings={}, heightGuide=null) {
@@ -64,7 +64,7 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   const root = $('cockpit-hud');
   const language = normalizeHudLanguage(settings.hudLanguage);
   root.setAttribute('aria-label', language === 'ja' ? '操縦席の飛行表示' : 'FLIGHT HUD');
-  const { w,h,compassY,powerY,insets } = layout;
+  const { w,h,compassY,powerY,insets,shared } = layout;
   const readings = cockpitReadings(state.supersonic?{...state,groundClearance:Number.isFinite(state.altitude)?state.altitude:state.position?.y}:state);
   const altitudeFormat=state.supersonic?formatSupersonicAltitude:format;
   const tape = (value,step,label,unit,extra='',display=format) => {
@@ -100,7 +100,10 @@ export function updateCockpitHud(state, active, layout = layoutCockpitHud(active
   const horizon = horizonSegment(projection.horizon,w,h);
   const managed=root.dataset.managedInstruments==='true';
   const left = insets.left+(managed?12:96), right = w-insets.right-(managed?12:130);
-  const top = compassY+(!$('cockpit-exit-notice').hidden?98:$('cockpit-target-height').hidden?38:70), low = Math.max(top+20,powerY-8);
+  const top = shared
+    ? !$('cockpit-exit-notice').hidden?shared.exitNotice.bottom+4:$('cockpit-target-height').hidden?shared.heading.bottom+10:shared.targetHeight.bottom+4
+    : compassY+(!$('cockpit-exit-notice').hidden?98:$('cockpit-target-height').hidden?38:70);
+  const low = Math.max(top+20,powerY-8);
   let clip = `M${left},${top}H${right}V${low}H${left}Z`;
   const masks=[$('start-flow-view-button'),$('target-edge-marker'),$('cockpit-objective-label'),$('practice-panel')];
   if(managed)masks.push($('radar'),...document.querySelectorAll('#flight-instruments .instrument-slot'));
