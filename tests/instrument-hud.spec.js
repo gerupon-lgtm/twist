@@ -50,7 +50,7 @@ for(const {input,size,course,mode='flight'}of cases)test(`three translucent HUD 
   for(const camera of mode==='explore'?['overlay']:['overlay','chase','cockpit']){
    if(mode==='flight')await chooseFlightCamera(page,camera);
    await expect(page.locator('#flight-instruments')).toHaveAttribute('data-layout',layout);await expect(page.locator('#app')).toHaveAttribute('data-camera',camera);if(mode==='flight')await expect(page.locator('#app')).toHaveAttribute('data-guidance-ready','true');
-   const g=await geometry(page);expect(g.bad.slice(0,8),`${layout} ${camera} text`).toEqual([]);expect(g.surfaces.length).toBeGreaterThanOrEqual(2);for(const s of g.surfaces)expect(s.alpha,s.color).toBeCloseTo(.2,3);
+   const g=await geometry(page);expect(g.bad.slice(0,8),`${layout} ${camera} text`).toEqual([]);expect(g.surfaces.length).toBeGreaterThanOrEqual(2);for(const s of g.surfaces)expect(s.alpha,s.color).toBeCloseTo(.5,3);
    for(const p of g.plates)expect(p.width,`${p.text} backing hugs its text`).toBeLessThanOrEqual(p.textWidth+1);
    expect(g.contrast.length).toBeGreaterThan(0);expect(g.contrast.filter(c=>c.ratio<4.5).slice(0,8),`${layout} ${camera} contrast`).toEqual([]);
    expect(g.occluded,`${layout} ${camera} text paint order`).toEqual([]);

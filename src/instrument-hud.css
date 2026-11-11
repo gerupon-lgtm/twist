@@ -1,5 +1,5 @@
 .app[data-instrument-hud=on]{--hud-readout-surface:rgba(6,26,32,.64);--hud-readout-text-surface:transparent;--hud-readout-ink:#c5ff9f;--hud-readout-shadow:0 1px 2px #001315}
-#flight-instruments{--instrument-surface:rgba(245,251,250,.20);position:absolute;inset:0;z-index:2;pointer-events:none;color:var(--hud-readout-ink);font:11px/1.2 Consolas,"Meiryo",monospace;font-variant-numeric:tabular-nums;text-shadow:var(--hud-readout-shadow)}
+#flight-instruments{--instrument-surface:rgba(245,251,250,.50);position:absolute;inset:0;z-index:2;pointer-events:none;color:var(--hud-readout-ink);font:11px/1.2 Consolas,"Meiryo",monospace;font-variant-numeric:tabular-nums;text-shadow:var(--hud-readout-shadow)}
 #flight-instruments .instrument-frame,#flight-instruments .instrument-slot{position:absolute;box-sizing:border-box;background:transparent;box-shadow:none}
 #flight-instruments .instrument-frame{border:1px solid #bcff99a6;border-radius:5px;background:transparent;outline:1px solid #123a3333}
 #flight-instruments .instrument-reading{position:relative!important;inset:auto!important;width:100%!important;height:100%!important;box-sizing:border-box;padding:0!important;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important;color:inherit!important;display:block!important;overflow:visible}
