@@ -106,7 +106,7 @@ test('all sixteen public files have complete role mappings and balanced actual n
   const song=parseSmf(await readFile(new URL('../public/music/'+track.file,import.meta.url)));const audit=noteAudit(song);assert.ok(audit.ons>0,id);assert.ok(audit.peakMelodic<=5,id);
   for(const event of song.events.filter(event=>event.type==='noteOn')){
    const part=track.parts[event.channel+1];assert.ok(part,id+' channel '+(event.channel+1));
-   assert.ok(['lead','chords','bass','drums'].includes(part.role));assert.equal(part.fmPreset,id==='overdrive'&&event.channel===1?'sequence':part.role==='drums'?null:part.sccTimbre==='distortion-guitar-v1'?'distortion-guitar':part.role);
+   assert.ok(['lead','chords','bass','drums'].includes(part.role));assert.equal(part.fmPreset,id==='overdrive'&&event.channel===0?'brass-lead':id==='overdrive'&&event.channel===1?'pipe-organ':part.role==='drums'?null:part.sccTimbre==='distortion-guitar-v1'?'distortion-guitar':part.role);
    assert.equal(part.role==='drums',event.channel===9);
   }
  }

@@ -473,14 +473,14 @@
         "waveform": 1,
         "volume": 99,
         "role": "lead",
-        "fmPreset": "distortion-guitar",
+        "fmPreset": "brass-lead",
         "sccTimbre": "distortion-guitar-v1"
       },
       "2": {
         "waveform": 4,
         "volume": 46,
         "role": "chords",
-        "fmPreset": "sequence",
+        "fmPreset": "pipe-organ",
         "fmVolume": 90
       },
       "4": {

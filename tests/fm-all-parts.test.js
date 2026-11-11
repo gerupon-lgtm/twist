@@ -17,9 +17,9 @@ test('FM mode routes every non-drum note of all sixteen songs to FM, including t
     assert.deepEqual(synth.snapshot().fallbacks,[],id);
   }
 });
-test('bass has a dedicated FM voice and authored guitar leads use the distortion preset',()=>{
+test('bass and authored guitar leads retain dedicated FM voices, with Overdrive using a brass lead',()=>{
   assert.equal(fmPartStatus({role:'bass',fmPreset:null}).preset,'bass');
   assert.ok(FM_PRESETS['distortion-guitar']);
   const guitars=config.catalog.preview.filter(id=>config[id].parts['1']?.sccTimbre==='distortion-guitar-v1');assert.equal(guitars.length,6);
-  for(const id of guitars)assert.equal(fmPartStatus(config[id].parts['1']).preset,'distortion-guitar',id);
+  for(const id of guitars)assert.equal(fmPartStatus(config[id].parts['1']).preset,id==='overdrive'?'brass-lead':'distortion-guitar',id);
 });
