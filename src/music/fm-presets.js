@@ -5,8 +5,9 @@ export const FM_PRESETS=Object.freeze({
   bass:Object.freeze({ratio:1,index:2.1,indexSustain:.55,attack:.003,decay:.18,sustain:.85,release:.045,modDecay:.10,gain:.19,body:.38,drive:2.8,lowpass:3400}),
   'distortion-guitar':Object.freeze({ratio:1,index:3.5,indexSustain:.88,attack:.003,decay:.16,sustain:.88,release:.075,modDecay:.18,gain:.21,drive:12,body:.12,doublingCents:7,doublingMix:.32,lowpass:6000}),
   sequence:Object.freeze({ratio:2,index:2.2,indexSustain:.4,attack:.002,decay:.08,sustain:.62,release:.025,modDecay:.08,gain:.14}),
-  'pipe-organ':Object.freeze({ratio:1,index:.85,indexSustain:1,attack:.004,decay:.06,sustain:.94,release:.035,modDecay:.04,gain:.13,doublingCents:1200,doublingMix:.22}),
+  'pipe-organ':Object.freeze({carrierWave:'organ',ratio:1,index:.08,indexSustain:1,attack:.004,decay:.06,sustain:.94,release:.035,modDecay:.04,gain:.14}),
   'brass-lead':Object.freeze({ratio:1,index:3.1,indexSustain:.65,attack:.01,decay:.16,sustain:.88,release:.09,modDecay:.085,gain:.18,drive:2.6,body:.07,doublingCents:9,doublingMix:.42,lowpass:5200}),
+  'minimoog-lead':Object.freeze({carrierWave:'saw',ratio:1,index:.16,indexSustain:.6,attack:.003,decay:.1,sustain:.92,release:.075,modDecay:.08,gain:.21,drive:6.5,body:.12,doublingCents:11,doublingMix:.46,filterCutoff:2300,filterEnvelope:4500,filterDecay:.18,filterKeytrack:.7,filterResonance:.58,postDrive:2.8}),
 });
 export const isFmPreset=value=>typeof value==='string'&&Object.hasOwn(FM_PRESETS,value);
 export function fmPartStatus(part){
