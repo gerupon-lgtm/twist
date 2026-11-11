@@ -48,7 +48,7 @@ SMF形式0／1、四分音符あたりのtick（例480）で書き出します�
 
 catalog.flight／preview／clear／afterburner／comparisonが用途の許可表です。旧flightPlaylist／flightSetsは保存値変換用で、新しい許可表より優先しません。catalogを持たない旧自作設定だけは、明示した旧曲順を読む互換処理を使います。壊れた新catalogを互換処理へ逃がしません。
 
-元のMIDIは保存版v33へ保持します。v34の専用アレンジは `node tools/arrange-guitar-leads.mjs --check`／`--write` を使い、原本のハッシュを確認して許可した6曲の主旋律トラックだけを差し替えます。保存版への書込は拒否します。現行の他10ファイルと6曲内の伴奏トラックは原本のままです。
+元のMIDIは保存版v33へ保持します。v34の専用アレンジは `node tools/arrange-guitar-leads.mjs --check`／`--write` を使い、原本のハッシュを確認して許可した6曲の主旋律を生成します。現行版の再生成には、v58のOverdrive Horizon・68小節目の承認済み変更も含めます。同小節だけを反映する入口は `node tools/arrange-overdrive-cadence.mjs --check`／`--write` です。リードはA→G♯各2拍、低音は全拍E、伴奏はAm/E→E各2拍。元の刻みと他小節・ドラムを保ち、SCC/FM共通の譜面へ反映します。FMリードの既存の1オクターブ下げは維持します。保存版への書込は拒否し、他10ファイルと、この68小節目以外の伴奏は保ちます。
 
 新3クリア曲の生成は `node tools/generate-clear-jingles.mjs --check`／`--write` だけを使い、許可した3ファイル以外へ書きません。通常buildは曲を生成しません。旧 `tools/generate-music.mjs` は13曲と旧設定を一括生成する歴史上の入口なので、現行設定へ不用意に実行しないでください。独立したSMF書出し・ZIP納品は、利用者がGitHubから取得できたため不要となりました。
 

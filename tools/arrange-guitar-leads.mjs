@@ -28,8 +28,9 @@ function notePairs(events,channel=0){
  }
  if(held.size)throw Error('Hanging lead note');notes.sort((a,b)=>a.startTick-b.startTick);return notes;
 }
-function encodeTrack(events){
- const sorted=events.map((e,index)=>({...e,index})).sort((a,b)=>a.tick-b.tick||((a.data[0]&240)===128?0:a.data[0]===255?4:(a.data[0]&240)===224?1:(a.data[0]&240)===176?2:3)-((b.data[0]&240)===128?0:b.data[0]===255?4:(b.data[0]&240)===224?1:(b.data[0]&240)===176?2:3)||a.index-b.index);
+function encodeTrack(events,preserveOrder=false){
+ const priority=e=>(e.data[0]&240)===128?0:e.data[0]===255?4:(e.data[0]&240)===224?1:(e.data[0]&240)===176?2:3;
+ const sorted=events.map((e,index)=>({...e,index})).sort((a,b)=>a.tick-b.tick||(preserveOrder?0:priority(a)-priority(b))||a.index-b.index);
  let previous=0;const data=[];for(const event of sorted){data.push(...vlq(event.tick-previous),...event.data);previous=event.tick;}const payload=Buffer.from(data),header=Buffer.alloc(8);header.write('MTrk');header.writeUInt32BE(payload.length,4);return Buffer.concat([header,payload]);
 }
 function subtractWindows(start,end,windows){let gaps=[{start,end}];for(const w of windows)gaps=gaps.flatMap(g=>w.endTick<=g.start||w.startTick>=g.end?[g]:[{start:g.start,end:Math.min(g.end,w.startTick)},{start:Math.max(g.start,w.endTick),end:g.end}].filter(p=>p.end>p.start));return gaps;}
@@ -104,16 +105,65 @@ export function arrangeGuitarLead(input,id){
  const arrangement=transformedLead(lead[0].events,tracks,plan),replacement=encodeTrack(arrangement.events),bytes=Buffer.concat([source.header,...source.chunks.map((chunk,i)=>i===lead[0].index?replacement:chunk.bytes)]);
  return {bytes,leadChunk:lead[0].index,...arrangement,events:undefined,metadataUnchanged:true};
 }
-async function originals(){return Promise.all(GUITAR_IDS.map(async id=>({id,...arrangeGuitarLead(await readFile(resolve(sourceDirectory,id+'.mid')),id)})));}
-async function protectedHashes(directory){const names=(await readdir(directory,{withFileTypes:true})).filter(e=>e.isFile()&&!GUITAR_IDS.some(id=>e.name===id+'.mid')).map(e=>e.name).sort();return Object.fromEntries(await Promise.all(names.map(async name=>[name,hash(await readFile(resolve(directory,name)))])));}
+const overdrive57='1092b7948c977374ec622eec9c225bf422e666bc4bdbf7c01e6ffe6c2a3c73d3';
+export function arrangeOverdriveCadence(input){
+ if(hash(input)!==overdrive57)throw Error('Overdrive v57 baseline SHA mismatch');
+ const source=readMidiChunks(input),start=268*480,half=270*480,end=272*480,sequence=[76,69,76,72,81,76,72,81,76,80,83,80,76,71,80,76];
+ const changed=[];let leads=0;
+ const chunks=source.chunks.map((chunk,index)=>{
+  if(chunk.type!=='MTrk')return chunk.bytes;
+  const original=decodeTrack(chunk),events=original.map(e=>({...e,data:[...e.data]})),notes=[];const held=new Map();
+  for(const event of events){const [status,pitch,velocity]=event.data,kind=status&240;if(status>=240)continue;const key=(status&15)+':'+pitch;
+   if(kind===144&&velocity>0){if(held.has(key))throw Error('Overlapping MIDI note');held.set(key,event);}
+   else if(kind===128||kind===144&&velocity===0){const on=held.get(key);if(!on)throw Error('Unmatched MIDI noteOff');held.delete(key);notes.push({on,off:event,channel:status&15});}
+  }
+  if(held.size)throw Error('Hanging MIDI note');
+  const selected=notes.filter(n=>n.on.tick>=start&&n.on.tick<end),lead=selected.filter(n=>n.channel===0).sort((a,b)=>a.on.tick-b.on.tick);
+  let output=events,addedEnd=null;
+  if(lead.length){
+   if(++leads!==1||JSON.stringify(lead.map(n=>n.on.data[1]))!=='[81,76,81]'||lead.some(n=>n.off.tick>=end)||notes.some(n=>n.channel===0&&n.on.tick<start&&n.off.tick>=start))throw Error('Unexpected bar 68 lead');
+   output=events.filter(e=>!(e.tick>=start&&e.tick<end&&e.data[0]<240&&(e.data[0]&15)===0&&([128,144,224].includes(e.data[0]&240)||(e.data[0]&240)===176&&e.data[1]===7)));
+   for(const [tick,pitch]of [[start,81],[half,80]]){
+    const add=(at,data)=>output.push({tick:at,data});add(tick,[224,0,64]);add(tick,[176,7,120]);add(tick,[144,pitch,lead[0].on.data[2]]);
+    const off={tick:tick+960,data:[128,pitch,0]};output.push(off);if(off.tick===end)addedEnd=off;
+    add(tick+48,[176,7,100]);add(tick+384,[176,7,84]);
+   }
+   output.sort((a,b)=>a.tick-b.tick||((a.data[0]&240)===128?-1:0)-((b.data[0]&240)===128?-1:0));
+  }
+  for(const channel of [1,3,4]){
+   const part=selected.filter(n=>n.channel===channel).sort((a,b)=>a.on.tick-b.on.tick);if(!part.length)continue;
+   if(part.length!==({1:16,3:8,4:2})[channel]||part.some(n=>n.off.tick>=end))throw Error('Unexpected bar 68 accompaniment');
+   part.forEach((n,i)=>{const pitch=channel===1?sequence[i]:channel===3?40:n.on.tick<half?64:68;n.on.data[1]=pitch;n.off.data[1]=pitch;});
+  }
+  const outside=e=>e.tick<start||e.tick>=end;
+  const same=rows=>JSON.stringify(rows.map(e=>[e.tick,e.data]));
+  if(same(original.filter(outside))!==same(output.filter(e=>e!==addedEnd&&outside(e))))throw Error('Events outside bar 68 changed');
+  if(same(original)===same(output))return chunk.bytes;changed.push(index);return encodeTrack(output,true);
+ });
+ if(leads!==1||changed.length!==4)throw Error('Expected four changed melodic tracks');
+ return {bytes:Buffer.concat([source.header,...chunks]),bar:68,changedChunks:changed,bass:'E2',chords:['Am/E','E'],lead:[81,80]};
+}
+async function originals(){return Promise.all(GUITAR_IDS.map(async id=>{const song=arrangeGuitarLead(await readFile(resolve(sourceDirectory,id+'.mid')),id);return {id,...song,...(id==='overdrive'?{bytes:arrangeOverdriveCadence(song.bytes).bytes}:{})};}));}
+async function protectedHashes(directory,allowed=GUITAR_IDS){const names=(await readdir(directory,{withFileTypes:true})).filter(e=>e.isFile()&&!allowed.some(id=>e.name===id+'.mid')).map(e=>e.name).sort();return Object.fromEntries(await Promise.all(names.map(async name=>[name,hash(await readFile(resolve(directory,name)))])));}
 export async function checkGuitarArrangements({directory=outputDirectory}={}){const rows=[];for(const song of await originals()){let existing=null;try{existing=await readFile(resolve(directory,song.id+'.mid'));}catch(e){if(e.code!=='ENOENT')throw e;}rows.push({id:song.id,sha256:hash(song.bytes),matches:Boolean(existing?.equals(song.bytes))});}return {matches:rows.every(row=>row.matches),files:rows,readOnly:true};}
-export async function writeGuitarArrangements({directory=outputDirectory}={}){
+async function checkedOutputDirectory(directory){
  const canonical=path=>process.platform==='win32'?resolve(path).toLowerCase():resolve(path);
  const target=await realpath(resolve(directory)),archives=await realpath(fileURLToPath(new URL('../public/versions/',import.meta.url))),targetKey=canonical(target),archiveKey=canonical(archives);
  if(targetKey===archiveKey||targetKey.startsWith(archiveKey+sep))throw Error('Immutable release archives cannot be a guitar output directory');
+ return target;
+}
+export async function writeGuitarArrangements({directory=outputDirectory}={}){
  // Use the checked real path, so a junction alias is never used for writes.
+ const target=await checkedOutputDirectory(directory);
  const generated=await originals(),before=await protectedHashes(target),files=[];
  for(const song of generated){await writeFile(resolve(target,song.id+'.mid'),song.bytes);files.push({id:song.id,bytes:song.bytes.length,sha256:hash(song.bytes),fills:song.fills,extendedNotes:song.extendedNotes,bends:song.bends});}
  const after=await protectedHashes(target);if(JSON.stringify(before)!==JSON.stringify(after))throw Error('Non-target file changed during guitar write');return {files,protectedUnchanged:true,protectedHashes:after};
+}
+export async function writeOverdriveCadence({directory=outputDirectory}={}){
+ const target=await checkedOutputDirectory(directory),song=(await originals()).find(s=>s.id==='overdrive'),existing=await readFile(resolve(target,'overdrive.mid'));
+ if(hash(existing)!==overdrive57&&!existing.equals(song.bytes))throw Error('Refusing to overwrite unreviewed Overdrive edits');
+ const before=await protectedHashes(target,['overdrive']);await writeFile(resolve(target,'overdrive.mid'),song.bytes);
+ const after=await protectedHashes(target,['overdrive']);if(JSON.stringify(before)!==JSON.stringify(after))throw Error('Non-target file changed during cadence write');
+ return {file:'overdrive.mid',bar:68,sha256:hash(song.bytes),protectedUnchanged:true};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){const args=process.argv.slice(2);if(args.length!==1||!['--check','--write'].includes(args[0])){console.error('Use --check or --write; only six guitar part-one MID files are allowlisted.');process.exitCode=2;}else{const result=args[0]==='--write'?await writeGuitarArrangements():await checkGuitarArrangements();console.log(JSON.stringify(result,null,2));if(args[0]==='--check'&&!result.matches)process.exitCode=1;}}
