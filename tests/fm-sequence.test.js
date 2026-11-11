@@ -12,6 +12,10 @@ test('Overdrive FM uses organ sixteenths and an analog-style lead while SCC keep
   const lead=writes.filter(w=>w.event?.channel===0&&w.event.type==='noteOn');
   assert.equal(lead.length,score.events.filter(e=>e.channel===0&&e.type==='noteOn').length);
   assert.ok(lead.every(w=>w.presetId===(engine==='fm'?'minimoog-lead':'scc')));
+  const originalLead=score.events.filter(e=>e.channel===0&&(e.type==='noteOn'||e.type==='noteOff'));
+  const renderedLead=writes.filter(w=>w.event?.channel===0&&(w.event.type==='noteOn'||w.event.type==='noteOff'));
+  assert.equal(renderedLead.length,originalLead.length);
+  for(let i=0;i<originalLead.length;i++)assert.equal(renderedLead[i].event.note,originalLead[i].note+(engine==='fm'?-12:0),`${engine} lead event ${i}`);
  }
  for(const value of [-1,128,NaN])assert.throws(()=>validateTrack({...config.overdrive,parts:{...config.overdrive.parts,2:{...config.overdrive.parts[2],fmVolume:value}}}));
 });

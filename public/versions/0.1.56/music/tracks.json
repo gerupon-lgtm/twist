@@ -1,0 +1,738 @@
+{
+  "flightPlaylist": [
+    "flight",
+    "flight2"
+  ],
+  "flightSets": {
+    "brave": [
+      "brave"
+    ],
+    "rock": [
+      "rock"
+    ],
+    "steel": [
+      "steel"
+    ],
+    "horizon": [
+      "horizon"
+    ],
+    "storm": [
+      "storm"
+    ],
+    "newrock": [
+      "steel",
+      "horizon",
+      "storm"
+    ],
+    "ignition": [
+      "ignition"
+    ],
+    "advance": [
+      "advance"
+    ],
+    "overdrive": [
+      "overdrive"
+    ],
+    "proposals": [
+      "ignition",
+      "advance",
+      "overdrive"
+    ],
+    "all": [
+      "flight",
+      "flight2",
+      "brave",
+      "rock",
+      "steel",
+      "horizon",
+      "storm",
+      "ignition",
+      "advance",
+      "overdrive"
+    ]
+  },
+  "flightTempos": {
+    "flight": 160,
+    "flight2": 168,
+    "brave": 170,
+    "rock": 156,
+    "steel": 144,
+    "horizon": 148,
+    "storm": 152,
+    "ignition": 165,
+    "advance": 145,
+    "overdrive": 175
+  },
+  "rock": {
+    "title": "黒曜の翼",
+    "file": "rock.mid",
+    "loop": {
+      "start": 0,
+      "end": 73.84608
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 111,
+        "role": "lead",
+        "fmPreset": "distortion-guitar",
+        "sccTimbre": "distortion-guitar-v1"
+      },
+      "2": {
+        "waveform": 0,
+        "volume": 55,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 49,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 88,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 43,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "10": {
+        "volume": 104,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "brave": {
+    "title": "勇進の航路",
+    "file": "brave.mid",
+    "loop": {
+      "start": 0,
+      "end": 67.764672
+    },
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 101,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 66,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 64,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 96,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 44,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "10": {
+        "volume": 105,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "flight": {
+    "title": "蒼穹突破",
+    "file": "flight.mid",
+    "loop": {
+      "start": 0,
+      "end": 72
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 94,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 4,
+        "volume": 74,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 68,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 92,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 54,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "10": {
+        "volume": 100,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "flight2": {
+    "title": "遺跡の閃光",
+    "file": "flight2.mid",
+    "loop": {
+      "start": 0,
+      "end": 68.571456
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 94,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 4,
+        "volume": 74,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 68,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 92,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 54,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "10": {
+        "volume": 100,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "steel": {
+    "title": "鋼翼の鼓動",
+    "file": "steel.mid",
+    "loop": {
+      "start": 0,
+      "end": 106.666752
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 101,
+        "role": "lead",
+        "fmPreset": "distortion-guitar",
+        "sccTimbre": "distortion-guitar-v1"
+      },
+      "2": {
+        "waveform": 0,
+        "volume": 51,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 45,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 83,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 38,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "10": {
+        "volume": 96,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "horizon": {
+    "title": "黎明の航跡",
+    "file": "horizon.mid",
+    "loop": {
+      "start": 0,
+      "end": 103.78368
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 101,
+        "role": "lead",
+        "fmPreset": "distortion-guitar",
+        "sccTimbre": "distortion-guitar-v1"
+      },
+      "2": {
+        "waveform": 0,
+        "volume": 51,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 45,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 83,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 38,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "10": {
+        "volume": 96,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "storm": {
+    "title": "嵐を越えて",
+    "file": "storm.mid",
+    "loop": {
+      "start": 0,
+      "end": 101.052672
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 101,
+        "role": "lead",
+        "fmPreset": "distortion-guitar",
+        "sccTimbre": "distortion-guitar-v1"
+      },
+      "2": {
+        "waveform": 0,
+        "volume": 51,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 45,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 83,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 38,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "10": {
+        "volume": 96,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "ignition": {
+    "title": "Ignition Sky",
+    "file": "ignition.mid",
+    "loop": {
+      "start": 0,
+      "end": 93.090816
+    },
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 99,
+        "role": "lead",
+        "fmPreset": "distortion-guitar",
+        "sccTimbre": "distortion-guitar-v1"
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 72,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 79,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 42,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "10": {
+        "volume": 87,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "advance": {
+    "title": "Steel Advance",
+    "file": "advance.mid",
+    "loop": {
+      "start": 0,
+      "end": 105.931008
+    },
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 95,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 72,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 79,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 42,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "10": {
+        "volume": 87,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "overdrive": {
+    "title": "Overdrive Horizon",
+    "file": "overdrive.mid",
+    "loop": {
+      "start": 0,
+      "end": 98.742816
+    },
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 99,
+        "role": "lead",
+        "fmPreset": "minimoog-lead",
+        "sccTimbre": "distortion-guitar-v1"
+      },
+      "2": {
+        "waveform": 4,
+        "volume": 46,
+        "role": "chords",
+        "fmPreset": "pipe-organ",
+        "fmVolume": 90
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 79,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "5": {
+        "waveform": 1,
+        "volume": 42,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "10": {
+        "volume": 87,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "afterburner": {
+    "title": "AB Pulse",
+    "file": "afterburner.mid",
+    "loop": {
+      "start": 0,
+      "end": 8
+    },
+    "parts": {
+      "10": {
+        "volume": 72,
+        "role": "drums",
+        "fmPreset": null
+      }
+    },
+    "bpm": 120,
+    "minSeconds": 3
+  },
+  "clear": {
+    "title": "突破の凱歌",
+    "file": "clear.mid",
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 96,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 78,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 1,
+        "volume": 88,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 50,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "10": {
+        "volume": 98,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "comparison": {
+    "title": "ひかりの航路（比較）",
+    "file": "flight-legacy.mid",
+    "loop": {
+      "start": 0,
+      "end": 45
+    },
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 96,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 2,
+        "volume": 78,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 96,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "10": {
+        "volume": 85,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "clear-ignition": {
+    "title": "凱旋の点火",
+    "file": "clear-ignition.mid",
+    "bpm": 165,
+    "beats": 8,
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 99,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 53,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 86,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 48,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "10": {
+        "volume": 88,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "clear-advance": {
+    "title": "鋼の勝利",
+    "file": "clear-advance.mid",
+    "bpm": 145,
+    "beats": 8,
+    "parts": {
+      "1": {
+        "waveform": 4,
+        "volume": 99,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 53,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 86,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 48,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "10": {
+        "volume": 88,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "clear-overdrive": {
+    "title": "閃光の帰還",
+    "file": "clear-overdrive.mid",
+    "bpm": 175,
+    "beats": 8,
+    "parts": {
+      "1": {
+        "waveform": 1,
+        "volume": 99,
+        "role": "lead",
+        "fmPreset": "lead"
+      },
+      "2": {
+        "waveform": 1,
+        "volume": 53,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "3": {
+        "waveform": 0,
+        "volume": 86,
+        "role": "bass",
+        "fmPreset": "bass"
+      },
+      "4": {
+        "waveform": 1,
+        "volume": 48,
+        "role": "chords",
+        "fmPreset": "chords"
+      },
+      "10": {
+        "volume": 88,
+        "role": "drums",
+        "fmPreset": null
+      }
+    }
+  },
+  "catalog": {
+    "flight": [
+      "rock",
+      "steel",
+      "horizon",
+      "storm",
+      "ignition",
+      "advance",
+      "overdrive"
+    ],
+    "preview": [
+      "flight",
+      "flight2",
+      "brave",
+      "rock",
+      "steel",
+      "horizon",
+      "storm",
+      "ignition",
+      "advance",
+      "overdrive",
+      "clear",
+      "clear-ignition",
+      "clear-advance",
+      "clear-overdrive",
+      "afterburner",
+      "comparison"
+    ],
+    "clear": [
+      "clear",
+      "clear-ignition",
+      "clear-advance",
+      "clear-overdrive"
+    ],
+    "afterburner": "afterburner",
+    "comparison": "comparison"
+  }
+}

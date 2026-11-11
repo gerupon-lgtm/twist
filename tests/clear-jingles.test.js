@@ -131,6 +131,7 @@ test('role augmentation preserves every legacy field and uses the actual song-sp
  for(const [id,track]of Object.entries(config).filter(([,track])=>track?.file))for(const [channel,part]of Object.entries(track.parts)){
   if(part.sccTimbre!==undefined){assert.ok(guitarIds.has(id)&&channel==='1');assert.equal(part.sccTimbre,'distortion-guitar-v1');delete part.sccTimbre;}
   if(part.fmVolume!==undefined){assert.equal(id,'overdrive');assert.equal(channel,'2');assert.equal(part.fmVolume,90);delete part.fmVolume;}
+  if(part.fmTranspose!==undefined){assert.equal(id,'overdrive');assert.equal(channel,'1');assert.equal(part.fmTranspose,-12);delete part.fmTranspose;}
   delete part.role;delete part.fmPreset;
  }
  assert.equal(hash(JSON.stringify(config)),'dc574a85d916ee3684a0e62a39cee3690bde97306bdbb495bdcb3bebb3833c66');

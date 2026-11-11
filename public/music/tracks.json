@@ -474,7 +474,8 @@
         "volume": 99,
         "role": "lead",
         "fmPreset": "minimoog-lead",
-        "sccTimbre": "distortion-guitar-v1"
+        "sccTimbre": "distortion-guitar-v1",
+        "fmTranspose": -12
       },
       "2": {
         "waveform": 4,

@@ -10,7 +10,8 @@ export function validateTrack(track){
     const wave=part.waveform??0,volume=part.volume??100;
     if(!Number.isInteger(wave)||wave<0||wave>=PRESET_NAMES.length||!Number.isFinite(volume)||volume<0||volume>127)throw Error('Invalid part');
     if(part.fmVolume!==undefined&&(!Number.isFinite(part.fmVolume)||part.fmVolume<0||part.fmVolume>127))throw Error('Invalid FM part volume');
-    parts[n]={waveform:wave,volume,...(part.fmVolume!==undefined?{fmVolume:part.fmVolume}:{}),...(typeof part.role==='string'?{role:part.role}:{}),
+    if(part.fmTranspose!==undefined&&(!Number.isInteger(part.fmTranspose)||part.fmTranspose< -24||part.fmTranspose>24))throw Error('Invalid FM transposition');
+    parts[n]={waveform:wave,volume,...(part.fmVolume!==undefined?{fmVolume:part.fmVolume}:{}),...(part.fmTranspose!==undefined?{fmTranspose:part.fmTranspose}:{}),...(typeof part.role==='string'?{role:part.role}:{}),
       ...(typeof part.fmPreset==='string'||part.fmPreset===null?{fmPreset:part.fmPreset}:{}),
       ...(part.sccTimbre===SCC_GUITAR_TIMBRE?{sccTimbre:part.sccTimbre}:{})};
   }

@@ -25,7 +25,9 @@ export function createMusicSynth({scc,clock,track,trackId,engine='scc',score}){
   const guitar=createSccGuitarTone(scc,{trackId,track,engine});
   if(engine==='fm')for(const [channel,part]of Object.entries(track.parts)){
     const status=fmPartStatus(part);
+    const transpose=part.fmTranspose??0,transposeInvalid=transpose&&(!Array.isArray(score?.events)||score.events.some(e=>e.channel===Number(channel)-1&&(e.type==='noteOn'||e.type==='noteOff')&&(e.note+transpose<0||e.note+transpose>127)));
     if(status.eligible&&Number(channel)>8)fallbacks.push({channel:Number(channel),reason:'non-melodic-channel'});
+    else if(status.eligible&&transposeInvalid)fallbacks.push({channel:Number(channel),reason:'transpose-range-or-score'});
     else if(status.eligible&&typeof clock.event==='function'&&requiredVoices<=FM_MAX_VOICES)fm.set(Number(channel)-1,status.preset);
     else if(part.role!=='drums'&&Number(channel)<=8)fallbacks.push({channel:Number(channel),reason:status.reason??(requiredVoices>FM_MAX_VOICES?'capacity':'clock-unavailable')});
   }
@@ -34,7 +36,10 @@ export function createMusicSynth({scc,clock,track,trackId,engine='scc',score}){
     const part=track.parts[(event.channel??0)+1];
     const volume=fm.has(event.channel)?part?.fmVolume??part?.volume??127:part?.volume??127;
     const scaled=event.type==='cc'&&event.controller===7?{...event,value:Math.round(event.value*volume/127)}:event;
-    if(fm.has(event.channel))clock.event({kind:'fm',event:scaled,presetId:fm.get(event.channel)});
+    if(fm.has(event.channel)){
+      const transpose=part.fmTranspose??0,shifted=transpose&&(scaled.type==='noteOn'||scaled.type==='noteOff')?{...scaled,note:scaled.note+transpose}:scaled;
+      clock.event({kind:'fm',event:shifted,presetId:fm.get(event.channel)});
+    }
     else if(guitar)guitar.handle(scaled,event=>scc.handle(event));
     else scc.handle(scaled);
   }

@@ -29,3 +29,24 @@ test('mislabelled channel-ten upper metadata safely retains the drum path instea
  const synth=createMusicSynth({scc:{handle:e=>received.push(e),resetControllers(){},allNotesOff(){}},clock:{event:e=>events.push(e)},track,score:{events:notes},engine:'fm'});
  synth.handle(notes[0]);assert.deepEqual(received,notes);assert.deepEqual(events,[]);assert.equal(measureFmVoices({events:notes},track),0);assert.equal(synth.snapshot().effectiveEngine,'scc');assert.deepEqual(synth.snapshot().fallbacks,[{channel:10,reason:'non-melodic-channel'}]);
 });
+
+test('FM transposition preserves paired notes, bends, other parts and the original score',()=>{
+ const raw={file:'test.mid',parts:{1:{role:'lead',fmPreset:'lead',fmTranspose:-12},2:{role:'bass',fmPreset:'bass'}}},t=validateTrack(raw);
+ const events=[{type:'noteOn',channel:0,note:69,velocity:100},{type:'pitchBend',channel:0,value:4096},{type:'noteOn',channel:1,note:40,velocity:100},{type:'noteOff',channel:0,note:69},{type:'noteOn',channel:0,note:72,velocity:0}],original=JSON.stringify(events);
+ for(const engine of ['fm','scc']){
+  const received=[],synth=createMusicSynth({scc:{handle:event=>received.push(event),resetControllers(){},allNotesOff(){}},clock:{event:w=>{if(w.event.type!=='configure')received.push(w.event);}},track:t,engine,score:{events}});
+  events.forEach(synth.handle);assert.equal(synth.snapshot().fallbacks.length,0);
+  assert.deepEqual(received.map(e=>e.note),engine==='fm'?[57,undefined,40,57,60]:[69,undefined,40,69,72]);
+  assert.equal(received[1],events[1]);assert.equal(received[2],events[2]);assert.equal(JSON.stringify(events),original);
+ }
+ for(const value of [-25,25,1.5,NaN,'-12',null])assert.throws(()=>validateTrack({...raw,parts:{1:{...raw.parts[1],fmTranspose:value}}}));
+});
+
+test('a transposition outside MIDI range keeps the original SCC part and reports the fallback',()=>{
+ const t=validateTrack({file:'test.mid',parts:{1:{role:'lead',fmPreset:'lead',fmTranspose:-12}}}),events=[{type:'noteOn',channel:0,note:0,velocity:100},{type:'noteOff',channel:0,note:0}],received=[],fm=[];
+ for(const score of [{events},undefined]){
+  const synth=createMusicSynth({scc:{handle:e=>received.push(e),resetControllers(){},allNotesOff(){}},clock:{event:e=>fm.push(e)},track:t,engine:'fm',score});
+  assert.equal(synth.snapshot().effectiveEngine,'scc');assert.deepEqual(synth.snapshot().fallbacks,[{channel:1,reason:'transpose-range-or-score'}]);events.forEach(synth.handle);
+ }
+ assert.deepEqual(received,[...events,...events]);assert.equal(fm.length,0);
+});
