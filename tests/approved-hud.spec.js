@@ -6,9 +6,11 @@ const cases=[
  {width:390,height:844,input:'sensor',course:'easy'},
  {width:390,height:844,input:'sensor',course:'supersonic'},
  {width:390,height:844,input:'sensor',course:'sierra10'},
+ {width:390,height:844,input:'sensor',course:'sierra50'},
  {width:390,height:844,input:'practice',course:'easy'},
  {width:360,height:640,input:'sensor',course:'easy'},
  {width:360,height:640,input:'practice',course:'supersonic'},
+ {width:360,height:640,input:'practice',course:'sierra50'},
  {width:844,height:390,input:'sensor',course:'easy'},
  {width:844,height:390,input:'practice',course:'supersonic'},
 ];
@@ -32,7 +34,7 @@ async function measure(page){return page.evaluate(()=>{
  const camera=document.getElementById('app').dataset.camera,root=document.getElementById('flight-instruments');
  const text=[];for(const e of root.querySelectorAll('.instrument-number,.instrument-tick,.instrument-label')){const r=rect(e);if(r)text.push({text:e.textContent,box:r,parent:rect(e.closest('.instrument-slot')),stroke:getComputedStyle(e).webkitTextStrokeWidth,color:getComputedStyle(e).color});}
  return {camera,fixed:{heading:rect(document.getElementById('guidance-heading')),target:rect(document.getElementById(camera==='cockpit'?'cockpit-target-height':'flight-essential-details')),radar:rect(document.getElementById('radar')),speed:rect(document.getElementById('instrument-speed-slot')),altitude:rect(document.getElementById('instrument-altitude-slot')),mach:rect(document.getElementById('instrument-mach-slot')),vario:rect(document.getElementById('instrument-vario-slot')),controls:rect(document.getElementById('bottom-panel')),view:rect(document.getElementById('start-flow-view-button'))},
-  groups:JSON.parse(root.dataset.geometry).groups,text,craft:{x:parseFloat(document.getElementById('app').style.getPropertyValue('--craft-screen-x')),y:parseFloat(document.getElementById('app').style.getPropertyValue('--craft-screen-y'))},buttons:['pause-button','recenter-button','start-flow-view-button','help-button','practice-neutral','practice-brake'].map(id=>({id,box:rect(document.getElementById(id))})),scroll:[document.documentElement.scrollWidth,document.documentElement.scrollHeight]};
+  groups:JSON.parse(root.dataset.geometry).groups,text,craft:{x:parseFloat(document.getElementById('app').style.getPropertyValue('--craft-screen-x')),y:parseFloat(document.getElementById('app').style.getPropertyValue('--craft-screen-y'))},buttons:['pause-button','recenter-button','start-flow-view-button','help-button','practice-neutral','practice-brake','throttle-input','practice-pitch','practice-steer','practice-twist'].map(id=>({id,box:rect(document.getElementById(id))})),scroll:[document.documentElement.scrollWidth,document.documentElement.scrollHeight]};
 });}
 for(const c of cases)test(`approved shared HUD ${c.course} ${c.input} ${c.width}x${c.height}`,async({page})=>{
  test.setTimeout(120000);const errors=[];page.on('pageerror',e=>errors.push(e.message));await boot(page,c);const rows=[];
@@ -57,4 +59,17 @@ for(const c of cases)test(`approved shared HUD ${c.course} ${c.input} ${c.width}
 test('outside view is chosen only at course entry and remains isolated during flight',async({page})=>{
  await boot(page,cases[0],'overlay');await expect(page.locator('#start-flow-view-button')).toBeHidden();await page.locator('#pause-button').click();await expect(page.locator('#start-flow-pause-camera')).toBeHidden();
  await page.locator('#start-flow-course-exit').click();await page.locator('#start-flow-confirm-exit').click();await expect(page.locator('#start-flow-course-camera [data-flow-value=overlay]')).toBeVisible();await page.locator('#start-flow-course-camera [data-flow-value=chase]').click();await expect(page.locator('#app')).toHaveAttribute('data-camera','chase');
+});
+
+test('disabling the director keeps the shared upper layout unchanged',async({page})=>{
+ await boot(page,cases[0]);const before=await measure(page);
+ await page.locator('#pause-button').click();await page.locator('#start-flow-pause-settings').click();
+ const field=page.locator('#setting-flightDirector');await field.evaluate(e=>{for(let p=e.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;});await field.uncheck();
+ await page.locator('#start-flow-settings-close').click();await page.locator('#start-flow-resume').click();await page.clock.runFor(180);
+ await expect(page.locator('#guidance-director')).toBeHidden();
+ for(const camera of ['chase','cockpit']){
+  if((await page.locator('#app').getAttribute('data-camera'))!==camera){await page.locator('#start-flow-view-button').click();await page.clock.runFor(180);}
+  const after=await measure(page);for(const key of ['radar','target'])expect(after.fixed[key]).toEqual(before.fixed[key]);
+  const nav=await page.locator('.navigation').boundingBox();expect(nav.y+nav.height).toBe(42);
+ }
 });

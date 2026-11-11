@@ -7,11 +7,11 @@ const ids=Object.entries(data).filter(([,track])=>track&&typeof track.file==='st
 
 // Offline AudioWorklet computes the complete score at the real sample rate.
 // Real-time UI/permission/cancellation and physical listening are separate checks.
-for(const engine of ['scc','fm'])for(const rate of [44100,48000])test(`native whole-score ${engine} at ${rate}Hz retains every track`,async({browser})=>{
+for(const engine of ['scc','fm'])for(const rate of [44100,48000])test(`native whole-score ${engine} at ${rate}Hz retains every track`,async({browser},testInfo)=>{
   test.setTimeout(360000);expect(ids).toHaveLength(16);const results=[];
   try{
     for(const id of ids){
-      const context=await browser.newContext({baseURL:'http://localhost:4173',viewport:{width:390,height:844}});
+      const context=await browser.newContext({baseURL:testInfo.project.use.baseURL,viewport:{width:390,height:844}});
       try{
         const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
         await page.goto('/tests/fixtures/music-offline.html');await page.waitForFunction(()=>window.fixtureReady===true);

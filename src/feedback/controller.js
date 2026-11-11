@@ -16,7 +16,7 @@ import {createBriefingAudioBridge} from './briefing-audio-bridge.js';
 export function createFeedbackController(){
   let storage;try{storage=localStorage;}catch{/* Defaults work without storage. */}
   let settings=loadFeedbackSettings(storage),active=false,lastAudio=0,lastAfterburner=null,lastModel=null;
-  let previewAudio=null,previewMusic=null,previewIntent=false,previewPending=false,previewGeneration=0,previewMessage='',previewClosing=Promise.resolve(),previewStarting=Promise.resolve(),previewClosingActive=false;
+  let previewAudio=null,previewMusic=null,previewIntent=false,previewPending=false,previewGeneration=0,previewMessage='',previewClosing=Promise.resolve();
   let catalog=null,catalogLoading=null,catalogMessage='',previewTrackId=null,musicSelectionEdited=false;
   const queryParams=new URL(location.href).searchParams,storedPreview=loadMusicPreviewSettings(storage);
   let storedMusicRequest=null;try{const raw=JSON.parse(storage.getItem(FEEDBACK_SETTINGS_KEY));if(typeof raw?.musicSet==='string')storedMusicRequest=raw.musicSet;}catch{/* No saved request to migrate. */}
@@ -84,7 +84,7 @@ export function createFeedbackController(){
     previewMessage=saved?'試聴する曲を保存しました。':'試聴する曲を保存できません。この画面では使えます。';
     if(previewIntent)void playPreview();else refreshPreview();
   });
-  previewStart.addEventListener('click',()=>{previewStarting=playPreview();});previewStop.addEventListener('click',stopPreview);
+  previewStart.addEventListener('click',()=>{void playPreview();});previewStop.addEventListener('click',stopPreview);
   const adjustments=document.getElementById('flight-adjustments');adjustments.addEventListener('toggle',()=>{if(!adjustments.open)stopPreview();});
   const hidden=()=>{stopPreview();briefingAudio.stop('hidden');launchMusic.stop();audio.cancelCountdown();audio.cancelButtons();};
   document.addEventListener('visibilitychange',()=>{if(document.hidden)hidden();});window.addEventListener('pagehide',hidden);
@@ -145,13 +145,14 @@ export function createFeedbackController(){
   }
   function stopPreview(){
     previewGeneration++;previewIntent=false;previewPending=false;previewMessage='';
-    previewMusic?.stop();previewAudio?.stop();if(previewAudio){previewClosingActive=true;const closing=previewAudio.dispose().finally(()=>{if(previewClosing===closing)previewClosingActive=false;});previewClosing=closing;}previewMusic=null;previewAudio=null;refreshPreview();
+    previewMusic?.stop();previewAudio?.stop();if(previewAudio)previewClosing=previewAudio.dispose();previewMusic=null;previewAudio=null;refreshPreview();
   }
   async function playPreview(){
     if(active||!settings.sound||document.hidden||adjustments.hidden||!adjustments.open)return;
     previewIntent=true;previewPending=true;const token=++previewGeneration;previewMessage='曲を準備しています。';
     refreshPreview();
-    audio.cancelButtons();await audio.suspendIfIdle();if(token!==previewGeneration||!previewIntent)return;
+    // The current pointer/key cue belongs to this press; let it finish.
+    await audio.suspendIfIdle();if(token!==previewGeneration||!previewIntent)return;
     if(!previewAudio){await previewClosing;if(token!==previewGeneration||!previewIntent)return;previewAudio=createGameAudio();previewMusic=createMusicPlayer(previewAudio);}
     const output=previewAudio,player=previewMusic;player.setSettings(previewSettings());refreshPreview();
     // Begin permission/resume from this click before waiting on metadata/MIDI.

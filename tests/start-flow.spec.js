@@ -128,7 +128,8 @@ for(const size of sizes)test(`normal title and actual play fit every view withou
       const hud=document.getElementById('flight-essential-hud');if(hud.hidden)for(let index=cards.length-1;index>=0;index--)if(cards[index].id.startsWith('flight-essential-'))cards.splice(index,1);
       const cockpit=document.getElementById('cockpit-hud');if(cockpit.hidden)for(let index=cards.length-1;index>=0;index--)if(cards[index].id.startsWith('cockpit-'))cards.splice(index,1);
       const objects=['radar','bottom-panel','practice-panel','guidance-director','guidance-flight-path'].map(rect).filter(Boolean),bad=[];
-      for(const obstacle of [...cards,...objects])if(overlap(view,obstacle))bad.push(`view/${obstacle.id}`);
+      const inputs=['pause-button','recenter-button','help-button','throttle-input'].map(rect).filter(Boolean);
+      for(const obstacle of [...cards,...objects,...inputs]){if(obstacle.id==='bottom-panel'&&view.left>=obstacle.left&&view.right<=obstacle.right&&view.top>=obstacle.top&&view.bottom<=obstacle.bottom)continue;if(overlap(view,obstacle))bad.push(`view/${obstacle.id}`);}
       for(const card of cards)for(const other of objects.filter(item=>['radar','bottom-panel','practice-panel'].includes(item.id)))if(overlap(card,other))bad.push(`${card.id}/${other.id}`);
       const nav=document.querySelector('.navigation').getBoundingClientRect();if(overlap(view,nav))bad.push('view/navigation');
       const speed=document.getElementById('cockpit-speed'),speedBounds=speed.getBoundingClientRect();
@@ -160,13 +161,13 @@ test('normal flow hides development modes while explicit dev exploration keeps a
 });
 
 test('title and map keep explicit preview separate while countdown cues do not start music or flight',async({page})=>{
-  const errors=await boot(page,{audio:true,map:'every'});expect(await page.evaluate(()=>flowAudioContexts.length)).toBe(0);await tick(page,3000);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);
+  const errors=await boot(page,{audio:true,map:'every'});expect(await page.evaluate(()=>flowAudioContexts.length)).toBe(1);const prepared=JSON.parse(await page.locator('#feedback-diagnostics').getAttribute('data-audio'));expect(prepared.workletReady).toBe(false);expect(prepared.buttons.played).toBe(0);expect(prepared.contextState).toBe('suspended');await tick(page,3000);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);
   await page.locator('#start-flow-title-settings').click();await page.locator('summary').filter({hasText:'③ 音と振動'}).click();await page.locator('#music-preview-track').selectOption('ignition');const saved=await page.evaluate(()=>localStorage.getItem('twist.feedback-settings.v1'));await page.locator('#music-preview-start').click();
   await expect.poll(async()=>{await tick(page);return page.locator('.music-preview-controls').getAttribute('data-playing');}).toBe('true');
   const preview=await page.locator('.music-preview-controls').evaluate(e=>({audio:JSON.parse(e.dataset.audio),music:JSON.parse(e.dataset.music)}));expect(preview.audio.workletReady).toBe(true);expect(preview.audio.contextState).toBe('running');expect(preview.music.track).toBe('Ignition Sky');expect((await read(page)).session.elapsedSeconds).toBe(0);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);
-  await page.locator('#start-flow-settings-close').click();await step(page,'title');await expect.poll(()=>page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length)).toBe(0);expect(await page.evaluate(()=>localStorage.getItem('twist.feedback-settings.v1'))).toBe(saved);
+  await page.locator('#start-flow-settings-close').click();await step(page,'title');await expect.poll(async()=>{await tick(page,200);return page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length);}).toBe(0);expect(await page.evaluate(()=>localStorage.getItem('twist.feedback-settings.v1'))).toBe(saved);
   // v47 allows the map's button click, which must finish without flight/BGM.
-  await startToCourses(page);await toPose(page,{map:true,mapWait:2000});await expect.poll(()=>page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length)).toBe(0);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);expect((await read(page)).session.elapsedSeconds).toBe(0);expect(errors).toEqual([]);
+  await startToCourses(page);await toPose(page,{map:true,mapWait:2000});await expect.poll(async()=>{await tick(page,200);return page.evaluate(()=>flowAudioContexts.filter(context=>context.state==='running').length);}).toBe(0);expect(await page.evaluate(()=>flowVibrations.length)).toBe(0);expect((await read(page)).session.elapsedSeconds).toBe(0);expect(errors).toEqual([]);
   await page.locator('#start-flow-hold').click();await step(page,'countdown');
   await waitForThree(page);
   await tick(page,2900);

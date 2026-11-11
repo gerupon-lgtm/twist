@@ -21,6 +21,7 @@ test('cancelling menu feedback rests an idle context but never suspends active f
  try{
   await audio.buttonClick(settings);assert.equal(context.state,'running');
   await audio.cancelButtons();assert.equal(context.state,'suspended');
+  await audio.resume();audio.configure({...settings,bgm:true,sfx:false});assert.equal(context.state,'running');await audio.suspendIfIdle();
   await audio.buttonClick(settings);audio.configure({...settings,sfx:false});assert.equal(context.state,'suspended');
   audio.start();await audio.buttonClick(settings);await audio.cancelButtons();assert.equal(context.state,'running');
  }finally{await audio.dispose();delete globalThis.window;delete globalThis.document;}

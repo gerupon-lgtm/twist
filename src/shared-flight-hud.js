@@ -15,6 +15,9 @@ const $=id=>document.getElementById(id);
 export const readSharedFlightHud=()=>{const raw=$('app')?.dataset.sharedFlightHud;return raw?JSON.parse(raw):null;};
 export function updateSharedFlightHud({enabled,layout='a',safe={left:0,right:0}}={}){
  const app=$('app');if(!enabled){delete app.dataset.sharedFlightHud;return null;}
+ // Reserve the compact navigation before measuring it. Its position must not
+ // depend on whether the director found free space in the previous frame.
+ if(!app.hasAttribute('data-shared-flight-hud'))app.dataset.sharedFlightHud='';
  const value=sharedFlightHudLayout({width:innerWidth,height:innerHeight,safe,layout,navBottom:document.querySelector('.navigation').getBoundingClientRect().bottom,controlsTop:$('bottom-panel').getBoundingClientRect().top});
  app.dataset.sharedFlightHud=JSON.stringify(value);return value;
 }

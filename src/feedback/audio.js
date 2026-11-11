@@ -211,7 +211,17 @@ export function createGameAudio(){
     cancelMusicLayer(tag){cancelledMusicTags.add(tag);musicPending=musicPending.filter(w=>w.tag!==tag);post({type:'musicCancel',tag});},
     stopMusic(){musicSession++;musicPending=[];scheduleTime=null;cancelledMusicTags.clear();post({type:'musicStop',session:musicSession});},
     setMusicGain(gain){post({type:'musicGain',gain});},
-    configure(settings){if(lastState)lastState={...lastState,settings:{...settings}};if(briefingSession)briefingSession.settings={...settings};post({type:'settings',settings});if(!settings.sound||!settings.sfx||settings.volume<=0){buttons.cancel();cancelBriefing(undefined,'disabled');finishCountdownEnd(countdownSession,'disabled');suspendBriefingIfIdle();}},
+    configure(settings){
+      if(lastState)lastState={...lastState,settings:{...settings}};
+      if(briefingSession)briefingSession.settings={...settings};
+      post({type:'settings',settings});
+      if(!settings.sound||!settings.sfx||settings.volume<=0){
+        const hadButtonCue=buttons.active();buttons.cancel();
+        cancelBriefing(undefined,'disabled');finishCountdownEnd(countdownSession,'disabled');
+        // A preview has SFX disabled but owns a separate, playing music bus.
+        if(hadButtonCue)suspendBriefingIfIdle();
+      }
+    },
     start(){cancelBriefing(undefined,'flight');wanted=true;if(context)context.resume().catch(()=>{});if(lastState)post(lastState);},
     update(model,settings,phase,navigation=null){lastState={type:'state',model,settings,phase,navigation};if(wanted)post(lastState);},
     event(kind,settings){
