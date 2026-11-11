@@ -12,6 +12,8 @@ import './essential-hud.css';
 import {updateEssentialHud} from './essential-hud.js';
 import './instrument-hud.css';
 import {createInstrumentHud} from './instrument-hud.js';
+import {updateSharedFlightHud} from './shared-flight-hud.js';
+import {viewportInsets} from './viewport-insets.js';
 import {getCourse,COURSE_CRITERIA,NORMAL_COURSE_IDS,ORDINARY_COURSE_IDS,PLAYABLE_COURSE_IDS,isSupersonicCourse} from './course-catalog.js';
 import {courseStageDimensions,courseRecordMetadata,courseRadarRange} from './course-world-profile.js';
 import {SIERRA_COURSE_ID,withSierraSegmentLabels} from './courses/sierra50.js';
@@ -225,7 +227,7 @@ const modeNote = () => sierra10Mode()?'角度方式で操縦します。出力50
   : `先端側の傾き${CONTROL_LIMITS.throttleMaximum}°で加減速が最大。中立で速度を保ちます。`;
 const lightColor = () => visibility === 'assisted' ? 'ピンクの' : '金色の';
 const modeIntroduction = () => sierra10Mode()?'シエラ縦断を1/10の縮尺で。A〜Fの門を順にくぐり、Gの出口へ。地面は平らで、音速は超えません。':sonicMode()?'40km四方の高速空域。5枚の門を順番にくぐり、最後の出口へ。ABを使って音速を超える試作です。':playMode === 'flight'
-  ? `${flightPanel.getSettings().flightDirector ? '白い進行方向の印を輪へ近づけます。重なると輪が緑になります。' : flightDisplay === 'fixed' ? '自機の上向きを保ち、景色が回ります。' : '自機は画面中央。右へ曲がると機体も右へ傾きます。'}${lightColor()}光を${selectedCourse.lights.length}つ集めて出口へ。`
+  ? `${flightPanel.getSettings().flightDirector ? '白い進行方向の印を輪へ近づけます。重なると輪が緑になります。' : flightDisplay === 'fixed' ? '自機の上向きを保ち、景色が回ります。' : '自機は画面内の定位置。右へ曲がると機体も右へ傾きます。'}${lightColor()}光を${selectedCourse.lights.length}つ集めて出口へ。`
   : `自機はスマホと一緒に傾かず、最初の上向きを保ちます。${lightColor()}光を${selectedCourse.lights.length}つ集めて出口へ。`;
 
 function setThrottle(value) {
@@ -288,6 +290,7 @@ $('display-fixed').addEventListener('click', () => selectDisplay('fixed'));
 
 function selectCamera(next) {
   if (!stage || ['waiting','ready'].includes(phase) || next === cameraMode) return;
+  if(flowEnabled&&flowCoordinator?.snapshot().step!=='courses'&&(next==='overlay'||cameraMode==='overlay'))return;
   cameraMode = normalizeCameraMode(next);
   stage.setCameraMode(cameraMode);
   applyVisibilityUI(); flightPanel.setPhase(panelPhase(),playMode);
@@ -968,6 +971,7 @@ function updateHud(now, state) {
   app.dataset.position = JSON.stringify(state.position);
   app.dataset.craftQuaternion = JSON.stringify(state.craftQuaternion);
   app.dataset.craftScreenQuaternion = JSON.stringify(state.craftScreenQuaternion);
+  if(state.craftScreen){app.style.setProperty('--craft-screen-x',state.craftScreen.x+'px');app.style.setProperty('--craft-screen-y',state.craftScreen.y+'px');}
   app.dataset.cameraQuaternion = JSON.stringify(state.cameraQuaternion);
   app.dataset.worldQuaternion = JSON.stringify(state.worldQuaternion);
   app.dataset.displayRoll = String(state.displayRoll || 0);
@@ -1017,6 +1021,7 @@ function updateHud(now, state) {
   const heightGuide=updateTargetHeightPanel(state,{phase,visibility,enabled:settings.targetHeightGuide,cockpit:cockpitActive,language,inlineParent:$('flight-essential-height')});
   updateEssentialHud({...state,inputHeld},{phase,mode:playMode,camera:cameraMode,language});
   flowUI?.refreshPlayControls();
+  updateSharedFlightHud({enabled:flowEnabled&&phase==='running'&&playMode==='flight'&&cameraMode!=='overlay',layout:settings.hudLayout,safe:viewportInsets()});
   updateRadar(state, { phase, visibility, range: state.supersonic?courseRadarRange(selectedCourse,sonicPanel.getSettings().radarRange):courseRadarRange(selectedCourse,settings.radarRange),language,extraObstacles:state.supersonic?sonicPanel.getObstacleRects():[] });
   if([SIERRA_COURSE_ID,SIERRA10_COURSE_ID].includes(selectedCourse.id))app.dataset.courseRadar=JSON.stringify({effectiveRange:courseRadarRange(selectedCourse,settings.radarRange),savedRange:settings.radarRange,source:'course-profile'});else delete app.dataset.courseRadar;
   const cockpitLayout = layoutCockpitHud(cockpitActive);

@@ -6,6 +6,7 @@ import { viewportInsets } from './viewport-insets.js';
 import { heightBandSvg } from './target-height-panel.js';
 import { hudText, hudCockpitWarning, normalizeHudLanguage } from './hud-text.js';
 import {formatSupersonicAltitude} from './supersonic-presentation.js';
+import {readSharedFlightHud,placeHudBox} from './shared-flight-hud.js';
 
 const $ = id => document.getElementById(id);
 const point = p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
@@ -53,6 +54,8 @@ export function layoutCockpitHud(active) {
     box($('cockpit-vario'),w-insets.right-56,tapeY,44,tapeHeight);
   }
   box($('cockpit-power'),powerX,powerY,powerWidth,24);
+  const shared=readSharedFlightHud();
+  if(shared){placeHudBox($('cockpit-heading'),shared.heading);placeHudBox($('cockpit-target-height'),shared.targetHeight);placeHudBox($('cockpit-power'),shared.legend);placeHudBox($('cockpit-exit-notice'),{...shared.targetHeight,top:shared.targetHeight.bottom+6,height:24});}
   return { w,h,compassY,powerY,insets,sideControls,managedInstruments:root.dataset.managedInstruments==='true' };
 }
 

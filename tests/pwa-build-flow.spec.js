@@ -98,7 +98,7 @@ for(const [base,size] of [['/',{width:390,height:844}],['/twist/',{width:844,hei
   for(const child of geometry.speedTape.children){expect(child.left,child.text).toBeGreaterThanOrEqual(geometry.speedTape.left-.5);expect(child.right,child.text).toBeLessThanOrEqual(geometry.speedTape.right+.5);expect(child.top,child.text).toBeGreaterThanOrEqual(geometry.speedTape.top-.5);expect(child.bottom,child.text).toBeLessThanOrEqual(geometry.speedTape.bottom+.5);}
   const throttleRect=()=>page.locator('#throttle-input').evaluate(element=>{const r=element.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};});
   const cockpitThrottle=await throttleRect();
-  for(const camera of ['overlay','chase','cockpit']){
+  for(const camera of ['chase','cockpit']){
     const before=await page.evaluate(()=>window.readBuiltFlightFrame());
     await page.locator('#start-flow-view-button').click();await expect(page.locator('#app')).toHaveAttribute('data-camera',camera);
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));

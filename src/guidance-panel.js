@@ -6,6 +6,7 @@ import {createGuidanceAlignmentFeedback} from './guidance-alignment-feedback.js'
 import {createGuidanceProjection,placeGuidanceCenter,guidanceDirectionAllowed,guidanceSafeDirections,clampGuidanceDirection} from './guidance-layout.js';
 import {advanceGuidanceTurn} from './guidance-stability.js';
 import {normalizeHudLanguage,hudText,hudTargetLabel,hudHeightDelta} from './hud-text.js';
+import {readSharedFlightHud} from './shared-flight-hud.js';
 
 const DEG=180/Math.PI;
 const FLAG_NAMES=['flightDirector','targetHeadingCue','edgeGuidance','nextTargetNotice','audioGuidance'];
@@ -104,6 +105,7 @@ function placeHeading(camera,bearing,heading,bounds,obstacles,language){
     const center=placeGuidanceCenter({x:innerWidth/2,y:(nav?.bottom??54)+24},bounds,obstacles,{width:180,height:28});
     if(center)area=box(center,180,28);
   }
+  const shared=readSharedFlightHud();if(shared)area=shared.heading;
   if(!area){show(element,false);return null;}
   const width=area.right-area.left,height=area.bottom-area.top;
   const cue=headingTargetCue(bearing,{spanDegrees:10,width:Math.max(1,width-16)});

@@ -10,12 +10,12 @@ async function input(page,id,value){await page.locator('#'+id).evaluate((el,valu
 async function boot(page,size){
   const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewportSize(size);await page.clock.install();
   await page.addInitScript(()=>{
-    localStorage.setItem('twist.start-flow.v1',JSON.stringify({tutorialSeen:true,inputMethod:'practice',camera:'overlay'}));
+    localStorage.setItem('twist.start-flow.v1',JSON.stringify({tutorialSeen:true,inputMethod:'practice',camera:'chase'}));
     localStorage.setItem('twist.briefing.v1',JSON.stringify({version:1,mode:'off',seen:[]}));
     localStorage.setItem('twist.feedback-settings.v1',JSON.stringify({sound:false,vibration:false}));
     Object.defineProperty(Element.prototype,'requestFullscreen',{value:undefined,writable:true,configurable:true});
   });
-  await page.goto('/?course=supersonic&camera=overlay');await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+  await page.goto('/?course=supersonic&camera=chase');await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
   await step(page,'title');await page.locator('#start-flow-start').click();await step(page,'courses');
   await page.locator('#start-flow-course-start').click();await step(page,'pose');await page.locator('#start-flow-hold').click();
   await step(page,'countdown');await waitForCountdownThree(page);
@@ -38,8 +38,8 @@ function checkGeometry(g,label){
 
 for(const size of sizes)test(`sonic real play keeps M/G, kilometre altitude and actual controls separate in all views ${size.width}x${size.height}`,async({page})=>{
   const errors=await boot(page,size),throttle=await page.locator('#throttle-input').boundingBox(),evidence=[];
-  for(const camera of ['overlay','chase','cockpit']){
-    if(camera!=='overlay'){await page.locator('#start-flow-view-button').click();await page.clock.runFor(100);}
+  for(const camera of ['chase','cockpit']){
+    if(camera!=='chase'){await page.locator('#start-flow-view-button').click();await page.clock.runFor(100);}
     await expect(page.locator('#app')).toHaveAttribute('data-camera',camera);
     await expect(page.locator('#app')).toHaveAttribute('data-guidance-ready','true');
     const state=await read(page);expect(state.sonic).not.toBeNull();
@@ -88,8 +88,8 @@ test('actual sonic climb reaches ALT2.4k and reports measured Mach/G across all 
   }
   expect(sawSonic).toBe(true);expect(sawNotice).toBe(true);expect(sawCone).toBe(true);expect(state.position.y).toBeGreaterThanOrEqual(2400);
   expect(formatSupersonicAltitude(state.position.y)).toBe('2.4k');
-  for(const camera of ['overlay','chase','cockpit']){
-    if(camera!=='overlay'){await page.locator('#start-flow-view-button').click();await page.clock.runFor(100);}
+  for(const camera of ['chase','cockpit']){
+    if(camera!=='chase'){await page.locator('#start-flow-view-button').click();await page.clock.runFor(100);}
     state=await read(page);
     if(camera==='cockpit'){
       const speed=await page.locator('#cockpit-speed').evaluate(e=>{const value=e.querySelector('strong'),range=document.createRange();range.selectNodeContents(value);const text=range.getBoundingClientRect(),box=e.getBoundingClientRect();return{text:value.textContent,inside:text.left>=box.left&&text.right<=box.right};});

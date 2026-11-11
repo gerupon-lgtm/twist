@@ -17,29 +17,49 @@ export function renderButtonSound(rate=48000){
   samples[0]=samples[samples.length-1]=0;return samples;
 }
 
-/** Uses the game's context, with no retained click after an audio-resume delay. */
+// Prepare the waveform before a gesture; this does not construct AudioContext.
+const BUTTON_RATE=48000,BUTTON_PCM=renderButtonSound(BUTTON_RATE);
+export const BUTTON_MAX_DELAY_MS=200,BUTTON_IDLE_MS=1200;
+export const BUTTON_RESUME_MAX_DELAY_MS=300;
+
+/** Short overlapping voices on one context; delayed clicks are never queued. */
 export function createButtonSound({ensureContext,canSuspend,visible=()=>!document.hidden,now=()=>performance.now()}){
-  let voice=null,pending=null,token=0,buffer=null,bufferRate=0,played=0,suppressed=0,lastReason=null,lastResumeMs=0;
+  const voices=new Set();
+  let pending=null,token=0,buffer=null,bufferContext=null,idleTimer=null,keepAwake=()=>false,played=0,suppressed=0,lastReason=null,lastResumeMs=0;
   const reject=reason=>{suppressed++;lastReason=reason;return false;};
-  function cancel(){token++;pending=null;if(voice){voice.source.onended=null;try{voice.source.stop();}catch{/* Already ended. */}voice.source.disconnect();voice.gain.disconnect();voice=null;}}
-  function play(settings,keepAwake=()=>false,gestureAt=now()){
+  function prepare(settings){
+    if(!settings.sound||!settings.sfx||settings.volume<=0||!visible())return null;
+    const context=ensureContext();if(!context)return null;
+    if(!buffer||bufferContext!==context){buffer=context.createBuffer(1,BUTTON_PCM.length,BUTTON_RATE);buffer.copyToChannel(BUTTON_PCM,0);bufferContext=context;}
+    return context;
+  }
+  const clearIdle=()=>{clearTimeout(idleTimer);idleTimer=null;};
+  function rest(context){
+    clearIdle();if(voices.size||pending)return;
+    idleTimer=setTimeout(()=>{idleTimer=null;if(!voices.size&&!pending&&canSuspend()&&!keepAwake())void context.suspend().catch(()=>{});},BUTTON_IDLE_MS);
+  }
+  function cancel(){token++;pending=null;keepAwake=()=>false;clearIdle();for(const voice of voices){voice.source.onended=null;try{voice.source.stop();}catch{/* Already ended. */}voice.source.disconnect();voice.gain.disconnect();}voices.clear();}
+  function play(settings,awake=()=>false,gestureAt=now()){
     if(!settings.sound||!settings.sfx||settings.volume<=0||!visible())return Promise.resolve(reject('disabled'));
-    if(voice||pending)return Promise.resolve(reject('busy'));
+    if(now()-gestureAt>BUTTON_MAX_DELAY_MS)return Promise.resolve(reject('late'));
+    if(voices.size>=4)return Promise.resolve(reject('busy'));
     let context;try{context=ensureContext();}catch{return Promise.resolve(reject('unavailable'));}
     if(!context)return Promise.resolve(reject('unsupported'));
-    const generation=++token;pending=generation;
+    const deadline=context.state==='running'?BUTTON_MAX_DELAY_MS:BUTTON_RESUME_MAX_DELAY_MS;
+    clearIdle();keepAwake=awake;const generation=++token;pending=generation;
     // Resume is called in the trusted click, before any asynchronous work.
-    return Promise.resolve(context.resume()).then(()=>{
-      if(generation!==token)return false;
+    let resuming;try{resuming=context.resume();}catch{pending=null;return Promise.resolve(reject('unavailable'));}
+    return Promise.resolve(resuming).then(()=>{
+      if(generation!==token){if(canSuspend()&&!keepAwake())void context.suspend().catch(()=>{});return false;}
       pending=null;
       lastResumeMs=now()-gestureAt;
-      if(!visible()||context.state!=='running'||lastResumeMs>600){if(canSuspend()&&!keepAwake())void context.suspend().catch(()=>{});return reject('late');}
-      if(!buffer||bufferRate!==context.sampleRate){const pcm=renderButtonSound(context.sampleRate);buffer=context.createBuffer(1,pcm.length,context.sampleRate);buffer.copyToChannel(pcm,0);bufferRate=context.sampleRate;}
+      if(!visible()||context.state!=='running'||lastResumeMs>deadline){rest(context);return reject('late');}
+      prepare(settings);
       const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=settings.volume/100;
-      source.connect(gain);gain.connect(context.destination);voice={source,gain};
-      source.onended=()=>{source.disconnect();gain.disconnect();if(voice?.source===source)voice=null;if(canSuspend()&&!keepAwake())void context.suspend().catch(()=>{});};
+      source.connect(gain);gain.connect(context.destination);const voice={source,gain};voices.add(voice);
+      source.onended=()=>{source.disconnect();gain.disconnect();voices.delete(voice);rest(context);};
       source.start();played++;lastReason='played';return true;
-    }).catch(()=>{if(pending===generation)pending=null;return reject('unavailable');});
+    }).catch(()=>{if(pending===generation){pending=null;rest(context);}return reject('unavailable');});
   }
-  return {play,cancel,active:()=>Boolean(voice||pending),snapshot:()=>({played,suppressed,lastReason,lastResumeMs,active:Boolean(voice||pending)})};
+  return {play,prepare,cancel,active:()=>Boolean(voices.size||pending||idleTimer),snapshot:()=>({played,suppressed,lastReason,lastResumeMs,voices:voices.size,active:Boolean(voices.size||pending||idleTimer)})};
 }

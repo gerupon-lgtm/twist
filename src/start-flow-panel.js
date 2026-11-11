@@ -2,7 +2,7 @@ import './start-flow.css';
 import {APP_VERSION} from './version.js';
 
 const $=id=>document.getElementById(id);
-const cameraNames={overlay:'外から',chase:'追尾3D',cockpit:'操縦席'};
+const cameraNames={overlay:'外から',chase:'後方',cockpit:'操縦席'};
 const slides=[
   {title:'上辺を起こすと、上昇',text:'スマホを楽な角度で持ち、画面の上辺を少し起こします。前へ倒すと下降します。',kind:'pitch'},
   {title:'左右の端を下げて、旋回',text:'右端を下げると右へ、左端を下げると左へ。スマホを中立へ戻すと、翼も水平へ戻ります。',kind:'bank'},
@@ -112,6 +112,16 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     if(steerCaption)steerCaption.textContent=settings.mode==='flight'&&settings.steering==='wrist'?'手首の回転（仮想）':'右辺の傾き';
     app.dataset.flowCamera=settings.camera;
     for(const input of ['practice-pitch','practice-steer','practice-twist'].map($))if(input){const value=input.closest('label')?.querySelector('.flow-practice-value');if(value)value.textContent=`${Number(input.value)}°`;}
+    if(!view.hidden){
+      const left=$('recenter-button').getBoundingClientRect(),right=$('help-button').getBoundingClientRect(),pause=$('pause-button').getBoundingClientRect();
+      const available=right.left-left.right-16;let width=Math.min(88,Math.max(44,available)),x=Math.max(left.right+8,Math.min(innerWidth/2-width/2,right.left-8-width)),y=pause.top+pause.height/2-22;
+      if(available<44){
+        width=88;
+        if(innerWidth>=600&&innerHeight<=500){const practice=$('practice-panel').getBoundingClientRect(),panel=$('bottom-panel').getBoundingClientRect();x=(practice.right+panel.left-width)/2;}
+        else{const throttle=$('flight-throttle').getBoundingClientRect();x=throttle.left+(throttle.width-width)/2;y=pause.top-52;}
+      }
+      Object.assign(view.style,{left:x+'px',top:y+'px',width:width+'px'});view.dataset.compact=String(width<70);
+    }
   }
   function setSettings(data={}){
     settings={...settings,...data};if(data.playMode)settings.mode=data.playMode;
@@ -120,8 +130,11 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     $('start-flow-input-method').value=settings.inputMethod;
     $('start-flow-briefing-mode').value=settings.briefingMode;
     root.querySelectorAll('[data-flow-action="camera-select"]').forEach(element=>element.setAttribute('aria-pressed',String(element.dataset.flowValue===settings.camera)));
-    view.textContent=`視点 · ${cameraNames[settings.camera]??cameraNames.overlay}`;
-    view.hidden=step!=='play'||settings.mode==='explore';
+    const cameraName=cameraNames[settings.camera]??cameraNames.overlay;
+    if(view.dataset.camera!==settings.camera){view.innerHTML='<span class="flow-view-copy"><small>視点</small><strong></strong></span>';view.querySelector('strong').textContent=cameraName;view.dataset.camera=settings.camera;}
+    view.setAttribute('aria-label',settings.camera==='chase'?'操縦席視点へ切り替える':'後方視点へ切り替える');
+    view.hidden=step!=='play'||settings.mode==='explore'||settings.camera==='overlay';
+    const pauseCamera=$('start-flow-pause-camera');pauseCamera.hidden=settings.camera==='overlay';pauseCamera.querySelector('[data-flow-value=overlay]').hidden=true;
     $('start-flow-course-cards').querySelectorAll('[data-course-id]').forEach(element=>element.setAttribute('aria-pressed',String(element.dataset.courseId===selectedCourseId)));
     if(step==='courses')renderSelectedCourse();
     refreshPlayControls();
@@ -164,7 +177,7 @@ export function createStartFlowPanel({enabled=true,dev=false,onAction=()=>{}}={}
     const changed=step!==next;step=next;root.dataset.step=next;app.dataset.startStep=next;
     setSettings(data);
     if(next!=='settings'&&$('flight-adjustments').open)$('flight-adjustments').open=false;
-    if(next==='play'||next==='briefing'){root.hidden=true;view.hidden=next!=='play'||settings.mode==='explore';if(next==='play'&&changed&&settings.inputMethod==='practice')$('practice-panel').open=true;return;}
+    if(next==='play'||next==='briefing'){root.hidden=true;view.hidden=next!=='play'||settings.mode==='explore'||settings.camera==='overlay';if(next==='play'&&changed&&settings.inputMethod==='practice')$('practice-panel').open=true;refreshPlayControls();return;}
     root.hidden=false;view.hidden=true;
     for(const element of root.querySelectorAll('[data-flow-screen]'))element.hidden=element.dataset.flowScreen!==next;
     if(next==='courses')renderSelectedCourse();

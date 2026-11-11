@@ -125,8 +125,15 @@
 .app[data-start-flow=on] #result-copy-status{font-size:11px;margin:0}
 .app[data-start-flow=on] #result-copy-text{width:100%;height:86px;resize:none;font:11px/1.4 monospace}
 .app[data-start-flow=on] .flow-confirm{max-width:480px;text-align:center;gap:22px}
-.app[data-start-flow=on] .start-flow-view-button{position:absolute;left:calc(124px + env(safe-area-inset-left));top:calc(54px + env(safe-area-inset-top));z-index:4;pointer-events:auto;min-height:44px;width:110px;padding:8px;border:1px solid #b4ccd1;border-radius:8px;background:#f3faf5e8;color:#315d6d;font-size:11px;line-height:1.2}
-.app[data-start-flow=on][data-flow-camera=cockpit] .start-flow-view-button{top:calc(132px + env(safe-area-inset-top))}
+.app[data-start-flow=on] #start-flow-view-button{position:absolute;z-index:4;pointer-events:auto;display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:44px;height:44px;width:88px;padding:6px 8px;border:1px solid rgba(17,127,151,.6);border-radius:7px;background:rgba(239,249,247,.88);color:#15657a;box-shadow:0 2px 4px rgba(0,32,39,.14);font:600 11px/1.2 Consolas,"Meiryo",monospace;white-space:nowrap;text-align:left}
+.app[data-start-flow=on] .start-flow-view-button::after{content:'⇄';color:#117f97;font-size:16px;flex:0 0 16px}
+.app[data-start-flow=on] .flow-view-copy{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.app[data-start-flow=on] .flow-view-copy small{font-size:9px;line-height:10px;font-weight:500}
+.app[data-start-flow=on] .flow-view-copy strong{font-size:11px;line-height:13px;font-weight:700}
+.app[data-start-flow=on] .start-flow-view-button[data-compact=true]{padding:4px;justify-content:center}
+.app[data-start-flow=on] .start-flow-view-button[data-compact=true]::after{display:none}
+.app[data-start-flow=on] #start-flow-pause-camera{grid-template-columns:1fr 1fr}
+.app[data-start-flow=on] [data-flow-legacy-picker=true]{display:none}
 .app[data-start-flow=on] #cockpit-hud[data-compact-tapes=true] .cockpit-tape{gap:0;padding:2px}
 .app[data-start-flow=on] #cockpit-hud[data-compact-tapes=true] .cockpit-tape>span{font-size:8px;line-height:10px}
 .app[data-start-flow=on] #cockpit-hud[data-compact-tapes=true] .cockpit-tape>strong{font-size:15px;line-height:18px}
@@ -196,6 +203,7 @@
  .app[data-start-flow=on] .flow-result-current{gap:4px}
 }
 @media(max-height:500px) and (min-width:600px){
+ .app[data-start-flow=on][data-start-step=play][data-hud-layout=b][data-flow-input-method=practice] .bottom-panel{bottom:calc(72px + env(safe-area-inset-bottom))}
  .app[data-start-flow=on] .start-flow-view-button{left:calc(224px + env(safe-area-inset-left))}
  .app[data-start-flow=on] .start-flow-panel{padding:12px max(20px,env(safe-area-inset-right)) 12px max(20px,env(safe-area-inset-left))}
  .app[data-start-flow=on] .flow-screen{gap:10px}

@@ -88,25 +88,22 @@ export function createFeedbackController(){
   const adjustments=document.getElementById('flight-adjustments');adjustments.addEventListener('toggle',()=>{if(!adjustments.open)stopPreview();});
   const hidden=()=>{stopPreview();briefingAudio.stop('hidden');launchMusic.stop();audio.cancelCountdown();audio.cancelButtons();};
   document.addEventListener('visibilitychange',()=>{if(document.hidden)hidden();});window.addEventListener('pagehide',hidden);
-  const buttonClicks=new WeakMap();
-  document.addEventListener('click',event=>{
+  const buttonPresses=new WeakMap();
+  // Allocate the quiet click buffer before the first tap, without resuming audio.
+  try{audio.prepareButtons(settings);}catch{/* The trusted tap can try again. */}
+  function buttonFor(event){
     const button=event.target.closest?.('button');
-    if(!event.isTrusted||!button||button.disabled||!document.getElementById('app').contains(button))return;
-    buttonClicks.set(event,{gestureAt:performance.now()});
-  },true);
-  document.addEventListener('click',event=>{
-    const click=buttonClicks.get(event);if(!click)return;
-    // Bubble after the button's own action, including mute and stop. Remain in
-    // the trusted event; a button disabling itself must still get feedback.
-    if(previewIntent){
-      const token=previewGeneration;
-      const play=()=>{if(token===previewGeneration&&previewIntent&&previewAudio)void previewAudio.buttonClick({...settings},()=>previewIntent,click.gestureAt);};
-      if(previewAudio)play();else void previewStarting.then(play);
-    }else{
-      const play=()=>{if(!previewIntent&&!document.hidden)void audio.buttonClick({...settings},()=>active||music.snapshot().playing,click.gestureAt);};
-      if(previewClosingActive)void previewClosing.then(play);else play();
-    }
-  });
+    return event.isTrusted&&button&&!button.disabled&&document.getElementById('app').contains(button)?button:null;
+  }
+  function press(button){
+    const at=performance.now();buttonPresses.set(button,at);
+    if(!document.hidden)void audio.buttonClick({...settings},()=>active||previewIntent||music.snapshot().playing,at);
+  }
+  // Start before a menu rebuild can block the main thread. One pointer/key
+  // press gets one cue; its subsequent click never creates a second voice.
+  document.addEventListener('pointerdown',event=>{const button=buttonFor(event);if(button&&event.button===0)press(button);},true);
+  document.addEventListener('keydown',event=>{const button=buttonFor(event);if(button&&!event.repeat&&['Enter',' '].includes(event.key))press(button);},true);
+  document.addEventListener('click',event=>{const button=buttonFor(event);if(!button)return;const at=buttonPresses.get(button);buttonPresses.delete(button);if(at===undefined||performance.now()-at>2000)press(button);},true);
   function previewSettings(){return {...settings,bgm:true,sfx:false,abMusic:false};}
   function previewLabelFor(id){
     const role=catalog.clearIds.includes(id)?'クリア':id===catalog.afterburnerId?'AB追加打楽器':id===catalog.comparisonId?'比較':!catalog.flightIds.includes(id)?'試聴専用':'';

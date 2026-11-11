@@ -32,6 +32,6 @@ for(const size of sizes)for(const camera of ['overlay','chase','cockpit'])test(`
   for(let i=0;i<elements.length;i++)for(let j=i+1;j<elements.length;j++){const a=elements[i],b=elements[j];if(a.contains(b)||b.contains(a))continue;const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();if(x.left<y.right&&x.right>y.left&&x.top<y.bottom&&x.bottom>y.top)collisions.push([a.id,b.id]);}
   return {collisions,documentHeight:document.documentElement.scrollHeight,viewportHeight:innerHeight,bodyHeight:document.body.scrollHeight};
  });expect(geometry.collisions).toEqual([]);expect(geometry.documentHeight).toBeLessThanOrEqual(geometry.viewportHeight+1);expect(geometry.bodyHeight).toBeLessThanOrEqual(geometry.viewportHeight+1);
- for(const id of ['practice-pitch','practice-steer','practice-twist','throttle-input','pause-button','recenter-button','start-flow-view-button']){await expect(page.locator('#'+id)).toBeVisible();await expect(page.locator('#'+id)).toBeEnabled();await inside('#'+id);}
+ for(const id of ['practice-pitch','practice-steer','practice-twist','throttle-input','pause-button','recenter-button',...(camera==='overlay'?[]:['start-flow-view-button'])]){await expect(page.locator('#'+id)).toBeVisible();await expect(page.locator('#'+id)).toBeEnabled();await inside('#'+id);}
  await expect(page.locator('#app')).toHaveAttribute('data-guidance-ready','true');await expect(page.locator('#guidance-director')).toBeVisible();await expect(page.locator('#guidance-flight-path')).toBeVisible();
 });

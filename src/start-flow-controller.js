@@ -81,7 +81,7 @@ export function createStartFlowController({ui,map,pwa,preferences,briefingPrefer
       case 'tutorial-skip':preferences.markTutorialSeen();tutorialFrom==='help'?show(helpReturn,{description:read().pauseReason}):courses();break;
       case 'course-select':actions.selectCourse(value);courses();break;
       case 'course-start':beginFresh();break;
-      case 'camera-select':actions.setCamera(value);preferences.setCamera(read().camera);settings();break;
+      case 'camera-select':if(step!=='courses'&&(value==='overlay'||read().camera==='overlay'))break;actions.setCamera(value);preferences.setCamera(read().camera);settings();break;
       case 'camera-cycle':actions.setCamera(nextCameraMode(read().camera));preferences.setCamera(read().camera);settings();break;
       case 'input-method':preferences.setInputMethod(value);settings();break;
       case 'briefing-mode':briefingPreferences.setMode(value);settings();break;

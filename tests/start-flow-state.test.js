@@ -18,9 +18,10 @@ test('first-help, camera and method persist in a dedicated key without startup w
 test('storage denial and invalid values still allow local preference changes',()=>{
   const prefs=createStartPreferences({getItem(){throw Error('denied');},setItem(){throw Error('denied');}});prefs.markTutorialSeen();prefs.setCamera('invalid');assert.equal(prefs.get().tutorialSeen,true);assert.equal(prefs.get().camera,'overlay');assert.equal(prefs.saved(),false);
 });
-test('view cycling follows the three published views in order',()=>{
-  let current='overlay';
-  for(const expected of ['chase','cockpit','overlay']){current=nextCameraMode(current);assert.equal(current,expected);}
+test('in-flight view cycling alternates rear and cockpit while outside stays independent',()=>{
+  assert.equal(nextCameraMode('overlay'),'overlay');assert.equal(nextCameraMode('invalid'),'overlay');
+  let current='chase';
+  for(const expected of ['cockpit','chase','cockpit']){current=nextCameraMode(current);assert.equal(current,expected);}
 });
 test('quick fullscreen entry leaves six seconds before flight; slow reading uses up the wait',()=>{
   assert.deepEqual(startCountdownPlan({now:1000,fullscreenSucceededAt:0,fullscreenSucceeded:true}),{waitMilliseconds:2000,countdownSeconds:3,totalMilliseconds:5000});

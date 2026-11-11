@@ -2,6 +2,7 @@ import { projectRadarTarget, placeRadar, rectanglesOverlap } from './radar.js';
 import { viewportInsets } from './viewport-insets.js';
 import { hudText, hudTargetLabel, hudHeightDelta, normalizeHudLanguage } from './hud-text.js';
 import {formatNavigationDistance} from './supersonic-units.js';
+import {readSharedFlightHud} from './shared-flight-hud.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
@@ -24,7 +25,7 @@ export function updateRadar(state, { visibility, phase, range, language='en',ext
   rects.push(...(managed?[]:extraObstacles),document.querySelector('.navigation').getBoundingClientRect(), document.querySelector('.topbar').getBoundingClientRect(),
     { left: innerWidth/2-40, right: innerWidth/2+40, top: innerHeight/2-40, bottom: innerHeight/2+40 });
   const safe=cockpit?viewportInsets():{left:0,right:0};
-  const placement = placeRadar({ width: innerWidth, height: innerHeight, obstacles: rects, inset:Math.max(12,safe.left+8,safe.right+8) });
+  const placement = readSharedFlightHud()?.radar??placeRadar({ width: innerWidth, height: innerHeight, obstacles: rects, inset:Math.max(12,safe.left+8,safe.right+8) });
   if (!placement) { panel.hidden = true; return; }
   panel.style.left = `${placement.left}px`; panel.style.top = `${placement.top}px`;
   panel.dataset.range = range; panel.dataset.heading = state.radarHeading;

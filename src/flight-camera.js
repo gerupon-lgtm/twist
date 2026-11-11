@@ -3,6 +3,9 @@ import { MathUtils, Matrix4, Quaternion, Vector3 } from 'three';
 export const normalizeCameraMode = value => ['chase', 'cockpit'].includes(value) ? value : 'overlay';
 const wrap = angle => Math.atan2(Math.sin(angle), Math.cos(angle));
 const finite = (n, fallback = 0) => Number.isFinite(n) ? n : fallback;
+export const CHASE_FRAMING_DEGREES=10;
+/** Apply in camera space after bank, keeping the fixed rear-view pivot below center. */
+export function frameFlightCamera(quaternion,mode){return mode==='chase'?quaternion.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(1,0,0),MathUtils.degToRad(CHASE_FRAMING_DEGREES))):quaternion.clone();}
 
 /** Only the two viewing angles are delayed. No aircraft state is changed. */
 export function advanceChaseAngles(current, target, dt, timeConstant = .15) {
@@ -22,10 +25,10 @@ export function bodyViewAngles(orientation) {
 }
 
 /** A body-relative aft/up rig, with a floor solely for the viewing position. */
-export function chaseView(angles, altitude, assistance = 0) {
+export function chaseView(angles, altitude, assistance = 0,{wide=false}={}) {
   const rig = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), -angles.heading)
     .multiply(new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), angles.pitch));
-  const offset = new Vector3(0, 9 + 2 * assistance, 25).applyQuaternion(rig);
+  const offset = new Vector3(0, wide?4+assistance:9+2*assistance, 25).applyQuaternion(rig);
   offset.y = Math.max(offset.y, 1.2 - altitude);
   const up = new Vector3(0, 1, 0).applyQuaternion(rig);
   const orientation = new Quaternion().setFromRotationMatrix(new Matrix4().lookAt(offset, new Vector3(), up));

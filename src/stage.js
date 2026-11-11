@@ -6,7 +6,7 @@ import { FLIGHT_MODEL, stepFlightVelocity } from './flight-physics.js';
 import { computeFieldOfView, normalizeVisibility } from './visibility.js';
 import { computeFlightView, advanceFlightView } from './flight-view.js';
 import { advanceDisplayRoll, flightDisplayPose, withoutViewRoll } from './flight-display.js';
-import { advanceChaseAngles, bodyViewAngles, chaseView, normalizeCameraMode } from './flight-camera.js';
+import { advanceChaseAngles, bodyViewAngles, chaseView, normalizeCameraMode,frameFlightCamera } from './flight-camera.js';
 import { createAircraft } from './aircraft.js';
 import { createScenery } from './scenery.js';
 import { createGroundPattern } from './ground-pattern.js';
@@ -584,7 +584,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
       craft.quaternion.copy(pose.craft);
       if (cameraMode === 'chase') {
         chaseAngles = advanceChaseAngles(chaseAngles, bodyViewAngles(baseOrientation), dt, chaseTimeConstant);
-        view = chaseView(chaseAngles, position.y, targetView.assistance);
+        view = chaseView(chaseAngles, position.y, targetView.assistance,{wide:width>=600&&height<=500});
         if (display === 'fixed') view = withoutViewRoll(view);
       } else if (cameraMode === 'cockpit') {
         view = { orientation: orientation.clone(), offset: new THREE.Vector3(0,.3,-.8).applyQuaternion(orientation),
@@ -618,6 +618,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
     }
     effectShake.setFromEuler(effectEuler.set(presentation.shake.x,presentation.shake.y,presentation.shake.z));
     camera.quaternion.multiply(effectShake);craftCamera.quaternion.multiply(effectShake);
+    if(mode==='flight'&&cameraMode==='chase')camera.quaternion.copy(frameFlightCamera(camera.quaternion,cameraMode));
     displayCameraInverse.copy(camera.quaternion).invert();
     airflow.update({speed,afterburner,amount:speedSettings.streakAmount,timeSeconds:visualTime,verticalFov:camera.fov,aspect:width/height,visible:visibility==='assisted'&&!grounded&&!complete});
     world.quaternion.copy(viewQuaternion);
@@ -1031,7 +1032,7 @@ export function createStage(canvas, { visibility = 'assisted', display = 'bank',
         x: craft.quaternion.x, y: craft.quaternion.y,
         z: craft.quaternion.z, w: craft.quaternion.w,
       },
-      craftScreen: { x: width / 2, y: height / 2 },
+      craftScreen: (()=>{if(mode!=='flight'||cameraMode!=='chase')return {x:width/2,y:height/2};const p=worldJet.group.getWorldPosition(new THREE.Vector3()).project(camera);return {x:(p.x+1)*width/2,y:(1-p.y)*height/2};})(),
       cameraPosition: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
       targetPosition: { x: target.x, y: target.y, z: target.z },
       targetRadius: collected < BEACONS.length ? COLLECT_RADIUS : EXIT_RADIUS,

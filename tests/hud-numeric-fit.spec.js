@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
 import {waitForCountdownThree} from './helpers/countdown.js';
 import {APP_VERSION} from '../src/version.js';
+import {chooseFlightCamera} from './helpers/flight-camera-choice.js';
 for(const size of [{width:390,height:844},{width:360,height:640},{width:844,height:390}])test(`HUD numeric limits remain fully inside their frames ${size.width}x${size.height}`,async({page})=>{
  test.setTimeout(90000);await page.setViewportSize(size);await page.clock.install();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>{
@@ -14,7 +15,7 @@ for(const size of [{width:390,height:844},{width:360,height:640},{width:844,heig
  await page.locator('#start-flow-start').click();await page.locator('#start-flow-course-start').click();await page.locator('#start-flow-hold').click();await waitForCountdownThree(page);await page.clock.runFor(3500);
  await expect(page.locator('#app')).toHaveAttribute('data-phase','running');const rows=[];
  for(const camera of ['overlay','chase','cockpit']){
-  if(camera!=='overlay'){await page.locator('#start-flow-view-button').click();await page.clock.runFor(100);}
+  await chooseFlightCamera(page,camera);
   rows.push(...await page.evaluate(async({camera})=>{
    const [{updateCockpitHud},{updateEssentialHud},{updateTargetHeightPanel},{convertSpeed},{formatSupersonicAltitude},{formatNavigationDistance}]=await Promise.all([import('/src/cockpit-hud.js'),import('/src/essential-hud.js'),import('/src/target-height-panel.js'),import('/src/speed-units.js'),import('/src/supersonic-presentation.js'),import('/src/supersonic-units.js')]);
    const moduleUrl=performance.getEntriesByType('resource').find(e=>new URL(e.name).pathname==='/src/instrument-hud.js')?.name??'/src/instrument-hud.js';

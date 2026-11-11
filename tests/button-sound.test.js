@@ -17,3 +17,37 @@ test('muted clicks construct no context and a delayed or cancelled resume produc
   const late=sound.play({sound:true,sfx:true,volume:25});time=601;resumes.shift()();assert.equal(await late,false);assert.equal(starts,0);
   const cancelled=sound.play({sound:true,sfx:true,volume:25});sound.cancel();resumes.shift()();assert.equal(await cancelled,false);assert.equal(starts,0);assert.equal(sound.active(),false);
 });
+
+function clickFixture(){
+ let time=0,suspensions=0,resumeDelay=false,release;
+ const sources=[];
+ const context={state:'running',sampleRate:48000,destination:{},
+  resume(){return resumeDelay?new Promise(resolve=>{release=resolve;}):Promise.resolve();},
+  suspend(){suspensions++;this.state='suspended';return Promise.resolve();},
+  createBuffer:(channels,length,rate)=>({copyToChannel(){},duration:length/rate}),
+  createGain:()=>({gain:{value:0},connect(){},disconnect(){}}),
+  createBufferSource(){const source={connect(){},disconnect(){},start(){this.started=true;},stop(){this.stopped=true;}};sources.push(source);return source;}
+ };
+ const sound=createButtonSound({ensureContext:()=>context,canSuspend:()=>true,visible:()=>true,now:()=>time});
+ return {sound,sources,context,setTime:value=>{time=value;},delayResume:()=>{resumeDelay=true;},resume:()=>release(),suspensions:()=>suspensions};
+}
+const clickSettings={sound:true,sfx:true,volume:25};
+test('two taps 40ms apart both sound without cutting the first click short',async()=>{
+ const f=clickFixture();try{
+  assert.equal(await f.sound.play(clickSettings),true);f.setTime(40);
+  assert.equal(await f.sound.play(clickSettings),true);
+  assert.equal(f.sources.length,2);assert.ok(f.sources.every(s=>s.started&&!s.stopped));
+ }finally{f.sound.cancel();}
+});
+test('a 250ms resume never plays a stale button sound',async()=>{
+ const f=clickFixture();f.delayResume();try{
+  const pending=f.sound.play(clickSettings);f.setTime(250);f.resume();
+  assert.equal(await pending,false);assert.equal(f.sources.length,0);
+ }finally{f.sound.cancel();}
+});
+test('a finished menu click keeps the audio context warm for the next tap',async()=>{
+ const f=clickFixture();try{
+  await f.sound.play(clickSettings);f.sources[0].onended();
+  assert.equal(f.suspensions(),0);assert.equal(f.context.state,'running');
+ }finally{f.sound.cancel();}
+});

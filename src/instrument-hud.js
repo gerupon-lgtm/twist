@@ -4,6 +4,7 @@ import {convertSpeed,normalizeSpeedUnit} from './speed-units.js';
 import {formatSupersonicAltitude} from './supersonic-presentation.js';
 import {hudText} from './hud-text.js';
 import {getGroundProximity} from './ground-proximity.js';
+import {readSharedFlightHud,placeHudBox} from './shared-flight-hud.js';
 const $=id=>document.getElementById(id);
 const rect=e=>e&&!e.hidden&&e.getClientRects().length?e.getBoundingClientRect():null;
 const place=(e,b)=>{Object.assign(e.style,{left:`${b.left}px`,top:`${b.top}px`,width:`${b.width}px`,height:`${b.height}px`});};
@@ -55,16 +56,20 @@ export function createInstrumentHud(){
   const safe=viewportInsets(),nav=document.querySelector('.navigation').getBoundingClientRect();
   const details=$('flight-essential-details'),alert=$('flight-essential-alert');details.hidden=cockpit||$('flight-essential-height').hidden;
   Object.assign(details.style,{left:`${innerWidth-safe.right-116}px`,top:`${nav.bottom+12}px`,width:'104px'});
+  const shared=readSharedFlightHud();if(shared)placeHudBox(details,shared.targetHeight);else details.style.height='';
   const controls=[$('bottom-panel'),$('practice-panel')].map(rect).filter(Boolean);
+  const view=rect($('start-flow-view-button'));if(shared&&view&&!controls.some(r=>view.left>=r.left&&view.right<=r.right&&view.top>=r.top&&view.bottom<=r.bottom))controls.push(view);
   Object.assign(alert.style,{left:`${innerWidth-safe.right-116}px`,top:`${details.hidden?nav.bottom+12:details.getBoundingClientRect().bottom+6}px`,width:'104px',transform:'none'});
-  const upper=[$('radar'),$('start-flow-view-button'),details,alert].map(rect).filter(Boolean);
-  const legend=rect($('cockpit-power'));
-  geometry=instrumentLayout({width:innerWidth,height:innerHeight,safe,top:nav.bottom+10,upper,controls,legend,layout,sonic,vario:flight,focusY:camera==='chase'?innerHeight*.28:innerHeight/2});
+  const upper=[$('radar'),details,alert].map(rect).filter(Boolean);
+  if(shared)upper.push(shared.heading,shared.targetHeight);else{const view=rect($('start-flow-view-button'));if(view)upper.push(view);}
+  let legend=shared?.legend??rect($('cockpit-power'));
+  if(shared?.legendInUpper){upper.push(shared.legend);legend=null;}
+  geometry=instrumentLayout({width:innerWidth,height:innerHeight,safe,top:nav.bottom+10,upper,controls,legend,layout,sonic,vario:flight,focusY:shared?.focusY??(camera==='chase'?innerHeight*.28:innerHeight/2),bandAcross:Boolean(shared&&innerWidth>=600&&innerHeight<=500&&app.dataset.flowInputMethod==='practice')});
   root.dataset.layout=layout;root.dataset.compact=String(geometry.compact);root.dataset.columns=String(geometry.columns);
   for(const name of ['speed','altitude','vario','mach'])if(geometry[name])place(slots[name],geometry[name]);
   for(let i=0;i<frames.length;i++){frames[i].hidden=!geometry.groups[i]||layout==='c';if(geometry.groups[i])place(frames[i],geometry.groups[i]);}
   const available=geometry.speed.width*(layout==='c'?.88:1)-(layout==='a'?14:10),maxLength=Math.max(spd.toFixed(1).length,altText.length);
-  root.style.setProperty('--instrument-number-size',`${Math.min(22,Math.floor(available/(.68*maxLength)))}px`);
+  root.style.setProperty('--instrument-number-size',`${Math.min(layout==='b'&&geometry.compact?20:22,Math.floor(available/(.68*maxLength)))}px`);
   root.dataset.geometry=JSON.stringify(geometry);
  }
  return mounted={update,obstacles,root};

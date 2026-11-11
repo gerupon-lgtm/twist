@@ -1,5 +1,6 @@
 import {FM_PRESETS,isFmPreset} from './fm-presets.js';
 export const FM_MAX_VOICES=128;
+export const FM_OUTPUT_GAIN=.8;
 const TABLE_SIZE=2048,TWO_PI=2*Math.PI,TABLE=Float64Array.from({length:TABLE_SIZE+1},(_,i)=>Math.sin(i/TABLE_SIZE*TWO_PI));
 const sine=phase=>{const p=phase*TABLE_SIZE,i=Math.floor(p);return TABLE[i]+(TABLE[i+1]-TABLE[i])*(p-i);};
 const wrap=p=>p-Math.floor(p),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -52,7 +53,7 @@ export class FmEngine{
     for(let k=0;k<this.count;){
       const v=this.voices[this.active[k]],p=v.preset,rate=this.rate,frequency=v.frequency;
       const modFrequency=Math.min(frequency*p.ratio,rate*.4),maxIndex=Math.max(0,(rate*.45-frequency)/modFrequency-1);
-      const gain=v.velocity*(this.cc7[v.channel]/127)*p.gain,filter=p.lowpass?1-Math.exp(-TWO_PI*Math.min(p.lowpass,rate*.2)/rate):1;let ended=false;
+      const gain=v.velocity*(this.cc7[v.channel]/127)*p.gain*FM_OUTPUT_GAIN,filter=p.lowpass?1-Math.exp(-TWO_PI*Math.min(p.lowpass,rate*.2)/rate):1;let ended=false;
       const doubleFrequency=p.doublingCents?frequency*2**(p.doublingCents/1200):0;
       for(let i=0;i<out.length;i++){
         if(v.state===2){v.level=v.releaseLevel*Math.max(0,1-v.releaseAge/(p.release*rate));if(v.releaseAge++>=p.release*rate){this.remove(v);ended=true;break;}}

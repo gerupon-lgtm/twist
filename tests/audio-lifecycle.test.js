@@ -9,6 +9,23 @@ const source=(await readFile(new URL('../src/feedback/audio.js',import.meta.url)
   .replace("'./button-sound.js'",JSON.stringify(new URL('../src/feedback/button-sound.js',import.meta.url).href));
 const {createGameAudio}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 
+test('cancelling menu feedback rests an idle context but never suspends active flight audio',async()=>{
+ let context;globalThis.document={hidden:false};globalThis.window={AudioContext:class{
+  constructor(){context=this;this.state='suspended';this.currentTime=0;this.destination={};}
+  resume(){this.state='running';return Promise.resolve();}suspend(){this.state='suspended';return Promise.resolve();}close(){return Promise.resolve();}
+  createBuffer(){return {copyToChannel(){}};}
+  createGain(){return {gain:{value:0},connect(){},disconnect(){}};}
+  createBufferSource(){return {connect(){},disconnect(){},start(){},stop(){}};}
+ }};
+ const audio=createGameAudio(),settings={sound:true,sfx:true,volume:25};
+ try{
+  await audio.buttonClick(settings);assert.equal(context.state,'running');
+  await audio.cancelButtons();assert.equal(context.state,'suspended');
+  await audio.buttonClick(settings);audio.configure({...settings,sfx:false});assert.equal(context.state,'suspended');
+  audio.start();await audio.buttonClick(settings);await audio.cancelButtons();assert.equal(context.state,'running');
+ }finally{await audio.dispose();delete globalThis.window;delete globalThis.document;}
+});
+
 test('changing speed SE permission cannot resend an earlier enabled setting when start resumes the bus',async()=>{
  const messages=[];globalThis.window={AudioContext:class{
   constructor(){this.state='suspended';this.currentTime=1;this.audioWorklet={addModule:async()=>{}};}

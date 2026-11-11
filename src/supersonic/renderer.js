@@ -52,7 +52,7 @@ export function createSupersonicRenderer(canvas,{course,visibility='assisted',di
     const presentation=supersonicSpeedPresentation(state.speed,settings,state.afterburner,time,mode);extraFov=presentation.extraFov;projection(input);
     const body=bodyQuaternion(state.orientation),base=body.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),state.bank??0));
     if(mode==='chase')chaseAngles=advanceChaseAngles(chaseAngles,bodyViewAngles(base),Math.max(0,dt),finite(input.chaseTimeConstant,.15));
-    frame=supersonicCameraFrame(state,{cameraMode:mode,display:displayMode,phoneRoll,screenOffset:THREE.MathUtils.degToRad(finite(input.displayScreenOffset)),chaseAngles,shake:presentation.shake});
+    frame=supersonicCameraFrame(state,{cameraMode:mode,display:displayMode,phoneRoll,screenOffset:THREE.MathUtils.degToRad(finite(input.displayScreenOffset)),chaseAngles,shake:presentation.shake,wide:width>=600&&height<=500});
     const nextOrigin=options.origin??chooseRenderOrigin(state.position,origin);
     if(!origin||['x','y','z'].some(k=>nextOrigin[k]!==origin[k])){origin={...nextOrigin};originSerial++;}
     root.quaternion.copy(frame.worldQuaternion);renderRootTranslation(origin,frame,root.position);
@@ -75,7 +75,7 @@ export function createSupersonicRenderer(canvas,{course,visibility='assisted',di
     return {width,height,pixelRatio:ratio,origin:{...origin},originSerial,worldQuaternion:quat(frame.worldQuaternion),cameraQuaternion:quat(camera.quaternion),craftQuaternion:quat(craft.quaternion),
       worldCraftQuaternion:worldJet.group.quaternion.toArray(),worldCraftScreenQuaternion:camera.quaternion.clone().invert().multiply(frame.worldQuaternion).multiply(worldJet.group.quaternion).toArray(),
       craftScreenQuaternion:quat(craftCamera.quaternion.clone().invert().multiply(craft.quaternion)),viewPosition:plain(frame.viewPosition),viewPitch:frame.viewPitch,viewAssistance:0,displayRoll:frame.displayRoll,
-      fieldOfView:{...fieldOfView},cameraClipping:{near:camera.near,far:camera.far},cameraPosition:plain(camera.position),craftScreen:{x:width/2,y:height/2},
+      fieldOfView:{...fieldOfView},cameraClipping:{near:camera.near,far:camera.far},cameraPosition:plain(camera.position),craftScreen:mode==='chase'?projectCameraPoint(cameraLocalPosition(lastState.position,frame),width,height,camera.fov):{x:width/2,y:height/2},
       cameraMode:mode,display:displayMode,visibility:view,craftVisible:craft.visible||worldJet.group.visible,chaseAngles:chaseAngles?{...chaseAngles}:null,aircraft:worldJet.diagnostics(),
       speedEffects:{...effects.snapshot(),extraFov,baseVerticalFov,highSpeedShake:lastInput.highSpeedShake!==false},world:world.snapshot(),
       gpu:{geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,programs:renderer.info.programs?.length??0,calls:renderer.info.render.calls},disposed};

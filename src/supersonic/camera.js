@@ -1,5 +1,5 @@
 import {Euler,Quaternion,Vector3} from 'three';
-import {bodyViewAngles,chaseView,normalizeCameraMode} from '../flight-camera.js';
+import {bodyViewAngles,chaseView,normalizeCameraMode,frameFlightCamera} from '../flight-camera.js';
 import {flightDisplayPose} from '../flight-display.js';
 
 const Z=new Vector3(0,0,1),plain=v=>({x:v.x,y:v.y,z:v.z});
@@ -9,20 +9,20 @@ export function bodyQuaternion(value){
 }
 
 /** Renderer poses only. The returned transforms never alter the physical body. */
-export function supersonicCameraFrame(state,{cameraMode='overlay',display='bank',phoneRoll=0,screenOffset=0,chaseAngles=null,shake={x:0,y:0,z:0}}={}){
+export function supersonicCameraFrame(state,{cameraMode='overlay',display='bank',phoneRoll=0,screenOffset=0,chaseAngles=null,shake={x:0,y:0,z:0},wide=false}={}){
   const body=bodyQuaternion(state.orientation),bank=state.bank??0,mode=normalizeCameraMode(cameraMode);
   const base=body.clone().multiply(new Quaternion().setFromAxisAngle(Z,bank));
   const pose=flightDisplayPose({display,bank,phoneRoll,screenOffset});
   let eyeOrientation=(display==='fixed'?base:body).clone(),offset=new Vector3(),angles=chaseAngles;
   if(mode==='chase'){
-    angles=angles??bodyViewAngles(base);const rig=chaseView(angles,state.position.y,0);
+    angles=angles??bodyViewAngles(base);const rig=chaseView(angles,state.position.y,0,{wide});
     eyeOrientation=rig.orientation;offset=rig.offset;
   }else if(mode==='cockpit'){
     eyeOrientation=body.clone();offset.set(0,.3,-.8).applyQuaternion(body);
   }
   const worldQuaternion=eyeOrientation.clone().invert();
   if(mode!=='cockpit')worldQuaternion.premultiply(pose.worldBank);
-  const cameraQuaternion=pose.camera.clone().multiply(new Quaternion().setFromEuler(new Euler(shake.x,shake.y,shake.z)));
+  const cameraQuaternion=frameFlightCamera(pose.camera.clone().multiply(new Quaternion().setFromEuler(new Euler(shake.x,shake.y,shake.z))),mode);
   const viewPosition=new Vector3(state.position.x,state.position.y,state.position.z).add(offset);
   const forward=new Vector3(0,0,-1).applyQuaternion(eyeOrientation);
   return {worldQuaternion,cameraQuaternion,viewPosition,bodyQuaternion:body,baseQuaternion:base,

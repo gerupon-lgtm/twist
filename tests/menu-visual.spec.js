@@ -22,7 +22,7 @@ async function boot(page,{size,clock=false,oldBest=null,reduced=false,android=fa
   const bestRecords=Object.fromEntries(['easy','normal','hard'].map((id,index)=>[courseBestKey(getCourse(id),'flight'),{seconds:oldBest??(80+index*30),completedAt:'2026-11-01T00:00:00.000Z'}]));
   await page.addInitScript(options=>{
     if(!/^https?:$/.test(location.protocol))return;
-    localStorage.setItem('twist.start-flow.v1',JSON.stringify({tutorialSeen:true,inputMethod:'practice',camera:'overlay'}));
+    localStorage.setItem('twist.start-flow.v1',JSON.stringify({tutorialSeen:true,inputMethod:'practice',camera:'chase'}));
     localStorage.setItem('twist.briefing.v1',JSON.stringify({version:1,mode:options.map,seen:[]}));
     localStorage.setItem('twist.flight-settings.v1',JSON.stringify({maxBank:30,deadzone:4,radarRange:180}));
     localStorage.setItem('twist.feedback-settings.v1',JSON.stringify({sound:false,bgm:false,vibration:false}));
@@ -159,12 +159,12 @@ async function flyEasy(page){
   throw Error('The real easy course did not complete through its displayed guidance and input controls');
 }
 
-for(const size of sizes)test(`actual three views and completed result preserve records and actions ${size.width}x${size.height}`,async({page})=>{
+for(const size of sizes)test(`actual two flight views and completed result preserve records and actions ${size.width}x${size.height}`,async({page})=>{
   test.setTimeout(120000);const fresh=size.width===390,errors=await boot(page,{size,clock:true,oldBest:fresh?null:1,clipboard:fresh?'success':'reject'});
   await startToCourses(page);await page.locator('#start-flow-course-cards [data-course-id=easy]').click();await page.locator('#start-flow-course-start').click();await step(page,'pose');await launch(page);
   const throttleBoxes=[];
-  for(const camera of ['overlay','chase','cockpit']){
-    if(camera!=='overlay'){const before=await read(page);await page.locator('#start-flow-view-button').click();await expect(page.locator('#app')).toHaveAttribute('data-camera',camera);const after=await read(page);expect(after.position).toEqual(before.position);expect(after.velocity).toEqual(before.velocity);expect(after.session).toEqual(before.session);}
+  for(const camera of ['chase','cockpit']){
+    if(camera!=='chase'){const before=await read(page);await page.locator('#start-flow-view-button').click();await expect(page.locator('#app')).toHaveAttribute('data-camera',camera);const after=await read(page);expect(after.position).toEqual(before.position);expect(after.velocity).toEqual(before.velocity);expect(after.session).toEqual(before.session);}
     await page.clock.runFor(160);
     await noScroll(page);for(const id of ['start-flow-view-button','throttle-input','practice-pitch','practice-steer','practice-twist','pause-button','recenter-button','help-button','practice-neutral','practice-brake'])await fit(page,'#'+id);
     await expect(page.locator('#app')).toHaveAttribute('data-guidance-ready','true');await expect(page.locator('#guidance-director')).toBeVisible();await expect(page.locator('#guidance-flight-path')).toBeVisible();throttleBoxes.push(await page.locator('#throttle-input').boundingBox());await proof(page,`play-${camera}-${size.width}x${size.height}`);

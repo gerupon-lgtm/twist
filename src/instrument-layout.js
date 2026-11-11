@@ -5,20 +5,22 @@ const box=(left,top,width,height)=>({left,top,width,height,right:left+width,bott
 const xOverlap=(x,w,r)=>x<r.right&&x+w>r.left;
 const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
 /** One geometry model for all cameras. UI rectangles are the actual rendered controls. */
-export function instrumentLayout({width,height,safe={left:0,right:0},top=60,upper=[],controls=[],legend=null,layout='a',sonic=false,vario=true,focusY=height/2}={}){
+export function instrumentLayout({width,height,safe={left:0,right:0},top=60,upper=[],controls=[],legend=null,layout='a',sonic=false,vario=true,focusY=height/2,bandAcross=false}={}){
  layout=normalizeHudLayout(layout);const left=12+safe.left,right=width-12-safe.right,cy=focusY,wide=width>=600&&height<=500;
  const valid=r=>r&&r.width!==0&&r.height!==0&&[r.left,r.right,r.top,r.bottom].every(Number.isFinite);
  upper=upper.filter(valid);controls=controls.filter(valid);
  const leftControls=controls.filter(r=>r.right<width/2),rightControls=controls.filter(r=>r.left>width/2);
  const gapLeft=Math.max(left,...leftControls.map(r=>r.right+10)),gapRight=Math.min(right,...rightControls.map(r=>r.left-10));
  if(layout==='b'){
-  const slots=sonic?4:vario?3:2,useGap=wide&&gapRight-gapLeft>=160;
+  const slots=sonic?4:vario?3:2,useGap=wide&&!bandAcross&&gapRight-gapLeft>=160;
   const x=useGap?gapLeft:left,w=(useGap?gapRight:right)-x,columns=w/slots>=78?slots:2;
-  const rows=Math.ceil(slots/columns),rowHeight=wide?56:height<720?52:68,h=rows*rowHeight;
-  const bottom=Math.min(height-12,...controls.filter(r=>xOverlap(x,w,r)).map(r=>r.top-12),legend&&xOverlap(x,w,legend)?legend.top-8:height-12);
+  const compact=!wide&&height<720,rows=Math.ceil(slots/columns),rowHeight=wide?56:compact?42:68,h=rows*rowHeight;
+  const bottom=Math.min(height-12,...controls.filter(r=>xOverlap(x,w,r)).map(r=>r.top-(compact?4:12)),legend&&xOverlap(x,w,legend)?legend.top-8:height-12);
   const minimumTop=Math.max(top,...upper.filter(r=>xOverlap(x,w,r)).map(r=>r.bottom+8));
   const bottomY=bottom-h,aboveY=minimumTop;
-  const y=bottomY>=cy+54?bottomY:aboveY+h<=cy-54?aboveY:clamp(bottomY,top,Math.max(top,height-h-12));
+  const clearance=compact?36:54;
+  const lower=box(x,height-12-h,w,h),lowerFree=bandAcross&&[...upper,...controls,...(legend?[legend]:[])].every(r=>!overlap(lower,r));
+  const y=lowerFree?lower.top:bottomY>=cy+clearance?bottomY:aboveY+h<=cy-clearance?aboveY:clamp(bottomY,top,Math.max(top,height-h-12));
   const names=sonic?['speed','mach','altitude','vario']:vario?['speed','altitude','vario']:['speed','altitude'];
   const cells=Object.fromEntries(names.map((name,i)=>[name,box(x+(i%columns)*w/columns,y+Math.floor(i/columns)*rowHeight,w/columns,rowHeight)]));
   return {layout,compact:wide||height<720,columns,rows,groups:[box(x,y,w,h)],...cells};

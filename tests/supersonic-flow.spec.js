@@ -9,7 +9,7 @@ async function start(page,{fuel='unlimited',native=false,sound=false}={}){
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   if(!native)await page.clock.install();
   await page.addInitScript(({fuel,sound,normalSaved})=>{
-    localStorage.setItem('twist.start-flow.v1',JSON.stringify({tutorialSeen:true,inputMethod:'practice',camera:'overlay'}));
+    localStorage.setItem('twist.start-flow.v1',JSON.stringify({tutorialSeen:true,inputMethod:'practice',camera:'chase'}));
     localStorage.setItem('twist.briefing.v1',JSON.stringify({version:1,mode:'off',seen:[]}));
     localStorage.setItem('twist.feedback-settings.v1',JSON.stringify({sound,bgm:sound,vibration:false}));
     localStorage.setItem('twist.flight-settings.v1',normalSaved);
@@ -17,7 +17,7 @@ async function start(page,{fuel='unlimited',native=false,sound=false}={}){
     Object.defineProperty(Element.prototype,'requestFullscreen',{value:undefined,writable:true,configurable:true});
     Object.defineProperty(navigator,'clipboard',{value:{writeText:async value=>{window.sonicCopied=value;}},configurable:true});
   },{fuel,sound,normalSaved});
-  await page.goto('/?course=supersonic&camera=overlay&music=rock');
+  await page.goto('/?course=supersonic&camera=chase&music=rock');
   if(!native)await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
   await step(page,'title');await page.locator('#start-flow-start').click();await step(page,'courses');
   await page.locator('#start-flow-course-start').click();await step(page,'pose');await page.locator('#start-flow-hold').click();
@@ -63,7 +63,7 @@ test('native main clock reaches actual M2 with live audio and visible cone/haze 
   await page.locator('#throttle-input').press('End');
   await expect.poll(async()=>{const s=await read(page);samples.push({wallSeconds:(Date.now()-started)/1000,...s});return s.sonic.mach;},{timeout:12000,intervals:[100]}).toBeGreaterThan(.98);
   cone=await read(page);expect(cone.effects.coneVisible).toBe(true);await page.screenshot({path:'.cache/v0137-native-M1-cone.png'});
-  await page.locator('#start-flow-view-button').click();await page.locator('#start-flow-view-button').click();
+  await page.locator('#start-flow-view-button').click();
   await expect(page.locator('#app')).toHaveAttribute('data-camera','cockpit');
   // The view button updates immediately; diagnostic snapshots publish at80ms.
   // Observe the new render mode before judging its effect, without changing

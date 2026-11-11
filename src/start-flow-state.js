@@ -4,7 +4,7 @@ export const MIN_COUNTDOWN_SETTLE_MS=500;
 export const MIN_FULLSCREEN_LEAD_SECONDS=6;
 export const CAMERA_MODES=Object.freeze(['overlay','chase','cockpit']);
 const camera=value=>CAMERA_MODES.includes(value)?value:'overlay';
-export const nextCameraMode=value=>CAMERA_MODES[(CAMERA_MODES.indexOf(camera(value))+1)%CAMERA_MODES.length];
+export const nextCameraMode=value=>value==='chase'?'cockpit':value==='cockpit'?'chase':'overlay';
 
 /** New UI preferences never rewrite the existing flight/audio/course stores. */
 export function createStartPreferences(storage){
