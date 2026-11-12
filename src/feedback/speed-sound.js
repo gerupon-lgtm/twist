@@ -13,7 +13,8 @@ export function createSpeedSoundClock(){
     advance(model,settings,seconds,blocked=false){
       const reference=model.speedSound?.reference,valid=Number.isFinite(reference)&&reference>0;
       const dt=clamp(seconds,0,.05),flow=valid?clamp(model.speed/reference,0,1):0;
-      const permitted=valid&&settings.sound&&settings.sfx&&settings.speedSound===true&&model.speed>1&&!blocked;
+      const supersonic=Number.isFinite(model.supersonic?.mach)&&model.supersonic.mach>=1;
+      const permitted=valid&&settings.sound&&settings.sfx&&settings.speedSound===true&&model.speed>1&&!blocked&&!supersonic;
       const targetAcceleration=valid?clamp(measuredAcceleration/(reference*.12),0,1):0;
       cue.acceleration+=(targetAcceleration-cue.acceleration)*(1-Math.exp(-dt/.14));
       gain+=((permitted?1:0)-gain)*(1-Math.exp(-dt/.06));
@@ -22,7 +23,7 @@ export function createSpeedSoundClock(){
       cue.hz=valid?100+430*Math.sqrt(flow)+190*cue.acceleration:0;
       const modulation=.65+.35*Math.sin(Math.PI*phase)**2,duck=model.vario?.active ? .45 : 1;
       cue.volume=cue.enabled?clamp(((5+6*flow)*modulation+1.8*cue.acceleration)*gain*duck,0,12):0;
-      cue.reason=blocked?'priority':!permitted?'disabled':'flow';return cue;
+      cue.reason=blocked?'priority':supersonic?'supersonic':!permitted?'disabled':'flow';return cue;
     },
     snapshot:()=>({...cue}),
     reset(){previousSpeed=null;observedAt=null;measuredAcceleration=0;phase=0;gain=0;Object.assign(cue,{enabled:false,hz:0,volume:0,flow:0,acceleration:0,phase:0,reason:'inactive'});},

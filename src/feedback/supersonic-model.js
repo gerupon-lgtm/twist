@@ -6,12 +6,22 @@ export const SONIC_HAPTICS=Object.freeze({
   down:SONIC_TRANSITION,
 });
 export const sonicWarning=cue=>['ground','stall','buffet'].includes(cue);
+// Deliberate game mix: the music/instrument buses do not use this trim.
+export const environmentSoundGain=model=>Number.isFinite(model.supersonic?.mach)&&model.supersonic.mach>=1 ? .08 : 1;
 
 /** Separate speed curve, leaving the ordinary 0..45 model byte-for-byte intact. */
-export function supersonicFeedback(state,base){
+export function supersonicFeedback(state,base,settings={}){
   const speed=clamp(state.speed,0,680),wind=clamp(speed/(state.supersonic?.presentationReferenceSpeed??680),0,1);
-  return {...base,speed,wind,engineHz:base.engineHz+wind*80,
-    supersonic:{mach:Number.isFinite(state.supersonic?.mach)?state.supersonic.mach:speed/340}};
+  const mach=Number.isFinite(state.supersonic?.mach)?state.supersonic.mach:speed/340;
+  const model={...base,speed,wind,engineHz:base.engineHz+wind*80,supersonic:{mach}};
+  if(mach>.85&&mach<1&&['engine','afterburner'].includes(base.cue)){
+    const x=clamp((mach-.85)/.15,0,1),strength=x*x*(3-2*x);
+    const count=base.pattern.length/2,cycle=base.cycle/count,start=base.pattern[0];
+    const target=cycle*.9*clamp(settings.vibrationScale??1,0,2);
+    const on=clamp(Math.round(start+(target-start)*strength),0,cycle);
+    model.pattern=Array.from({length:count},()=>[on,cycle-on]).flat();model.cycle=cycle*count;
+  }
+  return model;
 }
 export function validSonicTransition(event){
   return event?.type==='sonic-transition'&&['up','down'].includes(event.direction)

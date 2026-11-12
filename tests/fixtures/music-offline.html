@@ -6,7 +6,7 @@ import {createMusicSynth} from '/src/music/music-synth.js';
 import {fmPartStatus} from '/src/music/fm-presets.js';
 import {flightFeedback} from '/src/feedback/model.js';
 
-window.renderWholeTrack=async({id,engine,rate,volume=25,bgmVolume=50,sonic=false,flight=false,speedSound=false,speed=350,ground=false,durationSeconds=null})=>{
+window.renderWholeTrack=async({id,engine,rate,volume=25,bgmVolume=50,sonic=false,flight=false,speedSound=false,speed=350,ground=false,durationSeconds=null,sfx=null})=>{
   const config=await fetch('/music/tracks.json').then(r=>r.json()),track=validateTrack(config[id]);
   const bytes=new Uint8Array(await fetch('/music/'+track.file).then(r=>r.arrayBuffer()));
   const score=prepareScore(bytes,track),writes=[];let at=0;
@@ -23,7 +23,7 @@ window.renderWholeTrack=async({id,engine,rate,volume=25,bgmVolume=50,sonic=false
   const node=new AudioWorkletNode(context,'twist-audio',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});
   let metrics=null;const messages=[];node.port.onmessage=({data})=>{if(data.type==='metrics')metrics=data;else if(messages.length<10)messages.push(data);};
   node.connect(context.destination);
-  const settings={sound:true,bgm:true,sfx:sonic||speedSound||flight,speedSound,volume,bgmVolume,abMusic:false};
+  const settings={sound:true,bgm:true,sfx:sfx??(sonic||speedSound||flight),speedSound,volume,bgmVolume,abMusic:false};
   node.port.postMessage({type:'settings',settings});
   if(sonic||speedSound||flight)node.port.postMessage({type:'state',model:flightFeedback({mode:'flight',speed,altitude:1500,groundClearance:ground ? .1 : 1499,throttle:1,supersonic:{mach:speed/340}},settings),settings});
   if(sonic)node.port.postMessage({type:'sonic',event:{type:'sonic-transition',attemptId:1,serial:1,id:1,direction:'up',atSeconds:0,mach:1.03}});

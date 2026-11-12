@@ -2,7 +2,7 @@ import { ChipMixer } from './chip-mixer.js';
 import { flightFeedback, sfxRegisters, pulseAt, EVENT_FEEDBACK,varioMaySound,afterburnerPhase,FEEDBACK_TUNING } from './model.js';
 import { advanceVarioPhase } from '../cockpit-aids.js';
 import { NAVIGATION_BURST_MS,navigationCue,navigationBlockReason } from './navigation-audio.js';
-import {sonicWarning,validSonicTransition} from './supersonic-model.js';
+import {sonicWarning,validSonicTransition,environmentSoundGain} from './supersonic-model.js';
 import {countdownTone as toneForCountdown,applyCountdownRegisters,validCountdownSession,validCountdownCue} from './countdown-audio.js';
 import {FmEngine} from '../music/fm-engine.js';
 import {sonicBoomDuration,sonicBoomSample,sonicBoomDucking} from './sonic-boom.js';
@@ -220,6 +220,7 @@ class TwistAudioProcessor extends AudioWorkletProcessor {
   afterburnerRelease(){return this.active&&this.settings.sound&&this.settings.sfx&&this.afterburnerReleaseAt!==null?Math.max(0,1-(currentTime-this.afterburnerReleaseAt)/FEEDBACK_TUNING.afterburner.releaseSeconds):0;}
   passbyBlockReason(){
     if(!this.active)return 'inactive';if(!this.settings.sound||!this.settings.sfx||this.settings.passbySound===false)return 'disabled';
+    if(environmentSoundGain(this.model)<1)return 'supersonic';
     if(this.event&&(currentTime-this.eventAt)*1000<EVENT_FEEDBACK[this.event].duration)return 'event';
     if(['ground','stall','buffet'].includes(this.model.cue))return 'warning';if(this.sonic)return 'sonic';return null;
   }

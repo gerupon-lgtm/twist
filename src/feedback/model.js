@@ -1,7 +1,7 @@
 import { getGroundProximity } from '../ground-proximity.js';
 import { varioCue } from '../cockpit-aids.js';
 import { NAVIGATION_BURST_MS,NAVIGATION_TONE_HZ,NAVIGATION_VOLUME } from './navigation-audio.js';
-import {supersonicFeedback,applySonicRegisters,SONIC_TRANSITION} from './supersonic-model.js';
+import {supersonicFeedback,applySonicRegisters,SONIC_TRANSITION,environmentSoundGain} from './supersonic-model.js';
 const clamp = (n,min,max) => Math.max(min,Math.min(max,Number.isFinite(n)?n:min));
 export const FEEDBACK_TUNING = Object.freeze({ buffetStart: 14, stallStart: 20, stallEnd: 70,
   engineCycle: 400, enginePulse: 5, groundPattern: [85,100,85,430], stallPattern: [100,45,55,90,160,110],
@@ -62,7 +62,7 @@ export function flightFeedback(state={},settings={}) {
     angleOfAttack:angle,power,speed,engineHz:55+power*120,wind:speed/45,
     vario:varioCue(state.verticalSpeed,settings.vario!==false&&state.mode==='flight'),afterburner };
   if(settings.speedSound===true&&state.mode==='flight')model.speedSound={reference:state.supersonic?(state.supersonic.presentationReferenceSpeed??680):45};
-  return state.supersonic?supersonicFeedback(state,model):model;
+  return state.supersonic?supersonicFeedback(state,model,settings):model;
 }
 
 const COLLECT_NOTES=[523,784,1047],CLEAR_NOTES=[523,659,784,1047,784,1047];
@@ -80,6 +80,7 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
   const navigationActive=Boolean(navigation&&!eventActive&&!sonicActive&&!model.vario?.active&&!warning
     &&Number.isFinite(navigation.elapsedMs)&&navigation.elapsedMs>=0&&navigation.elapsedMs<NAVIGATION_BURST_MS);
   const boost=FEEDBACK_TUNING.afterburner,phase=afterburnerPhase(model,afterburnerSeconds);
+  const environmentGain=environmentSoundGain(model);
   const release=phase==='off'?clamp(effects.afterburnerRelease,0,1):0;
   const windVolume=model.power*3+model.wind*9,windNoise=Math.round(31-model.wind*26);
   // Noise belongs to the ordinary wind throughout AB. A low tone on B adds
@@ -90,12 +91,12 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
     const envelope=ignition?clamp(Math.min(afterburnerSeconds/boost.attackSeconds,(boost.ignitionSeconds-afterburnerSeconds)/.03),0,1):0;
     const strength=phase==='off'?release:1,roar=boost.roarVolume+model.wind*4;
     const volume=duck?boost.duckVolume:roar+(boost.ignitionVolume-roar)*envelope;
-    mixer=voice(regs,0,0,windVolume+(volume-windVolume)*strength,true,mixer);
-    mixer=voice(regs,1,48+model.wind*22,(duck?4:ignition?13:9)*strength,false,mixer);
+    mixer=voice(regs,0,0,(windVolume+(volume-windVolume)*strength)*environmentGain,true,mixer);
+    mixer=voice(regs,1,48+model.wind*22,(duck?4:ignition?13:9)*strength*environmentGain,false,mixer);
     regs[6]=ignition?Math.round(boost.noiseStart+(boost.noiseEnd-boost.noiseStart)*afterburnerSeconds/boost.ignitionSeconds):windNoise;
   } else {
     // Noise period is shared by A/B/C: warnings/events retain ordinary A output.
-    mixer=voice(regs,0,model.power>0?model.engineHz:0,eventActive?1:windVolume,model.wind>.04||model.power>.1,mixer);
+    mixer=voice(regs,0,model.power>0?model.engineHz:0,(eventActive?1:windVolume)*environmentGain,model.wind>.04||model.power>.1,mixer);
     regs[6]=windNoise;
   }
   if(!eventActive&&(model.cue==='stall'||model.cue==='ground'||model.cue==='buffet')&&pulse) {
@@ -108,14 +109,14 @@ export function sfxRegisters(model,event=null,eventMs=0,pulse=false,regs=new Uin
       mixer=voice(regs,2,notes[Math.min(notes.length-1,Math.floor(eventMs/(event==='exitOpen'?155:event==='collect'?85:180)))],12*(1-eventMs/EVENT_FEEDBACK[event].duration),false,mixer);}
   }
   const passby=effects.passby;
-  if(passby&&!eventActive&&!warning&&Number.isFinite(passby.elapsedMs)&&passby.elapsedMs>=0&&passby.elapsedMs<140){
+  if(environmentGain===1&&passby&&!eventActive&&!warning&&Number.isFinite(passby.elapsedMs)&&passby.elapsedMs>=0&&passby.elapsedMs<140){
     const t=passby.elapsedMs/140,sharpness=clamp(passby.speed/45,0,1);
     const envelope=Math.min(1,t/.08)*(1-t);
     mixer=voice(regs,1,900+sharpness*1500-t*700,(8+sharpness*6)*envelope,true,mixer);
     regs[6]=Math.round(14-sharpness*9+t*8);
   }
   const speed=effects.speed;
-  if(speed?.enabled&&!eventActive&&!warning&&!sonicActive&&phase!=='ignition'
+  if(environmentGain===1&&speed?.enabled&&!eventActive&&!warning&&!sonicActive&&phase!=='ignition'
     &&!(passby&&passby.elapsedMs>=0&&passby.elapsedMs<140))mixer=voice(regs,1,speed.hz,Math.max(regs[9],speed.volume),false,mixer);
   if(!sonicActive&&varioMaySound(model,eventActive)
     &&varioMs%model.vario.periodMs<model.vario.onMs) {
