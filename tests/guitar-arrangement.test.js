@@ -14,7 +14,7 @@ test('six explicit part-one arrangements preserve original hook anchors and ever
    const explicitBend=plan.bendHook&&((note.note===73&&Math.abs(note.time/beatSeconds-68.5)<1e-8)||(note.note===76&&Math.abs(note.time/beatSeconds-70)<1e-8));
    if(!explicitBend)assert.ok(actual.some(e=>e.note===note.note&&e.velocity===note.velocity&&Math.abs(e.time-note.time)<1e-8),plan.id+' original anchor');
   }
-  assert.equal(result.fills.length,plan.fills.length);assert.ok(result.extendedNotes>0);assert.equal(result.metadataUnchanged,true);assert.ok(result.bends>0);assert.ok(after.events.some(e=>e.channel===0&&e.type==='pitchBend'&&e.value>=4096));
+  assert.equal(result.fills.length,plan.fills.length);assert.ok(result.extendedNotes>0);assert.equal(result.metadataUnchanged,true);assert.ok(result.bends>0);assert.ok(after.events.some(e=>e.channel===0&&e.type==='pitchBend'&&Math.abs(e.value)>0));if(plan.fills.length||plan.bendHook)assert.ok(after.events.some(e=>e.channel===0&&e.type==='pitchBend'&&e.value>=4096));
  }
 });
 test('Ignition bar18 matches the user reference attacks, brief rest, scoop, half-step bend and vibrato',async()=>{

@@ -394,7 +394,7 @@
         "waveform": 4,
         "volume": 99,
         "role": "lead",
-        "fmPreset": "distortion-guitar",
+        "fmPreset": "minimoog-lead",
         "sccTimbre": "distortion-guitar-v1"
       },
       "2": {

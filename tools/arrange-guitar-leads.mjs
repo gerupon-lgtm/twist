@@ -58,6 +58,7 @@ function transformedLead(events,allTracks,plan){
   fills.push({startTick:added[0].startTick,endTick:added.at(-1).endTick,pitches:[...phrase.pitches],bendFinal:{fromNote,toNote},notes:added});
  }
  let extendedNotes=0;for(let i=0;i<notes.length-1;i++){const n=notes[i],next=notes[i+1];if(reserved.has(i)||n.bendHook||(n.endTick-n.startTick)/ticksPerSecond<.23)continue;
+  if((plan.restoredBars??[]).some(bar=>n.startTick<tick(bar*4)&&n.endTick>tick((bar-1)*4)))continue;
   let limit=next.startTick-tick(.12);for(const w of responseWindows)if(w.startTick>=n.endTick)limit=Math.min(limit,w.startTick);
   const extension=Math.max(0,Math.min(tick(plan.extendBeats),Math.floor((next.startTick-n.endTick)*.35),limit-n.endTick));if(extension>0){n.endTick+=extension;extendedNotes++;}
  }
@@ -106,8 +107,10 @@ export function arrangeGuitarLead(input,id){
  return {bytes,leadChunk:lead[0].index,...arrangement,events:undefined,metadataUnchanged:true};
 }
 const overdrive57='1092b7948c977374ec622eec9c225bf422e666bc4bdbf7c01e6ffe6c2a3c73d3';
+const overdrive62='7c4543d0ebabd41c6507668a96c4792d3e047a9f500e75a0e88f1ef22dc7e489';
+const overdrive58='8b08e40575d429dca43e1f2b5f8cc8af92cde7f253c8a76a20b4451cd015a32c';
 export function arrangeOverdriveCadence(input){
- if(hash(input)!==overdrive57)throw Error('Overdrive v57 baseline SHA mismatch');
+ if(![overdrive57,overdrive62].includes(hash(input)))throw Error('Overdrive baseline SHA mismatch');
  const source=readMidiChunks(input),start=268*480,half=270*480,end=272*480,sequence=[76,69,76,72,81,76,72,81,76,80,83,80,76,71,80,76];
  const changed=[];let leads=0;
  const chunks=source.chunks.map((chunk,index)=>{
@@ -161,7 +164,7 @@ export async function writeGuitarArrangements({directory=outputDirectory}={}){
 }
 export async function writeOverdriveCadence({directory=outputDirectory}={}){
  const target=await checkedOutputDirectory(directory),song=(await originals()).find(s=>s.id==='overdrive'),existing=await readFile(resolve(target,'overdrive.mid'));
- if(hash(existing)!==overdrive57&&!existing.equals(song.bytes))throw Error('Refusing to overwrite unreviewed Overdrive edits');
+ if(![overdrive57,overdrive58,overdrive62].includes(hash(existing))&&!existing.equals(song.bytes))throw Error('Refusing to overwrite unreviewed Overdrive edits');
  const before=await protectedHashes(target,['overdrive']);await writeFile(resolve(target,'overdrive.mid'),song.bytes);
  const after=await protectedHashes(target,['overdrive']);if(JSON.stringify(before)!==JSON.stringify(after))throw Error('Non-target file changed during cadence write');
  return {file:'overdrive.mid',bar:68,sha256:hash(song.bytes),protectedUnchanged:true};
